@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "../ui/legacy";
-import { BellIcon, BoxArrowRightIcon, HouseIcon, MenuIcon, SearchIcon } from "../common/Icons";
+import { ArrowDownIcon, BellIcon, BoxArrowRightIcon, MenuIcon, SearchIcon } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import { getAdminRequestError, type AdminRequestError } from "../../features/adm
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { logoutCurrentCustomer } from "../../features/users/api";
 import { useAdminDashboardCopy } from "../../hooks/useAdminDashboardCopy";
+import { adminNavItems, findAdminNavigationItem } from "./adminNavigation";
 
 const POLL_INTERVAL = 60000;
 
@@ -31,32 +32,6 @@ const getInitials = (displayName: string) =>
         .map((part) => part[0]?.toUpperCase() || "")
         .join("");
 
-const getSearchRoute = (keyword: string) => {
-    const normalizedKeyword = keyword.trim().toLowerCase();
-
-    if (!normalizedKeyword) {
-        return "/admin";
-    }
-
-    if (
-        normalizedKeyword.includes("product") ||
-        normalizedKeyword.includes("catalog") ||
-        normalizedKeyword.includes("inventory")
-    ) {
-        return "/admin/products";
-    }
-
-    if (normalizedKeyword.includes("order") || normalizedKeyword.includes("payment")) {
-        return "/admin/orders";
-    }
-
-    if (normalizedKeyword.includes("account") || normalizedKeyword.includes("user") || normalizedKeyword.includes("customer")) {
-        return "/admin/accounts";
-    }
-
-    return "/admin";
-};
-
 type AdminHeaderProps = {
     onOpenSidebar?: () => void;
     isSidebarOpen?: boolean;
@@ -70,16 +45,21 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
     const [showLogout, setShowLogout] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const [activities, setActivities] = useState<AdminAlert[]>([]);
     const [activityStatus, setActivityStatus] = useState<"loading" | "success" | "error">("loading");
     const [activityError, setActivityError] = useState<AdminRequestError | null>(null);
     const notificationsTriggerRef = useRef<HTMLButtonElement>(null);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
+    const profileTriggerRef = useRef<HTMLButtonElement>(null);
 
     const displayName = useMemo(
         () => getDisplayName(userData?.username, userData?.first_name, userData?.last_name),
         [userData?.first_name, userData?.last_name, userData?.username],
     );
     const initials = useMemo(() => getInitials(displayName), [displayName]);
+    const profileNameLabel = loading ? tx("Loading...") : displayName || tx("Admin");
+    const profileRoleLabel = userData?.role === "Admin" ? tx("Administrator") : tx("Team member");
 
     const syncActivityFeed = React.useCallback(
         async (isInitialLoad = false) => {
@@ -115,11 +95,16 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
 
     const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const route = getSearchRoute(searchTerm);
-        navigate(route);
-        if (searchTerm.trim() && route === "/admin") {
-            addToast(tx("Admin navigation"), tx("Choose Products, Orders, or Accounts from the section search."));
+        const item = findAdminNavigationItem(searchTerm, tx);
+        if (!item) {
+            if (searchTerm.trim()) {
+                addToast(tx("Admin navigation"), tx("Try a page name from the suggestions."));
+            }
+            return;
         }
+
+        navigate(item.path);
+        setSearchTerm("");
     };
 
     const closeNotifications = React.useCallback(() => {
@@ -144,6 +129,30 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
     const toggleNotifications = () => {
         setShowNotifications((current) => !current);
     };
+
+    useEffect(() => {
+        if (!showProfile) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) {
+                setShowProfile(false);
+            }
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                setShowProfile(false);
+                profileTriggerRef.current?.focus();
+            }
+        };
+
+        document.addEventListener("pointerdown", handlePointerDown);
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("pointerdown", handlePointerDown);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [showProfile]);
 
     const markActivityRead = (activity: AdminAlert) => {
         if (!activity.unread) return;
@@ -199,28 +208,25 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                 >
                     <MenuIcon size={21} />
                 </button>
-                <button
-                    type="button"
-                    className="admin__layout__main__header__home"
-                    aria-label={tx("Open storefront")}
-                    onClick={() => navigate("/")}
-                >
-                    <HouseIcon />
-                    <span>{tx("Storefront")}</span>
-                </button>
-
                 <form className="admin__layout__main__header__search" onSubmit={handleSearchSubmit}>
                     <label className="admin__sr-only" htmlFor="admin-search">
-                        {tx("Jump to an Admin section")}
+                        {tx("Go to Admin page")}
                     </label>
                     <input
                         id="admin-search"
                         type="text"
-                        placeholder={tx("Jump to Products, Orders, or Accounts…")}
+                        list="admin-page-options"
+                        autoComplete="off"
+                        placeholder={tx("Type a page name, e.g. Orders or Payments…")}
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
                     />
-                    <button type="submit" aria-label={tx("Jump to Admin section")}>
+                    <datalist id="admin-page-options">
+                        {adminNavItems.map((item) => (
+                            <option key={item.path} value={tx(item.label)} />
+                        ))}
+                    </datalist>
+                    <button type="submit" aria-label={tx("Go to Admin page")}>
                         <SearchIcon size={20} />
                     </button>
                 </form>
@@ -339,23 +345,43 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                     )}
                 </div>
 
-                <div className="admin__layout__main__header__profile" aria-label={tx("Admin profile")}>
-                    <div className="admin__layout__main__header__profile-avatar">{initials}</div>
-                    <div className="admin__layout__main__header__profile-copy">
-                        <strong>{loading ? tx("Loading...") : displayName || tx("Admin")}</strong>
-                        <span>{userData?.role === "Admin" ? tx("Administrator") : tx("Team member")}</span>
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    className="admin__layout__main__header__logout"
-                    aria-label={tx("Log out")}
-                    onClick={() => setShowLogout(true)}
+                <div
+                    ref={profileMenuRef}
+                    className={`admin__layout__main__header__profile-menu${showProfile ? " is-open" : ""}`}
                 >
-                    <span>{tx("Logout")}</span>
-                    <BoxArrowRightIcon size={20} />
-                </button>
+                    <button
+                        ref={profileTriggerRef}
+                        type="button"
+                        className="admin__layout__main__header__profile"
+                        onClick={() => setShowProfile((current) => !current)}
+                        aria-label={`${tx("Admin profile")}: ${profileNameLabel}, ${profileRoleLabel}`}
+                        aria-expanded={showProfile}
+                        aria-controls="admin-profile-popover"
+                    >
+                        <span className="admin__layout__main__header__profile-avatar">{initials}</span>
+                        <span className="admin__layout__main__header__profile-copy">
+                            <strong>{profileNameLabel}</strong>
+                            <span>{profileRoleLabel}</span>
+                        </span>
+                        <ArrowDownIcon className="admin__layout__main__header__profile-chevron" size={16} />
+                    </button>
+                    {showProfile && (
+                        <div id="admin-profile-popover" className="admin__layout__main__header__profile-popover">
+                            <button
+                                type="button"
+                                className="admin__layout__main__header__profile-logout"
+                                aria-label={tx("Log out")}
+                                onClick={() => {
+                                    setShowProfile(false);
+                                    setShowLogout(true);
+                                }}
+                            >
+                                <BoxArrowRightIcon size={18} />
+                                <span>{tx("Logout")}</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <Modal show={showLogout} onHide={() => setShowLogout(false)} animation={false}>

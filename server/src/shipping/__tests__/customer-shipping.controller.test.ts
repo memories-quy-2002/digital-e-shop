@@ -23,4 +23,28 @@ describe("customer shipping guest capability route", () => {
             .resolves.toEqual({ shipment: { state: "READY_TO_SHIP" }, delivery: { status: "ASSIGNED", employeeName: "Driver One" } });
         expect(assignments.customerSummary).toHaveBeenCalledWith(42);
     });
+
+    it("resolves public guest references before passing numeric keys to shipment repositories", async () => {
+        const publicId = "0199fbb1-1234-7123-8123-123456789abc";
+        const orders = { lookupGuestOrder: vi.fn().mockResolvedValue({ id: 42, public_id: publicId }) };
+        const fulfillment = { summary: vi.fn().mockResolvedValue(null) };
+        const assignments = { customerSummary: vi.fn().mockResolvedValue(null) };
+        const controller = new CustomerShippingController(orders as never, fulfillment as never, assignments as never);
+        await controller.guest({ orderId: publicId, guestOrderToken: "valid-capability" });
+        expect(orders.lookupGuestOrder).toHaveBeenCalledWith(publicId, "valid-capability");
+        expect(fulfillment.summary).toHaveBeenCalledWith(42);
+        expect(assignments.customerSummary).toHaveBeenCalledWith(42);
+    });
+
+    it("retains authenticated ownership checks for public order references", async () => {
+        const publicId = "0199fbb1-1234-7123-8123-123456789abc";
+        const orders = { getOrderDetail: vi.fn().mockResolvedValue({ id: 42, public_id: publicId, user_id: "owner" }) };
+        const fulfillment = { summary: vi.fn().mockResolvedValue(null) };
+        const assignments = { customerSummary: vi.fn().mockResolvedValue(null) };
+        const controller = new CustomerShippingController(orders as never, fulfillment as never, assignments as never);
+        await expect(controller.get(publicId, { user: { id: "attacker", role: "customer" } } as never)).rejects.toMatchObject({ status: 404 });
+        expect(fulfillment.summary).not.toHaveBeenCalled();
+        await controller.get(publicId, { user: { id: "owner", role: "customer" } } as never);
+        expect(assignments.customerSummary).toHaveBeenCalledWith(42);
+    });
 });

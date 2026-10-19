@@ -10,8 +10,9 @@ import { AFTER_SALES_PAGINATION, AFTER_SALES_REQUEST_REASON_MAX_LENGTH, AFTER_SA
 import { createGuestAfterSalesRequest, fetchGuestAfterSalesRequests } from "../api";
 import { getStableIdempotencyKey, type StableIdempotencyKey } from "../idempotency";
 import { AFTER_SALES_KIND, type AfterSalesKind, type AfterSalesRequest } from "../types";
+import type { PublicIdentifier } from "../../../types/publicIdentifier";
 
-type Props = { orderId: number; guestOrderToken: string; currency?: string | null; items: GuestOrderItem[]; returnEligibleUntil?: string | null };
+type Props = { orderId: PublicIdentifier; guestOrderToken: string; currency?: string | null; items: GuestOrderItem[]; returnEligibleUntil?: string | null };
 
 const GuestAfterSalesPanel = ({ orderId, guestOrderToken, currency, items, returnEligibleUntil }: Props) => {
     const t = useT();

@@ -550,6 +550,7 @@ model ShipmentEvent {
 }
 
 model Order {
+  publicId String @unique(map: "uq_orders_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
   contactSnapshot Json? @map("contact_snapshot")
   codSettlement CodSettlement?
   shipment               Shipment?
@@ -943,6 +944,7 @@ model PaymentAttemptRefund {
 }
 
 model SupportTicket {
+  publicId String @unique(map: "uq_support_tickets_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
   id        Int      @id @default(autoincrement())
   userId    String   @map("user_id") @db.VarChar(255)
   orderId   Int?     @map("order_id")
@@ -964,6 +966,7 @@ model SupportTicket {
 }
 
 model AfterSalesRequest {
+  publicId String @unique(map: "uq_after_sales_requests_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
   manualRefundOperations ManualRefundOperation[]
   id                    Int       @id @default(autoincrement())
   orderId               Int       @map("order_id")

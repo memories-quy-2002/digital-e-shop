@@ -28,6 +28,7 @@ export type OrderRestockProductRow = { id: number; price: number; sale_price: nu
 export type OrderPaymentLifecycleRow = { id: number; provider: string; status: string; simulated?: number | boolean | null };
 
 export type OrderSummaryRow = {
+    public_id?: string;
     id: number;
     user_id: string | null;
     guest_email?: string | null;
@@ -93,6 +94,7 @@ export type OrderDetailRow = OrderSummaryRow & {
 };
 
 export type OrderDetail = {
+    public_id?: string;
     id: number;
     date_added: string;
     delivered_at?: string | null;
@@ -292,6 +294,7 @@ export type PaymentProviderAttachment = {
 };
 
 export type OrderBySessionRow = {
+    public_id?: string;
     id: number;
     user_id: string | null;
     date_added: string;

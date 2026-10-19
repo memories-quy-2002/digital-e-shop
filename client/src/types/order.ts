@@ -1,5 +1,6 @@
 export type AdminOrder = {
     id: number;
+    public_id?: string;
     date_added: Date;
     user_id: string | null;
     guest_email?: string | null;
@@ -64,6 +65,7 @@ export type AdminCustomerProfile = AdminAccount & {
     last_order_at: string | null;
     recent_orders: Array<{
         id: number;
+        public_id?: string;
         date_added: string;
         status: number;
         total_price: number;

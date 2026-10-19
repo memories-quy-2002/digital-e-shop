@@ -7,6 +7,7 @@ import { AfterSalesService } from "./after-sales.service";
 import { afterSalesCreateSchema, afterSalesListQuerySchema } from "./after-sales.validator";
 import type { AfterSalesCreateInput, AfterSalesListQuery } from "./after-sales.types";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
+import { parseResourceId } from "#src/shared/utils/public-id";
 
 type AuthenticatedRequest = Request & { user?: { id?: string | number; role?: string } };
 
@@ -45,7 +46,7 @@ export class AfterSalesController {
     @Get(":id")
     async detail(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
         try {
-            const request = await this.service.getCustomerRequest(userIdFrom(req), Number(id));
+            const request = await this.service.getCustomerRequest(userIdFrom(req), parseResourceId(id));
             return { request, msg: "After-sales request retrieved successfully" };
         } catch (error) {
             throw mapToHttpException(error, "Unable to retrieve after-sales request");

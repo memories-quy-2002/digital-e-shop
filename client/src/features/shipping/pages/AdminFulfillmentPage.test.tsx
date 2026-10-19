@@ -38,6 +38,7 @@ describe("AdminFulfillmentPage internal assignments", () => {
 
     it("shows order contents, COD and destination before assigning a staff schedule", async () => {
         render(<AdminFulfillmentPage />);
+        fireEvent.click(await screen.findByRole("button", { name: /shipping\.readyToAssignStage/ }));
         expect(await screen.findByRole("heading", { name: "shipping.deliveryQueue" })).toBeInTheDocument();
         expect(screen.getByText("12 Main Street, HCMC")).toBeInTheDocument();
         expect(screen.getByText("Laptop × 1")).toBeInTheDocument();

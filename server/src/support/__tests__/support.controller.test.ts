@@ -23,4 +23,33 @@ describe("SupportController", () => {
     it("rejects an empty message", () => {
         expect(() => supportTicketCreateSchema.parse({ subject: "x", message: "" })).toThrow();
     });
+
+    it("accepts UUID v7 linked order references and rejects other UUID versions", () => {
+        const orderId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+        expect(supportTicketCreateSchema.parse({ subject: "Order issue", message: "Please help", orderId }).orderId).toBe(orderId);
+        expect(() => supportTicketCreateSchema.parse({ subject: "Order issue", message: "Please help", orderId: "019a2b3c-4d5e-4f80-8123-456789abcdef" })).toThrow();
+    });
+
+    it("resolves a UUID v7 route reference without changing the legacy response envelope", async () => {
+        const publicId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+        const service = {
+            updateTicket: vi.fn().mockResolvedValue({ id: 1, public_id: publicId, status: "RESOLVED" }),
+        } as unknown as SupportTicketService;
+        const controller = new SupportController(service);
+
+        await expect(controller.updateTicket(publicId, { status: "RESOLVED" })).resolves.toMatchObject({
+            ticket: { id: 1, public_id: publicId },
+            msg: "Support ticket updated successfully",
+        });
+        expect(service.updateTicket).toHaveBeenCalledWith(publicId, { status: "RESOLVED" });
+    });
+
+    it("rejects an unsupported UUID version as a bad request", async () => {
+        const service = { updateTicket: vi.fn() } as unknown as SupportTicketService;
+        const controller = new SupportController(service);
+
+        await expect(controller.updateTicket("019a2b3c-4d5e-4f80-8123-456789abcdef", { status: "RESOLVED" }))
+            .rejects.toMatchObject({ status: 400 });
+        expect(service.updateTicket).not.toHaveBeenCalled();
+    });
 });

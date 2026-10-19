@@ -113,7 +113,7 @@ export class CheckoutReservationService {
                 const product = lockedProductsById.get(productId);
                 const catalogPrice = Number(product?.price);
                 const catalogSalePriceValue = product?.sale_price == null ? null : Number(product.sale_price);
-                const catalogSalePrice = catalogSalePriceValue !== null && catalogSalePriceValue > 0
+                const catalogSalePrice = catalogSalePriceValue !== null && Number.isFinite(catalogSalePriceValue) && catalogSalePriceValue >= 0
                     ? catalogSalePriceValue
                     : null;
                 const cartPrice = Number(item.price);
@@ -214,7 +214,7 @@ export class CheckoutReservationService {
                         productId: getProductId(item as ReservationCartItem),
                         name: String(item.product_name ?? `Product #${getProductId(item as ReservationCartItem)}`),
                         quantity: getQuantity(item as ReservationCartItem),
-                        unitPriceVnd: Number(item.sale_price && Number(item.sale_price) > 0 ? item.sale_price : item.price),
+                        unitPriceVnd: Number(item.sale_price !== null && item.sale_price !== undefined && Number(item.sale_price) >= 0 ? item.sale_price : item.price),
                     })),
                     subtotalVnd: delivery.pricing.itemsSubtotal,
                     discountVnd: pricingSnapshot.merchandiseDiscount,

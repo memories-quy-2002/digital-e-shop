@@ -80,7 +80,7 @@ function buildService() {
         if (sql.startsWith("INSERT INTO orders")) return { insertId: 91 };
         if (sql.includes("SELECT id, name, stock FROM products")) return [{ id: 7, name: "Widget", stock: 5 }];
         if (sql.startsWith("UPDATE products")) return { affectedRows: 1 };
-        if (sql.includes("SELECT id, DATE_FORMAT(date_added")) return [{ id: 91, date_added: "2026-09-08T00:00:00.000Z" }];
+        if (sql.includes("SELECT id, public_id, DATE_FORMAT(date_added")) return [{ id: 91, public_id: "0199fbb1-1234-7123-8123-123456789abc", date_added: "2026-09-08T00:00:00.000Z" }];
         return [];
     });
     transactionRunner.mockImplementation(async (work: (tx: typeof tx) => Promise<unknown>) => work(tx));
@@ -423,7 +423,11 @@ describe("guest purchase transaction", () => {
             admin_notes: "private",
         } as never);
 
-        await expect(service.lookupGuestOrder("91" as never, "raw-token")).rejects.toMatchObject({ statusCode: 404 });
+        await expect(service.lookupGuestOrder("91", "raw-token")).resolves.toMatchObject({ id: 91 });
+        const publicId = "0199fbb1-1234-7123-8123-123456789abc";
+        await expect(service.lookupGuestOrder(publicId, "wrong-token")).rejects.toMatchObject({ statusCode: 404 });
+        await expect(service.lookupGuestOrder(publicId, "raw-token")).resolves.toMatchObject({ id: 91 });
+        expect(service.getOrderDetail).toHaveBeenCalledWith(91);
         await expect(service.lookupGuestOrder(Number.MAX_SAFE_INTEGER + 1, "raw-token")).rejects.toMatchObject({ statusCode: 404 });
         await expect(service.lookupGuestOrder(91, "wrong-token")).rejects.toMatchObject({ statusCode: 404 });
         await expect(service.lookupGuestOrder(91, "raw-token")).resolves.toEqual(expect.objectContaining({

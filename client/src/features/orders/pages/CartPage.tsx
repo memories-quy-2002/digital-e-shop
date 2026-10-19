@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Container, Modal } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
@@ -17,9 +17,11 @@ import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
 import { useT } from "../../../hooks/useT";
 import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import { formatCurrency } from "../../../utils/currency";
+import { clearCheckoutDraft, hasCheckoutDraft } from "../checkoutDraft";
 
 const CartPage = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { addToast } = useToast();
     const t = useT();
     const copy = useCustomerJourneyCopy();
@@ -49,8 +51,19 @@ const CartPage = () => {
         mergeGuestCart,
     } = useCart();
     const [show, setShow] = useState<boolean>(false);
-    const [isPayment, setIsPayment] = useState<boolean>(false);
+    const [isPayment, setIsPayment] = useState<boolean>(() => searchParams.get("payment") === "cancelled" && hasCheckoutDraft());
     const [isValidatingCheckout, setIsValidatingCheckout] = useState(false);
+
+    useEffect(() => {
+        if (searchParams.get("payment") === "cancelled") {
+            if (!hasCheckoutDraft()) clearCheckoutDraft();
+            const nextSearchParams = new URLSearchParams(searchParams);
+            nextSearchParams.delete("payment");
+            setSearchParams(nextSearchParams, { replace: true });
+        } else {
+            clearCheckoutDraft();
+        }
+    }, [searchParams, setSearchParams]);
 
     const handleClose = useCallback(() => setShow(false), []);
     const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
@@ -377,7 +390,7 @@ const CartPage = () => {
                                                 <span className="cart__confirm__item-meta">{item.brand} &middot; {item.category}</span>
                                             </div>
                                             <div className="cart__confirm__item-qty">&times;{item.quantity}</div>
-                                            <div className="cart__confirm__item-price">{formatCurrency((item.sale_price || item.price) * item.quantity)}</div>
+                                            <div className="cart__confirm__item-price">{formatCurrency((item.sale_price ?? item.price) * item.quantity)}</div>
                                         </div>
                                     ))}
                                 </div>

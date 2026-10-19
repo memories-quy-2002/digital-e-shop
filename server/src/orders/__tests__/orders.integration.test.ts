@@ -85,6 +85,18 @@ describe("orders database integration", () => {
         expect(rejection.getStatus()).toBe(404);
     });
 
+    it("integration resolves a public UUID to the same order and preserves ownership", async () => {
+        const { ordersService, orderTimelineService } = buildOrdersService();
+        const controller = new OrdersController(ordersService);
+        const numeric = await controller.getOrderDetail(String(ownedOrderId), customerRequest(owner.id));
+        const publicId = numeric.order.public_id!;
+        expect(publicId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        const publicResponse = await controller.getOrderDetail(publicId, customerRequest(owner.id));
+        expect(publicResponse.order).toMatchObject({ id: ownedOrderId, public_id: publicId, user_id: owner.id });
+        expect(orderTimelineService.getTimeline).toHaveBeenCalledWith(ownedOrderId, expect.objectContaining({ id: ownedOrderId }));
+        await expect(controller.getOrderDetail(publicId, customerRequest(attacker.id))).rejects.toMatchObject({ status: 404 });
+    });
+
     it("integration rolls back a Prisma transaction instead of persisting partial data", async () => {
         const productName = `${integrationPrefix}-prisma-rollback`;
 

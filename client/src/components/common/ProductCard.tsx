@@ -41,7 +41,6 @@ const ProductCard = ({
     const normalizedProduct = normalizeProduct(product);
     const hasSale =
         normalizedProduct.sale_price !== null &&
-        normalizedProduct.sale_price > 0 &&
         normalizedProduct.sale_price < normalizedProduct.price;
     const activePrice = hasSale ? normalizedProduct.sale_price ?? normalizedProduct.price : normalizedProduct.price;
     const productPath = `/product?id=${normalizedProduct.id}`;

@@ -303,7 +303,10 @@ export class ProductsController {
     ) {
         const file = req.file;
         try {
-            const result = await this.productsService.addSingleProductService(body as ProductCreateInput, file);
+            const result = await this.productsService.addSingleProductService({
+                ...(body as ProductCreateInput),
+                actorId: String(req.user?.id || ""),
+            }, file);
             return result;
         } catch (err) {
             if (err instanceof HttpException) throw err;
@@ -354,6 +357,7 @@ export class ProductsController {
     @Roles("admin")
     async updateProduct(
         @Param("id") id: string,
+        @Req() req: Request,
         @Body(new ZodValidationPipe(productUpdateSchema)) body: {
             name?: string;
             description?: string;
@@ -378,7 +382,7 @@ export class ProductsController {
         try {
             const product = await this.productsService.updateProductDetailsService(pid, {
                 ...body,
-                actorId: "admin",
+                actorId: String(req.user?.id || ""),
             });
             return { product, msg: "Product has been updated successfully" };
         } catch (err) {

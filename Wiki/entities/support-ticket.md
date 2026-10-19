@@ -14,6 +14,10 @@ TL;DR: A support ticket connects an authenticated customer to a question or afte
 
 ## Ticket identity
 
+`support_tickets.id` remains the numeric primary key. Responses also include
+UUID v7 `public_id`, accepted by the admin update route. Customer/order ownership
+checks still apply. See [[0007-public-resource-identifiers]].
+
 The `support_tickets` table requires a `user_id` and assigns an integer `id`.
 It can reference an `order_id` and stores a category, subject, message, status,
 priority, optional admin note, and timestamps.

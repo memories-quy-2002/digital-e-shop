@@ -120,3 +120,7 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-18 - Codex - Added privacy-conscious checkout address lookup, explicit location confirmation, owner-bound coordinate persistence, and manual map fallback; see [[shipping-and-fulfillment]].
 - 2026-10-18 - Codex - Added guest order email-OTP recovery, exact UTC return deadlines, stable delivery-quote invalidation, and transactional idempotent cart merging; see [[guest-checkout]], [[after-sales-request]], and [[shipping-and-fulfillment]].
 - 2026-10-18 - Codex - Removed unused card-provider runtime remnants and local credentials; added a forward migration to remove retired checkout identifier columns while preserving deployed migration history.
+- 2026-10-19 - Codex - Preserved zero-value sale pricing across catalog and checkout, protected active checkout reservations from Admin stock reductions, serialized concurrent review writes, recorded authenticated actors for product stock movements, and documented customer review and local PayOS cancellation recovery; see [[product]], [[admin-operations]], [[order-lifecycle-and-support]], and [[payos-checkout-reliability]].
+
+- 2026-10-19 — Codex: documented UUID v7 public IDs for orders, support tickets and after-sales requests, numeric compatibility, backfill/defaults and deployment ordering.
+- 2026-10-19 - Codex - Added separate API liveness and MySQL readiness probes while preserving the legacy health endpoint; documented probe behavior and serverless limits; see [[architecture]].

@@ -708,6 +708,8 @@ const vi: Dictionary = {
     reviewsCount: (count: number) => `${count} đánh giá`,
     reviewsVisible: (count: number) => `${count} hiển thị`,
     writeReview: "Viết đánh giá",
+    reviewRequiresPurchase: "Bạn cần có đơn hàng đã hoàn tất để đánh giá sản phẩm này.",
+    reviewSubmitError: "Không thể gửi đánh giá. Vui lòng thử lại.",
     loginToReviewLink: "Đăng nhập",
 
     loginToReviewAfter: " để viết đánh giá và chấm điểm sản phẩm này.",
@@ -860,6 +862,7 @@ const vi: Dictionary = {
     selectedMethod: "Đã chọn",
     payos: "Thanh toán PayOS",
     payosDescription: "Quét mã QR để thanh toán. Máy chủ sẽ xác nhận số tiền trước khi thanh toán.",
+    payosRequiresPositiveAmount: "PayOS cần số tiền lớn hơn 0đ. Hãy chọn thanh toán khi nhận hàng cho đơn có tổng tiền bằng 0đ.",
     payosConfirmation: "Đơn hàng được xác nhận sau khi PayOS xác thực thanh toán.",
     cashOnDelivery: "Thanh toán khi nhận hàng",
     cashDescription: "Thanh toán cho đơn vị giao hàng khi nhận bưu kiện.",
@@ -1638,6 +1641,9 @@ const vi: Dictionary = {
 
       "noFulfillmentOrders": "Không có đơn cần xử lý",
       "noFulfillmentOrdersDescription": "Đơn đủ điều kiện sẽ xuất hiện sau khi hoàn tất thanh toán.",
+      "fulfillmentStageSelector": "Các công đoạn xử lý đơn",
+      "packingStage": "Đóng gói",
+      "readyToAssignStage": "Chờ phân công",
       "noShipment": "Đơn hàng chưa có thông tin tiến độ giao hàng.",
       "orderLabel": "Đơn hàng #{id}",
       "payableTotal": "Tổng thanh toán",

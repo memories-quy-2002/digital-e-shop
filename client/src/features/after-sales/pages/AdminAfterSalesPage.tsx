@@ -47,7 +47,7 @@ const AdminAfterSalesPage = () => {
             const page = await fetchAdminAfterSalesRequests({ page: AFTER_SALES_PAGINATION.FIRST_PAGE, limit: AFTER_SALES_PAGINATION.MAX_PAGE_SIZE, ...(statusFilter ? { status: statusFilter as AfterSalesStatus } : {}) });
             setRequests(page.requests);
             const currentSelection = selectedRef.current;
-            if (currentSelection) setSelected(await fetchAdminAfterSalesRequest(currentSelection.id));
+            if (currentSelection) setSelected(await fetchAdminAfterSalesRequest(currentSelection.publicId ?? currentSelection.id));
         } catch (loadError) {
             setError(getAdminRequestError(loadError));
         } finally {
@@ -58,14 +58,14 @@ const AdminAfterSalesPage = () => {
     useEffect(() => { void load(); }, [load]);
 
     const selectRequest = async (request: AfterSalesRequest) => {
-        try { setSelected(await fetchAdminAfterSalesRequest(request.id)); } catch (loadError) { setError(getAdminRequestError(loadError)); }
+        try { setSelected(await fetchAdminAfterSalesRequest(request.publicId ?? request.id)); } catch (loadError) { setError(getAdminRequestError(loadError)); }
     };
 
     const transition = async (status: AfterSalesStatus) => {
         if (!selected || busyId !== null) return;
         try {
             setBusyId(selected.id);
-            const updated = await transitionAdminAfterSalesRequest(selected.id, status);
+            const updated = await transitionAdminAfterSalesRequest(selected.publicId ?? selected.id, status);
             setSelected(updated);
             setRequests((current) => current.map((item) => item.id === updated.id ? updated : item));
             addToast(tx("After-sales queue"), `${tx("Request")} #${updated.id} ${tx("moved to")} ${tx(label(updated.status).toLowerCase())}.`);
@@ -77,7 +77,7 @@ const AdminAfterSalesPage = () => {
         try {
             setBusyId(selected.id);
             const idempotencyKey = `manual-refund-${selected.id}-${refundReference.trim()}`.slice(0, 191);
-            const updated = await confirmAdminManualRefund(selected.id, { transferReference: refundReference.trim(), transferDate: refundDate, reviewedReason: reviewedReason.trim(), evidenceId: refundEvidence.id, currency: "VND", idempotencyKey });
+            const updated = await confirmAdminManualRefund(selected.publicId ?? selected.id, { transferReference: refundReference.trim(), transferDate: refundDate, reviewedReason: reviewedReason.trim(), evidenceId: refundEvidence.id, currency: "VND", idempotencyKey });
             setSelected(updated);
             setRequests((current) => current.map((item) => item.id === updated.id ? updated : item));
             addToast(tx("After-sales queue"), `${tx("Manual refund for request")} #${updated.id} ${tx("recorded.")}`);

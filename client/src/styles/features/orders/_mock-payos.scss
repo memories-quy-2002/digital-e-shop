@@ -174,7 +174,14 @@
     }
 
     &__cancel {
+        border: 0;
+        background: transparent;
         color: var(--de-color-text-muted);
+
+        &:disabled {
+            cursor: wait;
+            opacity: 0.65;
+        }
     }
 
     &__alert {

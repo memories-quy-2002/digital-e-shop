@@ -1,5 +1,6 @@
 import http from "../../lib/http";
 import { normalizeCartQuantity } from "./guestCartStorage";
+import type { PublicIdentifier } from "../../types/publicIdentifier";
 import {
     type CartValidationIssue,
     type CustomerCartValidation,
@@ -84,14 +85,14 @@ export async function fetchCustomerOrders(uid: string): Promise<CustomerOrder[]>
     return response.data.orders || [];
 }
 
-export async function fetchCustomerOrderDetail(orderId: number): Promise<CustomerOrderDetail | null> {
-    const response = await http.get(`/api/orders/${orderId}`);
+export async function fetchCustomerOrderDetail(orderId: PublicIdentifier): Promise<CustomerOrderDetail | null> {
+    const response = await http.get(`/api/orders/${encodeURIComponent(orderId)}`);
     const order = response.data.order as CustomerOrderDetail | undefined;
     return order ? { ...order, items: (order.items || []).map((item) => ({ ...item, orderItemId: Number(item.orderItemId ?? (item as CustomerOrderItem & { id?: number }).id ?? 0) })) } : null;
 }
 
-export async function cancelCustomerOrder(orderId: number, reason?: string): Promise<CustomerOrder | null> {
-    const response = await http.post(`/api/orders/${orderId}/cancel`, reason ? { reason } : {});
+export async function cancelCustomerOrder(orderId: PublicIdentifier, reason?: string): Promise<CustomerOrder | null> {
+    const response = await http.post(`/api/orders/${encodeURIComponent(orderId)}/cancel`, reason ? { reason } : {});
     return response.data.order || null;
 }
 
@@ -212,18 +213,18 @@ export async function confirmMockPayOSPayment(payload: {
     return { orderId: Number(response.data.orderId) };
 }
 
-export async function lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestOrderDetail> {
+export async function lookupGuestOrder(orderId: PublicIdentifier, guestOrderToken: string): Promise<GuestOrderDetail> {
     const response = await http.post("/api/orders/guest/lookup", { orderId, guestOrderToken });
     const order = response.data.order as GuestOrderDetail | undefined;
     if (!order) return response.data.order as unknown as GuestOrderDetail;
     return { ...order, items: (order.items || []).map((item) => ({ ...item, orderItemId: Number(item.orderItemId || 0) })) };
 }
 
-export async function requestGuestOrderAccessRecovery(orderId: number, email: string): Promise<void> {
+export async function requestGuestOrderAccessRecovery(orderId: PublicIdentifier, email: string): Promise<void> {
     await http.post("/api/orders/guest/access-recovery/request", { orderId, email });
 }
 
-export async function verifyGuestOrderAccessRecovery(orderId: number, email: string, code: string): Promise<{ guestOrderToken: string }> {
+export async function verifyGuestOrderAccessRecovery(orderId: PublicIdentifier, email: string, code: string): Promise<{ guestOrderToken: string }> {
     const response = await http.post("/api/orders/guest/access-recovery/verify", { orderId, email, code });
     if (response.data.verified !== true || typeof response.data.guestOrderToken !== "string") {
         throw new Error("The guest order access code could not be verified.");

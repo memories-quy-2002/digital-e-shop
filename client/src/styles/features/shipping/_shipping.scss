@@ -125,6 +125,11 @@
 .shipping-admin__notice { padding: .75rem 1rem; border-radius: .6rem; background: var(--de-color-subtle, #f3f6fb); }
 .shipping-admin__notice--error { border: 1px solid var(--de-color-danger-soft); color: var(--de-color-danger-strong); background: var(--de-color-danger-soft); }
 .shipping-admin__help { color: var(--de-color-muted, #667085); }
+.shipping-admin__stages { display: flex; flex-wrap: wrap; gap: .35rem; width: fit-content; max-width: 100%; margin: 0 0 1rem; padding: .25rem; border: 1px solid var(--de-color-border); border-radius: .75rem; background: var(--de-color-surface-muted); }
+.shipping-admin__stages button { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.5rem; padding: .45rem .8rem; border: 0; border-radius: .55rem; color: var(--de-color-text-muted); background: transparent; font: inherit; font-weight: 650; cursor: pointer; }
+.shipping-admin__stages button[aria-pressed="true"] { color: var(--de-color-text); background: var(--de-color-surface); box-shadow: 0 1px 2px rgb(15 23 42 / 10%); }
+.shipping-admin__stages button:focus-visible { outline: 3px solid var(--de-color-primary, #2563eb); outline-offset: 2px; }
+.shipping-admin__stage-count { display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .25rem; border-radius: 999px; color: var(--de-color-text); background: var(--de-color-surface-muted); font-size: .75rem; font-weight: 750; line-height: 1; }
 .delivery-settings { display: grid; gap: 1rem; }
 .delivery-settings fieldset,
 .delivery-assignments__detail,

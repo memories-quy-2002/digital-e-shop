@@ -4,6 +4,11 @@ Back to [[index]]. Related: [[architecture]], [[0003-payment-ledger-and-usd-cano
 
 ## Order lifecycle
 
+Orders, support tickets, and after-sales requests now have unique UUID v7 public
+references alongside numeric primary keys. Public IDs are accepted by the
+corresponding API boundaries; ownership and guest capabilities still apply.
+See [[0007-public-resource-identifiers]] for the compatibility and migration rules.
+
 The numeric order status remains `0 Pending`, `1 Done`, and `2 Canceled`; a successful Done transition records `delivered_at` when it is first applied. Only Pending orders can move to Done or Canceled; Done and Canceled are terminal. Repeating the same terminal operation is idempotent.
 
 Canceling a Pending order locks the order, restores its deducted inventory, records a cancellation movement, writes one timeline event, and emits one customer notification. `orders.inventory_restored_at` is the order-level concurrency/idempotency guard. PayOS and COD refunds are currently manual operator actions; the payment ledger and reconciliation attempt provide the audit record before cancellation is finalized.
@@ -20,6 +25,11 @@ must continue to exclude archived rows explicitly.
 ## Review eligibility
 
 A user can create or update a product review only when a Done order contains that product. Public verified-purchase badges use the same predicate; Pending and Canceled orders do not qualify.
+
+Completed customer order details link each purchased item back to its product
+review form. Review writes serialize on the user's row before checking for an
+existing user/product review, preventing simultaneous first submissions from
+creating duplicates without a schema migration.
 
 ## Support tickets
 

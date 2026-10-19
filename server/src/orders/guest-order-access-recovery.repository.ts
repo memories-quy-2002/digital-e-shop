@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
+import { parseResourceId, resourceIdColumn } from "#src/shared/utils/public-id";
 import { withTransaction, type TransactionContext } from "#src/database/transaction";
 
 export type GuestRecoveryOrder = { id: number; guest_email: string; guest_name: string | null; contact_snapshot: string | object | null };
 export type GuestRecoveryChallenge = {
     id: string;
+    order_id: number;
     email_hash: string;
     otp_hash: string;
     attempt_count: number | string;
@@ -14,11 +16,12 @@ export type GuestRecoveryChallenge = {
 export class GuestOrderAccessRecoveryRepository {
     withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T> { return withTransaction(work); }
 
-    async findOrderForRequest(tx: TransactionContext, orderId: number): Promise<GuestRecoveryOrder | null> {
+    async findOrderForRequest(tx: TransactionContext, orderId: string | number): Promise<GuestRecoveryOrder | null> {
+        const reference = parseResourceId(orderId);
         const [row] = await tx.query<GuestRecoveryOrder[]>(
             `SELECT id, guest_email, guest_name, contact_snapshot
-             FROM orders WHERE id = ? AND user_id IS NULL LIMIT 1 FOR UPDATE`,
-            [orderId],
+             FROM orders WHERE ${resourceIdColumn(reference)} = ? AND user_id IS NULL LIMIT 1 FOR UPDATE`,
+            [reference],
         );
         return row || null;
     }
@@ -58,15 +61,16 @@ export class GuestOrderAccessRecoveryRepository {
         );
     }
 
-    async findChallengeForVerification(tx: TransactionContext, orderId: number, emailHash: string): Promise<GuestRecoveryChallenge | null> {
+    async findChallengeForVerification(tx: TransactionContext, orderId: string | number, emailHash: string): Promise<GuestRecoveryChallenge | null> {
+        const reference = parseResourceId(orderId);
         const [row] = await tx.query<GuestRecoveryChallenge[]>(
-            `SELECT c.id, c.email_hash, c.otp_hash, c.attempt_count, o.guest_email
+            `SELECT c.id, c.order_id, c.email_hash, c.otp_hash, c.attempt_count, o.guest_email
              FROM guest_order_access_recovery_challenges c
              JOIN orders o ON o.id = c.order_id
-             WHERE c.order_id = ? AND c.email_hash = ? AND o.user_id IS NULL
+             WHERE o.${resourceIdColumn(reference)} = ? AND c.email_hash = ? AND o.user_id IS NULL
                AND c.used_at IS NULL AND c.expires_at > UTC_TIMESTAMP(3)
              ORDER BY c.created_at DESC, c.id DESC LIMIT 1 FOR UPDATE`,
-            [orderId, emailHash],
+            [reference, emailHash],
         );
         return row || null;
     }

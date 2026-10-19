@@ -83,7 +83,7 @@ export class NestProductsService {
         };
     }
 
-    async addSingleProductService(data: ProductCreateInput, file?: UploadedFile) {
+    async addSingleProductService(data: ProductCreateInput & { actorId: string }, file?: UploadedFile) {
         const {
             name,
             description,
@@ -145,7 +145,7 @@ export class NestProductsService {
                     stockBefore: 0,
                     stockAfter: Number(inventory) || 0,
                     note: "Initial stock when product was created",
-                    actorId: "admin",
+                    actorId: data.actorId,
                 }]);
                 return result;
             });
@@ -158,7 +158,7 @@ export class NestProductsService {
         }
     }
 
-    async updateProductDetailsService(pid: number, updates: ProductUpdateInput): Promise<ProductEditorRow> {
+    async updateProductDetailsService(pid: number, updates: ProductUpdateInput & { actorId: string }): Promise<ProductEditorRow> {
         const current = await this.productsRepository.getProductById(pid);
         if (!current) {
             throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
@@ -212,6 +212,15 @@ export class NestProductsService {
                       ? null
                       : Number(updates.salePrice);
                 const nextStock = updates.stock === undefined ? lockedBefore.stock : Number(updates.stock);
+                if (nextStock < lockedBefore.stock) {
+                    const reservedQuantity = await this.productsRepository.getActiveReservationQuantity(tx, pid);
+                    if (nextStock < reservedQuantity) {
+                        throw Object.assign(
+                            new Error(`Stock cannot be reduced below the ${reservedQuantity} unit(s) currently reserved for checkout.`),
+                            { statusCode: HTTP_STATUS.CONFLICT },
+                        );
+                    }
+                }
                 const categoryId = await this.ensureNamedId(tx, "categories", category);
                 const brandId = await this.ensureNamedId(tx, "brands", brand);
                 const updateResult = await this.productsRepository.updateProductInTransaction(tx, pid, {
@@ -239,7 +248,7 @@ export class NestProductsService {
                         stockBefore: lockedBefore.stock,
                         stockAfter: nextStock,
                         note: "Product stock changed in product editor",
-                        actorId: updates.actorId || "admin",
+                        actorId: updates.actorId,
                     }]);
                 }
                 if (this.productAlertsService) {
@@ -289,6 +298,15 @@ export class NestProductsService {
                 throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
             const stockBefore = Number(before.stock) || 0;
+            if (stock < stockBefore) {
+                const reservedQuantity = await this.productsRepository.getActiveReservationQuantity(tx, pid);
+                if (stock < reservedQuantity) {
+                    throw Object.assign(
+                        new Error(`Stock cannot be reduced below the ${reservedQuantity} unit(s) currently reserved for checkout.`),
+                        { statusCode: HTTP_STATUS.CONFLICT },
+                    );
+                }
+            }
             const beforeSnapshot = {
                 productId: pid,
                 price: Number(before.price),

@@ -43,10 +43,18 @@ export class AfterSalesService {
         return this.repository.withTransaction(async (tx) => {
             const existing = await this.repository.findByIdempotencyKey(tx, input.idempotencyKey);
             if (existing) {
-                const sameIdentity = existing.orderId === input.orderId &&
-                    (identity.userId
-                        ? existing.userId === identity.userId
-                        : existing.userId === null && existing.guestOrderTokenHash === identity.guestOrderTokenHash);
+                const sameOwner = identity.userId
+                    ? existing.userId === identity.userId
+                    : existing.userId === null && existing.guestOrderTokenHash === identity.guestOrderTokenHash;
+                let sameOrder = existing.orderId === input.orderId;
+                if (!sameOrder && typeof input.orderId === "string") {
+                    const referencedOrder = await this.repository.findOrderForIdentity(tx, {
+                        orderId: input.orderId,
+                        ...(identity.userId ? { userId: identity.userId } : { guestOrderTokenHash: identity.guestOrderTokenHash }),
+                    });
+                    sameOrder = referencedOrder?.id === existing.orderId;
+                }
+                const sameIdentity = sameOwner && sameOrder;
                 if (sameIdentity) return existing;
                 throw domainError("An after-sales request with this idempotency key already exists.", HTTP_STATUS.CONFLICT, AFTER_SALES_ERROR_CODE.IDEMPOTENCY_CONFLICT);
             }
@@ -56,14 +64,15 @@ export class AfterSalesService {
                 ...(identity.userId ? { userId: identity.userId } : { guestOrderTokenHash: identity.guestOrderTokenHash }),
             });
             if (!order) throw domainError("Order not found or does not belong to this access context.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.ORDER_NOT_FOUND);
+            const internalInput = { ...input, orderId: Number(order.id) };
 
-            const itemIds = input.items.map((item) => item.orderItemId);
+            const itemIds = internalInput.items.map((item) => item.orderItemId);
             if (new Set(itemIds).size !== itemIds.length) throw domainError("Each order item may appear only once in a request.", HTTP_STATUS.CONFLICT, AFTER_SALES_ERROR_CODE.DUPLICATE_ITEM);
-            const items = await this.repository.findOrderItemsForUpdate(tx, input.orderId, itemIds);
+            const items = await this.repository.findOrderItemsForUpdate(tx, internalInput.orderId, itemIds);
             if (items.length !== itemIds.length) throw domainError("One or more selected order items do not belong to this order.", HTTP_STATUS.CONFLICT, AFTER_SALES_ERROR_CODE.ITEM_NOT_IN_ORDER);
 
             const activeQuantities = await this.repository.getActiveRequestedQuantities(tx, itemIds);
-            for (const requested of input.items) {
+            for (const requested of internalInput.items) {
                 const source = items.find((item) => item.id === requested.orderItemId);
                 if (!source) throw domainError("One or more selected order items do not belong to this order.", HTTP_STATUS.CONFLICT, AFTER_SALES_ERROR_CODE.ITEM_NOT_IN_ORDER);
                 const eligibility = evaluateEligibility({ kind: input.kind, orderStatus: order.orderStatus, deliveredAt: order.deliveredAt, warrantyMonths: source.warrantyMonths });
@@ -74,7 +83,7 @@ export class AfterSalesService {
                 }
             }
 
-            return this.repository.insertRequest(tx, identity, input, items);
+            return this.repository.insertRequest(tx, identity, internalInput, items);
         });
     }
 
@@ -82,12 +91,12 @@ export class AfterSalesService {
         return this.repository.listCustomerRequests(userId, query);
     }
 
-    async listGuestRequests(orderId: number, guestOrderToken: string, query: AfterSalesListQuery): Promise<AfterSalesListPage> {
+    async listGuestRequests(orderId: string | number, guestOrderToken: string, query: AfterSalesListQuery): Promise<AfterSalesListPage> {
         const guestOrderTokenHash = hashGuestOrderToken(guestOrderToken);
         return this.repository.withTransaction(async (tx) => {
             const order = await this.repository.findOrderForIdentity(tx, { orderId, guestOrderTokenHash });
             if (!order) throw domainError("Order not found or does not belong to this access context.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.ORDER_NOT_FOUND);
-            return this.repository.listGuestRequests(orderId, guestOrderTokenHash, query);
+            return this.repository.listGuestRequests(Number(order.id), guestOrderTokenHash, query);
         });
     }
 
@@ -95,38 +104,40 @@ export class AfterSalesService {
         return this.repository.listAdminRequests(query);
     }
 
-    async getCustomerRequest(userId: string, id: number): Promise<AfterSalesRequest> {
+    async getCustomerRequest(userId: string, id: string | number): Promise<AfterSalesRequest> {
         const request = await this.repository.getCustomerRequest(userId, id);
         if (!request) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
         return request;
     }
 
-    async getGuestRequest(orderId: number, guestOrderToken: string, id: number): Promise<AfterSalesRequest> {
-        const request = await this.repository.getGuestRequest(orderId, hashGuestOrderToken(guestOrderToken), id);
+    async getGuestRequest(orderId: string | number, guestOrderToken: string, id: string | number): Promise<AfterSalesRequest> {
+        const guestOrderTokenHash = hashGuestOrderToken(guestOrderToken);
+        const order = await this.repository.withTransaction((tx) => this.repository.findOrderForIdentity(tx, { orderId, guestOrderTokenHash }));
+        const request = order?.id == null ? null : await this.repository.getGuestRequest(Number(order.id), guestOrderTokenHash, id);
         if (!request) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
         return request;
     }
 
-    async getAdminRequest(id: number): Promise<AfterSalesRequest> {
+    async getAdminRequest(id: string | number): Promise<AfterSalesRequest> {
         const request = await this.repository.getAdminRequest(id);
         if (!request) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
         return request;
     }
 
-    async transitionRequest(id: number, actorId: string, transition: AfterSalesStatusTransition): Promise<AfterSalesRequest> {
+    async transitionRequest(id: string | number, actorId: string, transition: AfterSalesStatusTransition): Promise<AfterSalesRequest> {
         const updated = await this.repository.withTransaction(async (tx) => {
             const current = await this.repository.getAdminRequestForUpdate(tx, id);
             if (!current) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
             assertTransition(current.status as AfterSalesStatus, transition.status);
-            const updated = await this.repository.transitionRequest(tx, id, transition, actorId);
+            const updated = await this.repository.transitionRequest(tx, current.id, transition, actorId);
             if (!updated) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
-            if (this.orderEmails && ["APPROVED", "REJECTED"].includes(transition.status)) await this.orderEmails.emit(tx, updated.orderId, "decision", { key: `after-sales:${id}:${transition.status}`, decision: transition.status === "APPROVED" ? "approved" : "rejected" });
+            if (this.orderEmails && ["APPROVED", "REJECTED"].includes(transition.status)) await this.orderEmails.emit(tx, updated.orderId, "decision", { key: `after-sales:${current.id}:${transition.status}`, decision: transition.status === "APPROVED" ? "approved" : "rejected" });
             return updated;
         });
         return (await this.repository.getAdminRequest(id)) || updated;
     }
 
-    async confirmRefund(id: number, actorId: string, input: RefundConfirmationInput): Promise<AfterSalesRequest> {
+    async confirmRefund(id: string | number, actorId: string, input: RefundConfirmationInput): Promise<AfterSalesRequest> {
         const updated = await this.repository.withTransaction(async (tx) => {
             const context = await this.repository.getRefundContextForUpdate(tx, id);
             if (!context) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
@@ -163,7 +174,7 @@ export class AfterSalesService {
                 throw domainError(message, message.includes("not configured") ? HTTP_STATUS.SERVICE_UNAVAILABLE : HTTP_STATUS.BAD_GATEWAY, message.includes("not configured") ? AFTER_SALES_ERROR_CODE.REFUND_PROVIDER_UNAVAILABLE : AFTER_SALES_ERROR_CODE.REFUND_PROVIDER_FAILED);
             }
             if (providerResult.status !== PAYMENT_STATUS.REFUNDED) throw domainError("The payment provider did not confirm the refund.", HTTP_STATUS.BAD_GATEWAY, AFTER_SALES_ERROR_CODE.REFUND_PROVIDER_REJECTED);
-            const updated = await this.repository.confirmRefund(tx, id, input, actorId, payment.id, context.requestedAmount, providerResult);
+            const updated = await this.repository.confirmRefund(tx, current.id, input, actorId, payment.id, context.requestedAmount, providerResult);
             if (!updated) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
             return updated;
         });

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
+import { createPublicId, resourceIdColumn } from "#src/shared/utils/public-id";
 import type { InsertResult, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import {
     SUPPORT_DEFAULT_CATEGORY,
@@ -11,20 +12,22 @@ import {
 } from "./support.types";
 import { SUPPORT_TICKETS_LIMIT } from "#src/shared/constants/operational-limits";
 
-const ticketColumns = `id, user_id, order_id, category, subject, message, status, priority,
+const ticketColumns = `id, public_id, user_id, order_id, category, subject, message, status, priority,
     admin_note, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at,
     DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updated_at`;
 
 @Injectable()
 export class SupportTicketRepository {
     create(userId: string, input: CreateSupportTicketInput, callback: QueryCallback<InsertResult>) {
+        const publicId = createPublicId();
         if (input.orderId) {
+            const orderIdColumn = resourceIdColumn(input.orderId);
             pool.query(
                 `INSERT INTO support_tickets
-                    (user_id, order_id, category, subject, message, status, priority, created_at, updated_at)
-                 SELECT ?, id, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP()
-                 FROM orders WHERE id = ? AND user_id = ?`,
-                [userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message, input.orderId, userId],
+                    (public_id, user_id, order_id, category, subject, message, status, priority, created_at, updated_at)
+                 SELECT ?, ?, id, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP()
+                 FROM orders WHERE ${orderIdColumn} = ? AND user_id = ?`,
+                [publicId, userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message, input.orderId, userId],
                 callback,
             );
             return;
@@ -32,15 +35,16 @@ export class SupportTicketRepository {
 
         pool.query(
             `INSERT INTO support_tickets
-                (user_id, category, subject, message, status, priority, created_at, updated_at)
-             VALUES (?, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
-            [userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message],
+                (public_id, user_id, category, subject, message, status, priority, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+            [publicId, userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message],
             callback,
         );
     }
 
-    findById(id: number, callback: QueryCallback<SupportTicket[]>) {
-        pool.query(`SELECT ${ticketColumns} FROM support_tickets WHERE id = ? LIMIT 1`, [id], callback);
+    findById(id: string | number, callback: QueryCallback<SupportTicket[]>) {
+        const idColumn = resourceIdColumn(id);
+        pool.query(`SELECT ${ticketColumns} FROM support_tickets WHERE ${idColumn} = ? LIMIT 1`, [id], callback);
     }
 
     findByUser(userId: string, status: string | undefined, callback: QueryCallback<SupportTicket[]>) {
@@ -65,7 +69,7 @@ export class SupportTicketRepository {
         );
     }
 
-    update(id: number, input: UpdateSupportTicketInput, callback: QueryCallback<UpdateResult>) {
+    update(id: string | number, input: UpdateSupportTicketInput, callback: QueryCallback<UpdateResult>) {
         const updates: string[] = [];
         const values: unknown[] = [];
         if (input.status !== undefined) {
@@ -82,6 +86,7 @@ export class SupportTicketRepository {
         }
         updates.push("updated_at = UTC_TIMESTAMP()");
         values.push(id);
-        pool.query(`UPDATE support_tickets SET ${updates.join(", ")} WHERE id = ?`, values, callback);
+        const idColumn = resourceIdColumn(id);
+        pool.query(`UPDATE support_tickets SET ${updates.join(", ")} WHERE ${idColumn} = ?`, values, callback);
     }
 }

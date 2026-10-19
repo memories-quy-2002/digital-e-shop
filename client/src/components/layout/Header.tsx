@@ -199,37 +199,58 @@ export const Header = (): JSX.Element => {
 
     useEffect(() => {
         let isActive = true;
+        let isFetchInProgress = false;
+        const customerId = userData?.role === Role.Customer ? userData.id : undefined;
 
-        const fetchNotifications = async () => {
-            if (!userData?.id) {
-                setUnreadNotifications(0);
-                setNotifications([]);
-                setIsNotificationsLoading(false);
-                setIsNotificationMenuOpen(false);
-                return;
-            }
+        const fetchNotifications = async (isInitialLoad = false) => {
+            if (!customerId) return;
+            if (isFetchInProgress) return;
+            isFetchInProgress = true;
+            if (isInitialLoad) setIsNotificationsLoading(true);
 
-            setIsNotificationsLoading(true);
             try {
-                const response = await fetchCustomerNotifications(userData.id, 10);
+                const response = await fetchCustomerNotifications(customerId, 10);
                 if (!isActive) return;
                 setUnreadNotifications(response.unread);
                 setNotifications(response.notifications);
             } catch {
-                if (!isActive) return;
-                setUnreadNotifications(0);
-                setNotifications([]);
+                // Preserve the last successful result when a background poll fails.
+                if (isActive && isInitialLoad) {
+                    setUnreadNotifications(0);
+                    setNotifications([]);
+                }
             } finally {
-                if (isActive) setIsNotificationsLoading(false);
+                isFetchInProgress = false;
+                if (isActive && isInitialLoad) setIsNotificationsLoading(false);
             }
         };
 
-        fetchNotifications();
+        if (!customerId) {
+            setUnreadNotifications(0);
+            setNotifications([]);
+            setIsNotificationsLoading(false);
+            setIsNotificationMenuOpen(false);
+            return () => {
+                isActive = false;
+            };
+        }
+
+        void fetchNotifications(true);
+
+        const pollInterval = window.setInterval(() => {
+            if (document.visibilityState === "visible") void fetchNotifications();
+        }, 60_000);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") void fetchNotifications();
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             isActive = false;
+            window.clearInterval(pollInterval);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, [userData?.id]);
+    }, [userData?.id, userData?.role]);
 
     useEffect(() => {
         const normalizedTerm = normalizedDeferredSearchTerm.toLowerCase();

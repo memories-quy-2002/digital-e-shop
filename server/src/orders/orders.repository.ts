@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { createPublicId, parseResourceId, resourceIdColumn } from "#src/shared/utils/public-id";
 import pool from "#src/config/database.config";
 import type {
     CountRow,
@@ -142,7 +143,7 @@ export class OrdersRepository {
 
     async findPayOSOrderInTransaction(tx: TransactionContext, orderCode: number, paymentLinkId: string, paymentAmount: number): Promise<{ id: number; date_added: string } | null> {
         const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
-            `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+            `SELECT o.id, o.public_id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
              FROM orders o
              JOIN order_payments op ON op.order_id = o.id
              WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?
@@ -171,8 +172,8 @@ export class OrdersRepository {
         return tx.query<InsertResult>(
             `INSERT INTO orders
                 (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
-                 total_price, discount, shipping_address, payment_method, currency, date_added)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+                 total_price, discount, shipping_address, payment_method, currency, date_added, public_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?)`,
             [
                 order.userId,
                 order.guestEmail,
@@ -184,6 +185,7 @@ export class OrdersRepository {
                 order.shippingAddress,
                 order.paymentMethod,
                 order.currency,
+                createPublicId(),
             ],
         );
     }
@@ -231,7 +233,7 @@ export class OrdersRepository {
         orderId: number,
     ): Promise<Array<{ id: number; date_added: string }>> {
         return tx.query<Array<{ id: number; date_added: string }>>(
-            `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+            `SELECT id, public_id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
              FROM orders
              WHERE id = ?`,
             [orderId],
@@ -270,8 +272,8 @@ export class OrdersRepository {
         callback: QueryCallback<InsertResult>,
     ) {
         this.query(
-            "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())",
-            [uid, totalPrice, discount, shippingAddress, paymentMethod],
+            "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added, public_id) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?)",
+            [uid, totalPrice, discount, shippingAddress, paymentMethod, createPublicId()],
             callback,
         );
     }
@@ -290,6 +292,7 @@ export class OrdersRepository {
 
     private readonly orderSelect = `
         o.id,
+        o.public_id,
         o.user_id,
         o.guest_email,
         o.guest_name,
@@ -339,7 +342,7 @@ export class OrdersRepository {
 
     getAdminPendingQueue(callback: QueryCallback<OrderSummaryRow[]>) {
         this.query(
-            `SELECT o.id, o.user_id, o.guest_name, o.guest_email,
+            `SELECT o.id, o.public_id, o.user_id, o.guest_name, o.guest_email,
                 COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.username) AS customer_name,
                 u.email AS customer_email, o.status, o.total_price, o.discount, o.date_added, o.payment_method
              FROM orders o
@@ -375,15 +378,17 @@ export class OrdersRepository {
         this.query(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId], callback);
     }
 
-    getOrderById(orderId: number, callback: QueryCallback<OrderSummaryRow[]>) {
-        this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} WHERE o.id = ?`, [orderId], callback);
+    getOrderById(orderId: string | number, callback: QueryCallback<OrderSummaryRow[]>) {
+        const reference = parseResourceId(orderId);
+        this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} WHERE o.${resourceIdColumn(reference)} = ?`, [reference], callback);
     }
 
     getOrdersByUserId(uid: string, callback: QueryCallback<OrderSummaryRow[]>) {
         this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} WHERE o.user_id = ? ORDER BY o.date_added DESC`, [uid], callback);
     }
 
-    getOrderDetail(orderId: number, callback: QueryCallback<OrderDetailRow[]>) {
+    getOrderDetail(orderId: string | number, callback: QueryCallback<OrderDetailRow[]>) {
+        const reference = parseResourceId(orderId);
         this.query(
             `SELECT
                 o.*,
@@ -418,19 +423,20 @@ export class OrdersRepository {
             LEFT JOIN products p ON p.id = oi.product_id
             LEFT JOIN categories c ON c.id = p.category_id
             LEFT JOIN brands b ON b.id = p.brand_id
-            WHERE o.id = ?`,
-            [orderId],
+            WHERE o.${resourceIdColumn(reference)} = ?`,
+            [reference],
             callback,
         );
     }
 
-    getGuestOrderIdentity(orderId: number, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+    getGuestOrderIdentity(orderId: string | number, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+        const reference = parseResourceId(orderId);
         this.query(
             `SELECT id, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash
              FROM orders
-             WHERE id = ? AND user_id IS NULL
+             WHERE ${resourceIdColumn(reference)} = ? AND user_id IS NULL
              LIMIT 1`,
-            [orderId],
+            [reference],
             callback,
         );
     }
@@ -534,7 +540,7 @@ export class OrdersRepository {
 
     getOrderByPayOSOrderCode(providerOrderCode: number, callback: QueryCallback<OrderBySessionRow[]>) {
         this.query(
-            `SELECT o.id, o.user_id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, o.payment_method
+            `SELECT o.id, o.public_id, o.user_id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, o.payment_method
             FROM orders o
             JOIN order_payments op ON op.order_id = o.id
             WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?

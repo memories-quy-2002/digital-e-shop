@@ -59,8 +59,8 @@ describe("AdminHeader activity feed request states", () => {
         fireEvent.click(screen.getByRole("button", { name: "English / Tiếng Việt" }));
         fireEvent.click(screen.getByRole("option", { name: /Tiếng Việt/ }));
 
-        const search = await screen.findByRole("textbox", { name: "Đi đến một mục quản trị" });
-        expect(search).toHaveAttribute("placeholder", "Đi đến Sản phẩm, Đơn hàng hoặc Tài khoản…");
+        const search = await screen.findByRole("combobox", { name: "Đi tới trang quản trị" });
+        expect(search).toHaveAttribute("placeholder", "Nhập tên trang, ví dụ Đơn hàng hoặc Thanh toán…");
         expect(document.documentElement).toHaveAttribute("lang", "vi");
     });
 
@@ -173,20 +173,52 @@ describe("AdminHeader activity feed request states", () => {
         expect(screen.getAllByRole("link")).toHaveLength(8);
     });
 
-    it("communicates section navigation and clarifies unknown keywords", () => {
+    it("navigates to an exact Admin page match including payment reconciliation", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
         renderHeader();
+        await waitFor(() => expect(fetchAdminAlerts).toHaveBeenCalledOnce());
 
-        const search = screen.getByRole("textbox", { name: "Jump to an Admin section" });
-        expect(search).toHaveAttribute("placeholder", "Jump to Products, Orders, or Accounts…");
+        const search = screen.getByRole("combobox", { name: "Go to Admin page" });
+        fireEvent.change(search, { target: { value: "payment" } });
+        fireEvent.submit(search.closest("form")!);
+
+        expect(mocks.navigate).toHaveBeenCalledWith("/admin/payments/reconciliation");
+        expect(mocks.addToast).not.toHaveBeenCalled();
+        expect(search).toHaveValue("");
+    });
+
+    it("does not navigate when the Admin page search has no match", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+        await waitFor(() => expect(fetchAdminAlerts).toHaveBeenCalledOnce());
+
+        const search = screen.getByRole("combobox", { name: "Go to Admin page" });
+        expect(search).toHaveAttribute("placeholder", "Type a page name, e.g. Orders or Payments…");
 
         fireEvent.change(search, { target: { value: "laptop" } });
         fireEvent.submit(search.closest("form")!);
 
-        expect(mocks.navigate).toHaveBeenCalledWith("/admin");
+        expect(mocks.navigate).not.toHaveBeenCalled();
         expect(mocks.addToast).toHaveBeenCalledWith(
             "Admin navigation",
-            "Choose Products, Orders, or Accounts from the section search.",
+            "Try a page name from the suggestions.",
         );
+    });
+
+    it("keeps logout confirmation inside the Admin profile dropdown", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+        await waitFor(() => expect(fetchAdminAlerts).toHaveBeenCalledOnce());
+
+        const profile = screen.getByRole("button", { name: /^Admin profile/ });
+        fireEvent.click(profile);
+
+        expect(profile).toHaveAttribute("aria-expanded", "true");
+        fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+        expect(screen.getByText("Are you sure you want to logout?")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(screen.queryByText("Are you sure you want to logout?")).not.toBeInTheDocument();
     });
 
     it("closes the activity popover on Escape and returns focus to its trigger", async () => {

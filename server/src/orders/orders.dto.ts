@@ -30,7 +30,7 @@ export type GuestPayOSCheckoutPayload = Omit<GuestPurchasePayload, "paymentMetho
 };
 
 export type GuestOrderLookupPayload = {
-    orderId: number;
+    orderId: number | string;
     guestOrderToken: string;
 };
 

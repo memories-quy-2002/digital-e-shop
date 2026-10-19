@@ -83,7 +83,7 @@ const normalizeContextItems = (items: CheckoutCartItem[]) =>
     items.map((item) => ({ ...item, cartItemId: item.cartItemId > 0 ? item.cartItemId : item.productId }));
 
 const calculateTotal = (items: CheckoutCartItem[]) =>
-    items.reduce((total, item) => total + (item.sale_price || item.price) * item.quantity, 0);
+    items.reduce((total, item) => total + (item.sale_price ?? item.price) * item.quantity, 0);
 
 const getPreviewDiscount = (preview: GuestCartPreview) => {
     const promotionDiscount = Number(preview.promotion?.discount);

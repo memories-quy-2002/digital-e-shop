@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { HTTP_STATUS } from "../../../constants/http-status";
-import { PAYMENT_METHOD, type PaymentMethod } from "../constants";
+import { PAYMENT_METHOD } from "../constants";
 import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
@@ -42,17 +42,7 @@ import { fetchCustomerAddresses, updateCustomerAddressLocation } from "../../use
 import type { CustomerAddress } from "../../users/types";
 import { fetchLoyaltyOverview } from "../../loyalty/api";
 import type { LoyaltyOverview } from "../../loyalty/types";
-
-interface CheckoutForm {
-    email: string;
-    first_name: string;
-    last_name: string;
-    address: string;
-    city: string;
-    country: string | null;
-    phone_number: string | null;
-    payment_method: PaymentMethod;
-}
+import { takeCheckoutDraft, writeCheckoutDraft, type CheckoutFormDraft } from "../checkoutDraft";
 
 type CheckoutSubmissionContext = {
     latestCart: CheckoutCartItem[];
@@ -90,7 +80,8 @@ const CheckoutPaymentPage = ({
     const { addToast } = useToast();
     const t = useT();
     const { locale } = useLocale();
-    const [formCheckout, setFormCheckout] = useState<CheckoutForm>({
+    const [checkoutDraft] = useState(() => takeCheckoutDraft());
+    const [formCheckout, setFormCheckout] = useState<CheckoutFormDraft>(checkoutDraft?.formCheckout ?? {
         email: "",
         first_name: "",
         last_name: "",
@@ -105,13 +96,21 @@ const CheckoutPaymentPage = ({
     const [isValidatingCart, setIsValidatingCart] = useState(false);
     const [isEmailTouched, setIsEmailTouched] = useState(false);
     const [verificationRequired, setVerificationRequired] = useState(false);
-    const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress | null>(null);
+    const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress | null>(checkoutDraft?.deliveryAddress ?? null);
     const [shippingQuote, setShippingQuote] = useState<InternalDeliveryQuote | null>(null);
     const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
     const [recentAddresses, setRecentAddresses] = useState<RecentOrderAddress[]>([]);
     const [savedAddressesError, setSavedAddressesError] = useState(false);
     const [recentAddressesError, setRecentAddressesError] = useState(false);
-    const [savedAddressPrefill, setSavedAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
+    const [savedAddressPrefill, setSavedAddressPrefill] = useState<DeliveryAddressPrefill | null>(() => checkoutDraft?.deliveryAddress ? {
+        key: "checkout-return",
+        recipientName: checkoutDraft.deliveryAddress.recipientName,
+        recipientPhone: checkoutDraft.deliveryAddress.recipientPhone,
+        addressLine: checkoutDraft.deliveryAddress.addressLine,
+        city: checkoutDraft.deliveryAddress.city,
+        latitude: checkoutDraft.deliveryAddress.latitude,
+        longitude: checkoutDraft.deliveryAddress.longitude,
+    } : null);
     const [recentAddressPrefill, setRecentAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
     const [quoteResetKey, setQuoteResetKey] = useState(0);
     const [quoteInvalidationKey, setQuoteInvalidationKey] = useState(0);
@@ -149,8 +148,10 @@ const CheckoutPaymentPage = ({
 
     useEffect(() => {
         let active = true;
-        setSavedAddressPrefill(null);
-        setRecentAddressPrefill(null);
+        if (!checkoutDraft) {
+            setSavedAddressPrefill(null);
+            setRecentAddressPrefill(null);
+        }
         setSavedAddresses([]);
         setRecentAddresses([]);
         setSavedAddressesError(false);
@@ -164,7 +165,7 @@ const CheckoutPaymentPage = ({
             .then((orders) => { if (active) setRecentAddresses(getRecentOrderAddresses(orders)); })
             .catch(() => { if (active) setRecentAddressesError(true); });
         return () => { active = false; };
-    }, [uid]);
+    }, [checkoutDraft, uid]);
 
     useEffect(() => {
         let active = true;
@@ -351,6 +352,12 @@ const CheckoutPaymentPage = ({
             ...(!uid && sessionResponse.guestOrderToken ? { guestOrderToken: sessionResponse.guestOrderToken } : {}),
         });
         if (sessionResponse.url) {
+            const paymentUrl = new URL(sessionResponse.url, window.location.origin);
+            if (paymentUrl.origin === window.location.origin && paymentUrl.pathname === "/mock-payos-checkout") {
+                if (deliveryAddress) writeCheckoutDraft({ formCheckout, deliveryAddress });
+                navigate(`${paymentUrl.pathname}${paymentUrl.search}`);
+                return;
+            }
             window.location.href = sessionResponse.url;
             return;
         }
@@ -373,7 +380,8 @@ const CheckoutPaymentPage = ({
         const resolvedTotal = Number.isFinite(orderTotal) ? orderTotal : submission.latestTotalPrice;
         const resolvedDiscount = Number.isFinite(orderDiscount) ? orderDiscount : discount;
         const payload = {
-            orderId: String(response.orderId || response.order?.id),
+            orderId: String(response.order?.public_id || response.orderId || response.order?.id),
+            internalOrderId: response.order?.id,
             totalPrice: resolvedTotal,
             discount: resolvedDiscount,
             subtotal: shippingQuote!.pricing.itemsSubtotal,
@@ -411,10 +419,12 @@ const CheckoutPaymentPage = ({
         });
         if (response.status !== HTTP_STATUS.CREATED) return;
 
-        const orderId = response.data?.order?.id || response.data?.orderId || response.data?.id || `ORD-${Date.now()}`;
+        const internalOrderId = Number(response.data?.order?.id ?? response.data?.orderId ?? response.data?.id);
+        const orderId = String(response.data?.order?.public_id ?? response.data?.order?.id ?? response.data?.orderId ?? response.data?.id ?? `ORD-${Date.now()}`);
         const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
         const payload = {
             orderId,
+            ...(Number.isSafeInteger(internalOrderId) && internalOrderId > 0 ? { internalOrderId } : {}),
             totalPrice: shippingQuote!.pricing.itemsSubtotal + shippingQuote!.pricing.shippingFee,
             discount: Number.isFinite(Number(response.data?.order?.discount))
                 ? Number(response.data.order.discount)
@@ -496,6 +506,10 @@ const CheckoutPaymentPage = ({
         }
         if (!quoteIsValid || !shippingQuote || !deliveryAddress) {
             setErrors([t("shipping.quoteRequired")]);
+            return;
+        }
+        if (formCheckout.payment_method === PAYMENT_METHOD.PAYOS && totalAfterLoyalty <= 0) {
+            setErrors([t("checkout.payosRequiresPositiveAmount")]);
             return;
         }
         if (invalidLoyaltyPoints) {

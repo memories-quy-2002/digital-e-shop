@@ -21,7 +21,6 @@ const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
                         const normalizedProduct = normalizeProduct(product);
                         const hasSale =
                             normalizedProduct.sale_price !== null &&
-                            normalizedProduct.sale_price > 0 &&
                             normalizedProduct.sale_price < normalizedProduct.price;
 
                         return (

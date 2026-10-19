@@ -16,7 +16,7 @@ import {
     DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { Helmet } from "react-helmet-async";
-import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
+import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import { fetchAdminOrdersPage, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus, type AdminOrderSummary } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
@@ -88,6 +88,7 @@ const AdminOrderPage = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
     const [showDetail, setShowDetail] = useState(false);
+    const detailRequestSequence = useRef(0);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [showBulkConfirm, setShowBulkConfirm] = useState(false);
     const [bulkTarget, setBulkTarget] = useState<1 | 2 | null>(null);
@@ -150,9 +151,9 @@ const AdminOrderPage = () => {
         setCurrentPage(event.selected + 1);
     };
 
-    const handleChangeStatus = async (status: number, orderId: number) => {
+    const handleChangeStatus = async (status: number, order: Order) => {
         try {
-            const updated = await updateOrderStatus(orderId, status);
+            const updated = await updateOrderStatus(order.public_id ?? order.id, status);
             const updatedOrder = normalizeOrder(updated);
             setOrders((previousOrders) =>
                 previousOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
@@ -176,16 +177,26 @@ const AdminOrderPage = () => {
         }
     };
 
-    const handleOpenDetail = async (orderId: number) => {
+    const handleOpenDetail = async (order: Order) => {
+        const requestSequence = ++detailRequestSequence.current;
+        setShowDetail(false);
+        setSelectedOrder(null);
         try {
-            const order = await fetchOrderDetail(orderId);
-            if (order) {
-                setSelectedOrder(order);
+            const detail = await fetchOrderDetail(order.public_id ?? order.id);
+            if (requestSequence === detailRequestSequence.current && detail) {
+                setSelectedOrder(detail);
                 setShowDetail(true);
             }
         } catch {
-            addToast("Orders", "Unable to load order detail.");
+            if (requestSequence === detailRequestSequence.current) {
+                addToast("Orders", "Unable to load order detail.");
+            }
         }
+    };
+
+    const closeOrderDetail = () => {
+        detailRequestSequence.current += 1;
+        setShowDetail(false);
     };
 
     const toggleSelection = (orderId: number) => {
@@ -272,46 +283,6 @@ const AdminOrderPage = () => {
         }
     };
 
-    const exportOrdersCsv = () => {
-        const rows = [
-            [
-                "id",
-                "customer_name",
-                "customer_email",
-                "user_id",
-                "guest_phone",
-                "date_added",
-                "payment_method",
-                "status",
-                "gross_total",
-                "discount",
-                "net_total",
-                "shipping_address",
-            ],
-            ...orders.map((order) => [
-                String(order.id),
-                getCustomerName(order),
-                order.customer_email || "",
-                order.user_id || "",
-                order.guest_phone || "",
-                toUtcIsoString(order.date_added),
-                getPaymentMethodLabel(order.payment_method),
-                getStatusLabel(order.status),
-                formatCurrency(order.total_price),
-                formatCurrency(order.discount),
-                formatCurrency(getNetRevenue(order)),
-                getShippingAddress(order.shipping_address),
-            ]),
-        ];
-        const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "digital-e-orders.csv";
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
     return (
         <AdminLayout>
             <Helmet>
@@ -326,12 +297,6 @@ const AdminOrderPage = () => {
                         <p className="admin__page__subtitle">
                             {tx("Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.")}
                         </p>
-                    </div>
-                    <div className="admin__page__actions">
-                        <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>{tx("Refresh")}</button>
-                        <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
-                            {tx("Export current page CSV")}
-                        </button>
                     </div>
                 </header>
 
@@ -543,7 +508,7 @@ const AdminOrderPage = () => {
                                                 <button
                                                     type="button"
                                                     className="admin__button admin__button--ghost admin__button--compact admin__table__view-action"
-                                                    onClick={() => handleOpenDetail(order.id)}
+                                                    onClick={() => handleOpenDetail(order)}
                                                 >
                                                     {tx("View")}
                                                 </button>
@@ -562,7 +527,7 @@ const AdminOrderPage = () => {
                                                             <DropdownMenuGroup>
                                                                 <DropdownMenuItem
                                                                     data-testid="doneBtn"
-                                                                    onSelect={() => handleChangeStatus(1, order.id)}
+                                                                    onSelect={() => handleChangeStatus(1, order)}
                                                                 >
                                                                     <CheckCircleIcon size={16} aria-hidden="true" />
                                                                     Mark done
@@ -570,7 +535,7 @@ const AdminOrderPage = () => {
                                                                 <DropdownMenuItem
                                                                     data-testid="cancelBtn"
                                                                     variant="destructive"
-                                                                    onSelect={() => handleChangeStatus(2, order.id)}
+                                                                    onSelect={() => handleChangeStatus(2, order)}
                                                                 >
                                                                     <XCircleIcon size={16} aria-hidden="true" />
                                                                     Cancel order
@@ -613,7 +578,7 @@ const AdminOrderPage = () => {
 
                 <Modal
                     show={showDetail}
-                    onHide={() => setShowDetail(false)}
+                    onHide={closeOrderDetail}
                     size="lg"
                     centered
                     dialogClassName="admin__dialog"
@@ -717,7 +682,7 @@ const AdminOrderPage = () => {
                         ) : null}
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" onClick={() => setShowDetail(false)}>
+                        <Button variant="secondary" onClick={closeOrderDetail}>
                             {tx("Close")}
                         </Button>
                     </Modal.Footer>

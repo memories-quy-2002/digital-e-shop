@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const orderId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const orderId = z.union([z.number().int().positive().max(Number.MAX_SAFE_INTEGER), z.uuidv7()]);
 const email = z.string().trim().email().max(254);
 
 export const guestOrderAccessRecoveryRequestSchema = z.object({ orderId, email });
@@ -10,5 +10,5 @@ export const guestOrderAccessRecoveryVerifySchema = z.object({
     code: z.string().regex(/^\d{6}$/),
 });
 
-export type GuestOrderAccessRecoveryRequest = z.infer<typeof guestOrderAccessRecoveryRequestSchema>;
-export type GuestOrderAccessRecoveryVerify = z.infer<typeof guestOrderAccessRecoveryVerifySchema>;
+export type GuestOrderAccessRecoveryRequest = { orderId: string | number; email: string };
+export type GuestOrderAccessRecoveryVerify = GuestOrderAccessRecoveryRequest & { code: string };

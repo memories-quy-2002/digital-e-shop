@@ -2,6 +2,7 @@ import React from "react";
 import { PencilIcon } from "../Icons";
 import { Product } from "../../../utils/interface";
 import { formatCurrency } from "../../../utils/currency";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 
 interface AdminProductItemProp {
     products: Product[];
@@ -10,18 +11,36 @@ interface AdminProductItemProp {
 }
 
 const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemProp) => {
+    const tx = useAdminCopy();
+    const isOutOfStock = product.stock <= 0;
+
     return (
-        <tr key={product.id}>
-            <td width="50px">{products.indexOf(product) + 1}</td>
+        <tr className="admin__table__product-row" key={product.id}>
+            <td className="admin__table__product-index" width="50px">{products.indexOf(product) + 1}</td>
             <td className="admin__table__product-name">
-                <span>{product.name}</span>
-                <small className="admin__table__product-meta-mobile">{product.stock} in stock</small>
+                <span className="admin__table__product-name__label">{product.name}</span>
             </td>
-            <td>{product.category}</td>
-            <td>{product.brand}</td>
-            <td className="admin__table__number">{formatCurrency(product.price)}</td>
-            <td className="admin__table__number">{product.sale_price !== null ? formatCurrency(product.sale_price) : "None"}</td>
-            <td className="admin__table__number">{product.stock}</td>
+            <td className="admin__table__product-category">{product.category || "—"}</td>
+            <td className="admin__table__product-brand">{product.brand || "—"}</td>
+            <td className="admin__table__number admin__table__price">{formatCurrency(product.price)}</td>
+            <td className="admin__table__number admin__table__sale-cell">
+                {product.sale_price !== null ? (
+                    <span className="admin__table__sale-price">{formatCurrency(product.sale_price)}</span>
+                ) : (
+                    <span className="admin__table__sale-none">—</span>
+                )}
+            </td>
+            <td className="admin__table__stock-cell">
+                <span
+                    className={`admin__table__stock-pill ${
+                        isOutOfStock ? "admin__table__stock-pill--empty" : "admin__table__stock-pill--available"
+                    }`}
+                >
+                    <span className="admin__table__stock-indicator" aria-hidden="true" />
+                    <strong>{product.stock}</strong>
+                    <span>{tx(isOutOfStock ? "Out of stock" : "In stock")}</span>
+                </span>
+            </td>
             <td>
                 <div className="admin__table__actions">
                     <button

@@ -87,6 +87,20 @@ describe("GuestOrderLookupPage", () => {
         expect(window.location.search).toBe("");
     });
 
+    it("looks up a guest order using a UUIDv7 reference", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000001";
+        render(
+            <MemoryRouter initialEntries={[`/guest-order?orderId=${publicId}`]}>
+                <LocaleProvider><GuestOrderLookupPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        fireEvent.change(screen.getByLabelText("Access token"), { target: { value: "private-token" } });
+        fireEvent.click(screen.getByRole("button", { name: "Find order" }));
+
+        await waitFor(() => expect(lookupGuestOrder).toHaveBeenCalledWith(publicId, "private-token"));
+    });
+
     it("restores the guest capability through email OTP and uses it for order lookup", async () => {
         verifyGuestOrderAccessRecovery.mockResolvedValue({ guestOrderToken: "recovered-token" });
         render(

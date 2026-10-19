@@ -22,6 +22,7 @@ import type { DashboardAvailability } from "../utils/dashboardAvailability";
 import { ORDER_STATUS } from "../../orders/orderStatus";
 import type { AdminAnalyticsSummary } from "../types";
 import { useAdminDashboardCopy } from "../../../hooks/useAdminDashboardCopy";
+import { useLocale } from "../../../context/LocaleContext";
 
 type ChartDatum = {
     name: string;
@@ -126,6 +127,12 @@ const AdminDashboardCharts = ({
     rangeLabel,
 }: AdminDashboardChartsProps) => {
     const tx = useAdminDashboardCopy();
+    const { locale } = useLocale();
+    const formatCompactCurrency = (value: number) =>
+        `${new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US", {
+            notation: "compact",
+            maximumFractionDigits: 1,
+        }).format(value)} ₫`;
 
     return (
         <div className="admin__dashboard__secondary">
@@ -192,7 +199,12 @@ const AdminDashboardCharts = ({
                                 <AreaChart data={analyticsTrend}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                     <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                                    <YAxis tickLine={false} axisLine={false} />
+                                    <YAxis
+                                        tickLine={false}
+                                        axisLine={false}
+                                        width={72}
+                                        tickFormatter={(value) => formatCompactCurrency(Number(value || 0))}
+                                    />
                                     <Tooltip
                                         formatter={(value, name) => [
                                             name === "revenue" ? formatCurrency(Number(value || 0)) : Number(value || 0),

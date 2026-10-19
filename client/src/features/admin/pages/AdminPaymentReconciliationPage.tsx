@@ -368,7 +368,6 @@ const AdminPaymentReconciliationPage = () => {
                 <meta name="description" content={tx("Review and reconcile PayOS and COD payment ledger records.")} />
             </Helmet>
             <main className="admin__page admin__page--payments">
-                <PaymentAttemptExceptions />
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">{tx("Finance operations")}</span>
@@ -507,6 +506,7 @@ const AdminPaymentReconciliationPage = () => {
                         </>
                     )}
                 </section>
+                <PaymentAttemptExceptions />
             </main>
         </AdminLayout>
     );

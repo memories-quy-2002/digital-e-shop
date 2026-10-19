@@ -1,7 +1,9 @@
 import type { PaymentMethod, PayOSPaymentMethod } from "./constants";
+import type { PublicIdentifier } from "../../types/publicIdentifier";
 
 export type CustomerOrder = {
     id: number;
+    public_id?: string;
     date_added: string;
     delivered_at?: string | null;
     return_eligible_until?: string | null;
@@ -127,6 +129,7 @@ export type GuestOrderItem = {
 
 export type GuestOrderDetail = {
     id: number;
+    public_id?: string;
     date_added: string;
     delivered_at?: string | null;
     return_eligible_until?: string | null;
@@ -147,8 +150,8 @@ export type GuestOrderDetail = {
 };
 
 export type GuestPurchaseResponse = {
-    orderId: number;
-    order: { id: number; date_added: string; total_price?: number; discount?: number };
+    orderId: PublicIdentifier;
+    order: { id: number; public_id?: string; date_added: string; total_price?: number; discount?: number };
     guestOrderToken: string;
     paymentMethod: GuestPaymentMethod;
 };
@@ -218,7 +221,7 @@ const normalizeOptionalSalePrice = (value: unknown) => {
     }
 
     const numericValue = Number(value);
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
         return null;
     }
 

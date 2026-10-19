@@ -41,6 +41,7 @@ import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
 import GuestOrderAccessCard from "../components/GuestOrderAccessCard";
 import { fetchCustomerShipment, fetchGuestShipment } from "../../shipping/api";
 import type { ShipmentSummary } from "../../shipping/types";
+import { parseOrderIdentifier } from "../identifiers";
 import {
     clearPendingCheckout,
     readCheckoutSuccess,
@@ -57,7 +58,8 @@ const guestOrderToCheckoutSuccess = (order: GuestOrderDetail, guestOrderToken: s
     const subtotal = order.items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
 
     return {
-        orderId: String(order.id),
+        orderId: order.public_id ?? String(order.id),
+        internalOrderId: order.id,
         totalPrice,
         discount,
         subtotal,
@@ -216,7 +218,7 @@ const CheckoutSuccessPage = () => {
     }, [paymentAttemptId]);
 
     useEffect(() => {
-        const orderId = Number(orderData?.orderId);
+        const orderId = orderData?.orderId ? parseOrderIdentifier(orderData.orderId) : null;
         const hasStoredContactDetails = Boolean(
             orderData?.email
             || orderData?.name
@@ -231,8 +233,7 @@ const CheckoutSuccessPage = () => {
             || routeData
             || !orderData?.guestOrderToken
             || hasStoredContactDetails
-            || !Number.isSafeInteger(orderId)
-            || orderId <= 0
+            || orderId === null
         ) {
             return;
         }
@@ -319,14 +320,14 @@ const CheckoutSuccessPage = () => {
     const combinedData = payOSOrderCode && !paymentAttemptId ? null : routeData || polledOrder || orderData;
     useEffect(() => {
         let active = true;
-        const id = Number(combinedData?.orderId);
+        const id = combinedData?.internalOrderId ?? (combinedData?.orderId ? Number(combinedData.orderId) : NaN);
         if (!Number.isSafeInteger(id) || id <= 0) return () => { active = false; };
         const load = guestOrderToken
             ? fetchGuestShipment(id, guestOrderToken)
             : userData?.id ? fetchCustomerShipment(id) : Promise.resolve(null);
         void load.then((result) => { if (active) setShipment(result); }).catch(() => { if (active) setShipment(null); });
         return () => { active = false; };
-    }, [combinedData?.orderId, guestOrderToken, userData?.id]);
+    }, [combinedData?.internalOrderId, combinedData?.orderId, guestOrderToken, userData?.id]);
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
         combinedData?.paymentMethod === PAYMENT_METHOD.CASH
@@ -479,7 +480,7 @@ const CheckoutSuccessPage = () => {
                         </div>
                     ) : null}
                     {confirmed && !userData?.id && paymentAttempt?.orderId && guestOrderToken ? (
-                        <GuestOrderAccessCard orderId={String(paymentAttempt.orderId)} guestOrderToken={guestOrderToken} />
+                        <GuestOrderAccessCard orderId={polledOrder?.orderId || String(paymentAttempt.orderId)} guestOrderToken={guestOrderToken} />
                     ) : null}
                     {attemptCancelNotice === "orderExists" ? <p className="success__attempt-message" role="alert">{t("checkout.attemptCancelOrderExists")} <Link to={userData?.id ? CUSTOMER_ROUTES.orders : "/guest-order"}>{t("checkout.attemptOpenOrders")}</Link></p> : null}
                     {attemptCancelNotice === "error" ? <p className="success__attempt-message" role="alert">{t("checkout.attemptCancelError")}</p> : null}

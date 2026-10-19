@@ -1,11 +1,21 @@
 import { z } from "zod";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import { SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "./support.types";
+
+const resourceId = z.union([z.string(), z.number()]).transform((value, context) => {
+    try {
+        return parseResourceId(value);
+    } catch {
+        context.addIssue({ code: "custom", message: "A valid public ID or positive integer ID is required." });
+        return z.NEVER;
+    }
+});
 
 export const supportTicketCreateSchema = z.object({
     subject: z.string().trim().min(3).max(160),
     message: z.string().trim().min(1).max(5000),
     category: z.string().trim().min(1).max(32).optional(),
-    orderId: z.coerce.number().int().positive().optional(),
+    orderId: resourceId.optional(),
 });
 
 export const supportTicketQuerySchema = z.object({

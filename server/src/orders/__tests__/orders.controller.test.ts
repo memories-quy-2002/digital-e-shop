@@ -45,6 +45,21 @@ describe("OrdersController", () => {
         await expect(controller.getOrderDetail("42", adminRequest())).resolves.toMatchObject({ order: { id: 42 } });
     });
 
+    it("accepts a public UUID while preserving customer ownership checks", async () => {
+        const publicId = "0199fbb1-1234-7123-8123-123456789abc";
+        const { controller, ordersService } = buildController();
+        vi.mocked(ordersService.getOrderDetail).mockResolvedValue({ id: 42, public_id: publicId, user_id: "owner-1", items: [] } as never);
+        await expect(controller.getOrderDetail(publicId, customerRequest("attacker-1"))).rejects.toMatchObject({ status: 404 });
+        expect(ordersService.getOrderDetail).toHaveBeenCalledWith(publicId);
+        await expect(controller.getOrderDetail(publicId, customerRequest("owner-1"))).resolves.toMatchObject({ order: { id: 42, public_id: publicId } });
+    });
+
+    it("rejects malformed identifiers before querying the order service", async () => {
+        const { controller, ordersService } = buildController();
+        await expect(controller.getOrderDetail("42 OR 1=1", customerRequest("owner-1"))).rejects.toMatchObject({ status: 400 });
+        expect(ordersService.getOrderDetail).not.toHaveBeenCalled();
+    });
+
     it("passes the authenticated admin actor to the order status transition", async () => {
         const { controller, ordersService } = buildController();
         vi.mocked(ordersService.changeOrderStatus).mockResolvedValue({ id: 41, status: 1 } as never);

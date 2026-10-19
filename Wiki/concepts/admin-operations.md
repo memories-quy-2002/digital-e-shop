@@ -13,6 +13,12 @@ update. The audit page provides bounded search by actor, action, record, and
 reason. Audit metadata contains operational fields only; user access snapshots
 include role and status, not customer profile data.
 
+Product stock reductions also respect pending checkout reservations: the Admin
+cannot set physical stock below the total quantity held by unexpired pending
+checkouts. Product creation and product-editor stock movement records use the
+authenticated admin ID as the actor so the inventory history can identify who
+made the change.
+
 Alert read state is scoped to the current admin. Alert ownership and resolution
 are shared: an admin claims an open alert, may release their own claim, and
 must own a claim to resolve it. Any admin can reopen a resolved alert. Active

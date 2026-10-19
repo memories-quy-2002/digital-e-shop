@@ -85,7 +85,7 @@ const AdminSupportPage = () => {
     const handleUpdate = async (ticket: SupportTicket, input: { status?: SupportStatus; priority?: SupportPriority }) => {
         try {
             setUpdatingId(ticket.id);
-            const updated = await updateSupportTicket(ticket.id, input);
+            const updated = await updateSupportTicket(ticket.public_id ?? ticket.id, input);
             setTickets((current) => current.map((item) => (item.id === updated.id ? updated : item)));
             addToast("Support", `Ticket #${ticket.id} updated.`);
         } catch {

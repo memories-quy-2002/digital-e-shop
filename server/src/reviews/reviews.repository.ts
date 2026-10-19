@@ -4,6 +4,7 @@ const prisma = require("#src/database/prisma/client");
 import type { CountRow, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { RatingSummaryRow, ReviewRow } from "./reviews.types";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { withTransaction } from "../database/transaction";
 
 const toUtcIsoSecondString = (value: Date) => value.toISOString().replace(/\.\d{3}Z$/, ".000Z");
 
@@ -28,6 +29,29 @@ export class ReviewsRepository {
 
     getReviewByUserAndProduct(uid: string, pid: number, callback: QueryCallback<ReviewRow[]>) {
         pool.query("SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1", [uid, pid], callback);
+    }
+
+    async saveReviewForUser(uid: string, pid: number, rating: number, reviewText: string): Promise<boolean> {
+        return withTransaction(async (tx) => {
+            // Serialize a user's review writes so concurrent first submissions cannot both insert.
+            await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [uid]);
+            const existingRows = await tx.query<Array<{ id: number }>>(
+                "SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1",
+                [uid, pid],
+            );
+            if (existingRows.length > 0) {
+                await tx.query(
+                    "UPDATE reviews SET rating = ?, review_text = ?, created_at = UTC_TIMESTAMP() WHERE user_id = ? AND product_id = ?",
+                    [rating, reviewText, uid, pid],
+                );
+                return false;
+            }
+            await tx.query(
+                "INSERT INTO reviews (user_id, product_id, rating, review_text, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())",
+                [uid, pid, rating, reviewText],
+            );
+            return true;
+        });
     }
 
     addReviewByUserId(uid: string, pid: number, rating: number, reviewText: string, callback: QueryCallback<UpdateResult>) {

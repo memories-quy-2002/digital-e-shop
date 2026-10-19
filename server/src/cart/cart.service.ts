@@ -27,7 +27,7 @@ const normalizeOptionalSalePrice = (value: unknown): number | null => {
     }
 
     const numericValue = Number(value);
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
         return null;
     }
 

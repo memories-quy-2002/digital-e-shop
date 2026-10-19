@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
-import { createSupportTicket, fetchSupportTickets } from "./api";
+import { createSupportTicket, fetchSupportTickets, updateSupportTicket } from "./api";
 
 vi.mock("../../lib/http", () => ({
     default: {
         get: vi.fn(),
         post: vi.fn(),
+        patch: vi.fn(),
     },
 }));
 
@@ -33,5 +34,12 @@ describe("support API", () => {
 
         await expect(fetchSupportTickets()).resolves.toEqual([{ id: 1, status: "RESOLVED" }]);
         expect(http.get).toHaveBeenCalledWith("/api/support/tickets");
+    });
+
+    it("updates support tickets by public identifier", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000003";
+        vi.mocked(http.patch).mockResolvedValue({ data: { ticket: { id: 7, public_id: publicId, status: "RESOLVED" } } } as never);
+        await expect(updateSupportTicket(publicId, { status: "RESOLVED" })).resolves.toMatchObject({ id: 7, public_id: publicId });
+        expect(http.patch).toHaveBeenCalledWith(`/api/support/tickets/${publicId}`, { status: "RESOLVED" });
     });
 });

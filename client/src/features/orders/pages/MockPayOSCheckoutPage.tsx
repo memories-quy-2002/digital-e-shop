@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
 import Layout from "../../../components/layout/Layout";
-import { confirmMockPayOSPayment } from "../api";
+import { cancelGuestPaymentAttempt, cancelPaymentAttempt, confirmMockPayOSPayment } from "../api";
+import { clearPendingCheckout } from "./checkoutSuccessStorage";
+import { clearCheckoutDraft } from "../checkoutDraft";
+import { useAuth } from "../../../context/AuthContext";
 import { formatCurrency } from "../../../utils/currency";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
@@ -18,11 +21,13 @@ const MockPayOSCheckoutPage = () => {
     const { mockPayOS } = useCustomerJourneyCopy();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { userData, loading: authLoading } = useAuth();
     const orderCode = parsePositiveInteger(searchParams.get("payos_order_code"));
     const amount = parsePositiveInteger(searchParams.get("amount"));
     const paymentLinkId = searchParams.get("payment_link_id")?.trim() || "";
     const attemptId = searchParams.get("payment_attempt_id")?.trim() || "";
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
     const [error, setError] = useState("");
 
     const isValidCheckout = Boolean(
@@ -37,11 +42,28 @@ const MockPayOSCheckoutPage = () => {
             setIsSubmitting(true);
             setError("");
             await confirmMockPayOSPayment({ paymentAttemptId: attemptId, orderCode, paymentLinkId, amount });
+            clearCheckoutDraft();
             navigate(`/checkout-success?payment_provider=payos&payment_attempt_id=${encodeURIComponent(attemptId)}`, { replace: true });
         } catch (requestError: unknown) {
             setError(getApiErrorMessage(requestError, mockPayOS.errorFallback));
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleCancel = async () => {
+        if (!isValidCheckout || authLoading) return;
+        try {
+            setIsCancelling(true);
+            setError("");
+            if (userData?.id) await cancelPaymentAttempt(attemptId);
+            else await cancelGuestPaymentAttempt(attemptId);
+            clearPendingCheckout();
+            navigate("/cart?payment=cancelled", { replace: true });
+        } catch (requestError: unknown) {
+            setError(getApiErrorMessage(requestError, mockPayOS.errorFallback));
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -97,7 +119,9 @@ const MockPayOSCheckoutPage = () => {
                                     <CheckCircleIcon size={18} />
                                     {isSubmitting ? mockPayOS.confirming : mockPayOS.simulateSuccess}
                                 </button>
-                                <Link to="/cart?payment=cancelled" className="mock-payos__cancel">{mockPayOS.cancel}</Link>
+                                <button type="button" className="mock-payos__cancel" onClick={() => void handleCancel()} disabled={isCancelling || authLoading}>
+                                    {isCancelling ? mockPayOS.cancelling : mockPayOS.cancel}
+                                </button>
                             </div>
                         </>
                     )}

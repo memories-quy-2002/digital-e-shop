@@ -45,6 +45,8 @@
     ],
     "components": {
         "schemas": {
+            "PublicResourceId": {"type":"string","format":"uuid","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$","description":"UUID v7 public reference. Identifies the resource; does not grant access."},
+            "PublicResourceReference": {"oneOf":[{"$ref":"#/components/schemas/PublicResourceId"},{"type":"integer","minimum":1,"maximum":9007199254740991}],"description":"Prefer the UUID v7 public reference. Legacy positive numeric IDs remain accepted."},
             "SuccessMetadata": {
                 "type": "object",
                 "required": ["success", "requestId"],
@@ -169,6 +171,7 @@
             "Order": {
                 "type": "object",
                 "properties": {
+                    "public_id": { "$ref": "#/components/schemas/PublicResourceId" },
                     "id": { "type": "integer" },
                     "user_id": { "type": "string" },
                     "date_added": { "type": "string", "format": "date-time" },
@@ -285,6 +288,7 @@
             "SupportTicket": {
                 "type": "object",
                 "properties": {
+                    "public_id": { "$ref": "#/components/schemas/PublicResourceId" },
                     "id": { "type": "integer" },
                     "user_id": { "type": "string" },
                     "order_id": { "type": "integer", "nullable": true },
@@ -301,6 +305,7 @@
             "AfterSalesRequest": {
                 "type": "object",
                 "properties": {
+                    "publicId": { "$ref": "#/components/schemas/PublicResourceId" },
                     "id": { "type": "integer" },
                     "orderId": { "type": "integer" },
                     "userId": { "type": "string", "nullable": true },
@@ -474,6 +479,57 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "/api/health/live": {
+            "get": {
+                "tags": ["Health"],
+                "summary": "API liveness probe",
+                "description": "Confirms that the API process is responding. It does not check dependencies.",
+                "responses": {
+                    "200": {
+                        "description": "API process is responding",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": { "type": "string", "example": "ok" },
+                                        "timestamp": { "type": "string", "format": "date-time" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/health/ready": {
+            "get": {
+                "tags": ["Health"],
+                "summary": "API readiness probe",
+                "description": "Checks required MySQL connectivity. Returns 503 when the database is unavailable.",
+                "responses": {
+                    "200": {
+                        "description": "Required dependencies are ready",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": { "type": "string", "example": "ok" },
+                                        "timestamp": { "type": "string", "format": "date-time" },
+                                        "checks": {
+                                            "type": "object",
+                                            "properties": { "database": { "type": "string", "example": "ok" } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": { "$ref": "#/components/responses/Error" }
                 }
             }
         },
@@ -1649,7 +1705,7 @@
             }
         },
         "/api/orders/{oid}": {
-            "parameters": [{ "name": "oid", "in": "path", "required": true, "schema": { "type": "integer" } }],
+            "parameters": [{ "name": "oid", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "get": {
                 "tags": ["Orders"],
                 "summary": "Get an order detail",
@@ -1720,7 +1776,7 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "orderId": { "type": "integer" },
+                                        "orderId": {"type": "integer"},
                                         "order": { "$ref": "#/components/schemas/Order" },
                                         "paymentMethod": { "type": "string", "enum": ["cash", "payos"] },
                                         "msg": { "type": "string" }
@@ -1735,7 +1791,7 @@
             }
         },
         "/api/orders/status/{oid}": {
-            "parameters": [{ "name": "oid", "in": "path", "required": true, "schema": { "type": "integer" } }],
+            "parameters": [{ "name": "oid", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "post": {
                 "tags": ["Orders"],
                 "summary": "Update an order's status (admin)",
@@ -1801,7 +1857,7 @@
 
         "/api/orders/{oid}/cancel": {
             "parameters": [
-                { "name": "oid", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+                { "name": "oid", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }
             ],
             "post": {
                 "tags": ["Orders"],
@@ -1896,7 +1952,7 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "orderId": { "type": "integer" },
+                                        "orderId": {"type": "integer"},
                                         "order": { "$ref": "#/components/schemas/Order" },
                                         "guestOrderToken": { "type": "string" },
                                         "paymentMethod": { "type": "string", "enum": ["cash", "payos"] },
@@ -1932,7 +1988,7 @@
                                 "type": "object",
                                 "required": ["orderId", "guestOrderToken"],
                                 "properties": {
-                                    "orderId": { "type": "integer", "minimum": 1 },
+                                    "orderId": { "$ref": "#/components/schemas/PublicResourceReference" },
                                     "guestOrderToken": { "type": "string", "minLength": 1, "maxLength": 256 }
                                 }
                             }
@@ -2064,7 +2120,7 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "orderId": { "type": "integer" },
+                                        "orderId": {"type": "integer"},
                                         "order": { "$ref": "#/components/schemas/Order" },
                                         "msg": { "type": "string" }
                                     }
@@ -2233,7 +2289,7 @@
                                         "received": { "type": "boolean" },
                                         "finalized": { "type": "boolean" },
                                         "outcome": { "type": "string", "enum": ["processed", "duplicate", "ignored", "mismatch", "retryable"] },
-                                        "orderId": { "type": "integer" },
+                                        "orderId": {"type": "integer"},
                                         "success": { "const": true },
                                         "requestId": { "type": "string" }
                                     }
@@ -2286,7 +2342,7 @@
                                     "subject": { "type": "string", "minLength": 3, "maxLength": 160 },
                                     "message": { "type": "string", "minLength": 1, "maxLength": 5000 },
                                     "category": { "type": "string", "maxLength": 32 },
-                                    "orderId": { "type": "integer", "minimum": 1 }
+                                    "orderId": { "$ref": "#/components/schemas/PublicResourceReference" }
                                 }
                             }
                         }
@@ -2312,7 +2368,7 @@
             }
         },
         "/api/support/tickets/{id}": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "patch": {
                 "tags": ["Support"],
                 "summary": "Update a support ticket",
@@ -2371,12 +2427,12 @@
                 "tags": ["After-sales"],
                 "summary": "Create a signed-in customer's return or warranty request",
                 "security": [{ "cookieAuth": [] }],
-                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "type": "integer" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "$ref": "#/components/schemas/PublicResourceReference" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
                 "responses": { "201": { "description": "Request created", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" }, "msg": { "type": "string" } } } } } }, "409": { "$ref": "#/components/responses/Error" } }
             }
         },
         "/api/after-sales/requests/{id}": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "get": {
                 "tags": ["After-sales"],
                 "summary": "Read one signed-in customer's after-sales request",
@@ -2389,7 +2445,7 @@
                 "tags": ["After-sales"],
                 "summary": "Create a guest return or warranty request",
                 "description": "The guest order token is accepted in the body and is never placed in a URL.",
-                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "guestOrderToken", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "type": "integer" }, "guestOrderToken": { "type": "string" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "guestOrderToken", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "$ref": "#/components/schemas/PublicResourceReference" }, "guestOrderToken": { "type": "string" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
                 "responses": { "201": { "description": "Request created", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" } } } } } }, "404": { "$ref": "#/components/responses/Error" } }
             }
         },
@@ -2402,7 +2458,7 @@
             }
         },
         "/api/orders/guest/after-sales/requests/{id}/lookup": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "post": {
                 "tags": ["After-sales"],
                 "summary": "Read one guest after-sales request",
@@ -2424,7 +2480,7 @@
             }
         },
         "/api/admin/after-sales/requests/{id}": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "get": {
                 "tags": ["After-sales"],
                 "summary": "Read an admin after-sales request",
@@ -2433,7 +2489,7 @@
             }
         },
         "/api/admin/after-sales/requests/{id}/status": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "patch": {
                 "tags": ["After-sales"],
                 "summary": "Transition an after-sales request",
@@ -2443,7 +2499,7 @@
             }
         },
         "/api/admin/after-sales/requests/{id}/refund": {
-            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }],
             "post": {
                 "tags": ["After-sales"],
                 "summary": "Retired refund route; use evidence-backed manual refund",
@@ -3040,7 +3096,7 @@
             "post": { "tags": ["Payments"], "summary": "Record COD remittance", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Remittance recorded" } } }
         },
         "/api/admin/after-sales/requests/{id}/manual-refund": {
-            "post": { "tags": ["After-sales"], "summary": "Record evidence-backed manual refund", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Refund recorded" } } }
+            "post": { "tags": ["After-sales"], "summary": "Record evidence-backed manual refund", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/PublicResourceReference" } }], "responses": { "201": { "description": "Refund recorded" } } }
         },
         "/api/admin/email-operations": {
             "get": { "tags": ["Operations"], "summary": "List transactional email events", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Masked email operation records" } } }
@@ -3242,10 +3298,7 @@
                                     "email"
                                 ],
                                 "properties": {
-                                    "orderId": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                    },
+                                    "orderId": { "$ref": "#/components/schemas/PublicResourceReference" },
                                     "email": {
                                         "type": "string",
                                         "format": "email",
@@ -3286,10 +3339,7 @@
                                     "code"
                                 ],
                                 "properties": {
-                                    "orderId": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                    },
+                                    "orderId": { "$ref": "#/components/schemas/PublicResourceReference" },
                                     "email": {
                                         "type": "string",
                                         "format": "email",

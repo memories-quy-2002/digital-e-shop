@@ -1,4 +1,5 @@
 import { Injectable, Optional } from "@nestjs/common";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
 import { getReturnDeadline } from "../after-sales/after-sales.policy";
@@ -48,7 +49,7 @@ const roundCurrency = (value: number): number => Math.round(value + Number.EPSIL
 const normalizeSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") return null;
     const numberValue = Number(value);
-    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
+    return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : null;
 };
 
 type CreateOrderFromCartInputBase = {
@@ -132,7 +133,7 @@ export class NestOrdersService {
         });
     }
 
-    private getOrderSummary(orderId: number): Promise<OrderSummaryRow> {
+    private getOrderSummary(orderId: string | number): Promise<OrderSummaryRow> {
         return new Promise((resolve, reject) => {
             this.ordersRepository.getOrderById(orderId, (error: Error | null, rows: OrderSummaryRow[]) => {
                 if (error) return reject(error);
@@ -142,7 +143,15 @@ export class NestOrdersService {
         });
     }
 
-    async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<OrderSummaryRow> {
+    /** Resolves external references before entering workflows that require numeric foreign keys. */
+    async resolveOrderId(reference: string | number): Promise<number> {
+        const id = parseResourceId(reference);
+        if (typeof id === "number") return id;
+        return (await this.getOrderSummary(id)).id;
+    }
+
+    async cancelOrder(reference: string | number, actorId: string, admin = false, reason?: string): Promise<OrderSummaryRow> {
+        const orderId = await this.resolveOrderId(reference);
         const result = await this.ordersCancellationService.cancelOrder(orderId, actorId, admin, reason);
         if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.CANCELED);
         return this.getOrderSummary(orderId);
@@ -758,9 +767,14 @@ export class NestOrdersService {
         return { order, guestOrderToken };
     }
 
-    async lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
+    async lookupGuestOrder(orderId: string | number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
         const normalizedToken = String(guestOrderToken || "").trim();
-        if (!Number.isSafeInteger(orderId) || orderId <= 0 || !normalizedToken) {
+        try {
+            orderId = parseResourceId(orderId);
+        } catch {
+            throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
+        }
+        if (!normalizedToken) {
             throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
@@ -774,13 +788,14 @@ export class NestOrdersService {
             throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
-        const order = await this.getOrderDetail(orderId);
+        const order = await this.getOrderDetail(identity.id);
         if (!order || order.user_id !== null) {
             throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
         return {
             id: order.id,
+            public_id: order.public_id,
             date_added: order.date_added,
             guest_email: identity.guest_email,
             guest_name: identity.guest_name,
@@ -1247,7 +1262,7 @@ export class NestOrdersService {
         });
     }
 
-    getOrderDetail(orderId: number): Promise<(OrderDetail & { timeline?: unknown }) | null> {
+    getOrderDetail(orderId: string | number): Promise<(OrderDetail & { timeline?: unknown }) | null> {
         return new Promise((resolve, reject) => {
             this.ordersRepository.getOrderDetail(orderId, (err: Error | null, results: OrderDetailRow[]) => {
                 if (err) return reject(err);
@@ -1256,6 +1271,7 @@ export class NestOrdersService {
                 const first = results[0];
                 const order: OrderDetail = {
                     id: first.id,
+                    public_id: first.public_id,
                     date_added: first.date_added,
                     delivered_at: first.delivered_at || null,
                     return_eligible_until: first.delivered_at ? getReturnDeadline(first.delivered_at) : null,
@@ -1289,7 +1305,7 @@ export class NestOrdersService {
                                 : Number(row.warranty_months),
                             specifications: row.specifications,
                             price: Number(row.price) || 0,
-                            sale_price: row.sale_price === null ? null : Number(row.sale_price) || null,
+                            sale_price: row.sale_price === null ? null : Number(row.sale_price),
                             stock: Number(row.stock) || 0,
                             main_image: row.main_image,
                             quantity: Number(row.quantity) || 0,
@@ -1298,18 +1314,19 @@ export class NestOrdersService {
                 };
 
                 this.orderTimelineService
-                    .getTimeline(orderId, order)
+                    .getTimeline(first.id, order)
                     .then((timeline: OrderTimelineRow[]) => resolve({ ...order, timeline }))
                     .catch(reject);
             });
         });
     }
 
-    changeOrderStatus(
-        orderId: number,
+    async changeOrderStatus(
+        reference: string | number,
         status: number,
         actorId: string | number | null = null,
     ): Promise<OrderSummaryRow> {
+        const orderId = await this.resolveOrderId(reference);
         if (Number(status) === ORDER_STATUS.CANCELED) {
             return this.cancelOrder(orderId, String(actorId || "admin"), true);
         }

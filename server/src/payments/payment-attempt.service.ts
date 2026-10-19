@@ -53,7 +53,7 @@ function sanitizeSnapshot(snapshot: PaymentAttemptClaimInput["snapshot"]): Payme
         if (!Number.isSafeInteger(item.productId) || item.productId <= 0 || !Number.isSafeInteger(item.quantity) || item.quantity <= 0) {
             throw new ConflictException("Invalid payment attempt item snapshot");
         }
-        assertSafeVnd(item.unitPriceVnd, "Item price");
+        assertSafeVnd(item.unitPriceVnd, "Item price", true);
         return { productId: item.productId, name: String(item.name).slice(0, 255), quantity: item.quantity, unitPriceVnd: item.unitPriceVnd };
     });
     const delivery = snapshot.delivery
