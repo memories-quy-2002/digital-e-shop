@@ -95,10 +95,19 @@ describe("ContactUsPage", () => {
 
         await waitFor(() => expect(createSupportTicket).toHaveBeenCalledTimes(1));
         expect(sessionStorage.getItem("digital-e:contact-draft:v1")).toBeNull();
+        expect(screen.getByRole("status")).toHaveTextContent(
+            "Thanks for reaching out. Your request has been sent to the Digital-E support team.",
+        );
     });
 
     it("renders direct contact channels as actionable links", () => {
         renderPage();
+
+        const main = screen.getByRole("main");
+        const sections = Array.from(main.querySelectorAll("section"));
+        expect(sections.findIndex((section) => section.classList.contains("contact__channels"))).toBeLessThan(
+            sections.findIndex((section) => section.classList.contains("contact__grid")),
+        );
 
         expect(screen.getByRole("link", { name: "contact@digital-e.com" })).toHaveAttribute(
             "href",
@@ -131,6 +140,9 @@ describe("ContactUsPage", () => {
                 "We couldn't send your request",
                 "Please try again, or use the email or phone options on this page.",
             ),
+        );
+        expect(screen.getByRole("alert")).toHaveTextContent(
+            "Please try again, or use the email or phone options on this page.",
         );
     });
 });

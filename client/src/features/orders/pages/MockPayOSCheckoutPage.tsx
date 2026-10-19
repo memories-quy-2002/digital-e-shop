@@ -6,6 +6,7 @@ import Layout from "../../../components/layout/Layout";
 import { confirmMockPayOSPayment } from "../api";
 import { formatCurrency } from "../../../utils/currency";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import "../../../styles/features/orders/_mock-payos.scss";
 
 const parsePositiveInteger = (value: string | null) => {
@@ -14,6 +15,7 @@ const parsePositiveInteger = (value: string | null) => {
 };
 
 const MockPayOSCheckoutPage = () => {
+    const { mockPayOS } = useCustomerJourneyCopy();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const orderCode = parsePositiveInteger(searchParams.get("payos_order_code"));
@@ -34,10 +36,10 @@ const MockPayOSCheckoutPage = () => {
         try {
             setIsSubmitting(true);
             setError("");
-            await confirmMockPayOSPayment({ orderCode, paymentLinkId, amount });
+            await confirmMockPayOSPayment({ paymentAttemptId: attemptId, orderCode, paymentLinkId, amount });
             navigate(`/checkout-success?payment_provider=payos&payment_attempt_id=${encodeURIComponent(attemptId)}`, { replace: true });
         } catch (requestError: unknown) {
-            setError(getApiErrorMessage(requestError, "The simulated payment could not be confirmed. Please start checkout again."));
+            setError(getApiErrorMessage(requestError, mockPayOS.errorFallback));
         } finally {
             setIsSubmitting(false);
         }
@@ -46,8 +48,8 @@ const MockPayOSCheckoutPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>PayOS test checkout | Digital-E</title>
-                <meta name="description" content="Complete a local PayOS payment simulation for Digital-E development." />
+                <title>{mockPayOS.title}</title>
+                <meta name="description" content={mockPayOS.metaDescription} />
             </Helmet>
             <main className="mock-payos">
                 <section className="mock-payos__shell" aria-labelledby="mock-payos-title">
@@ -55,47 +57,47 @@ const MockPayOSCheckoutPage = () => {
                         <span className="mock-payos__brand-mark"><CashStackIcon size={22} /></span>
                         <div>
                             <strong>PayOS</strong>
-                            <span>Local payment simulator</span>
+                            <span>{mockPayOS.localSimulator}</span>
                         </div>
                     </div>
 
                     {!isValidCheckout ? (
                         <div className="mock-payos__alert" role="alert">
-                            This simulated checkout link is invalid or has expired. Please return to checkout and try again.
+                            {mockPayOS.invalidLink}
                         </div>
                     ) : (
                         <>
                             <div className="mock-payos__heading">
-                                <span className="mock-payos__eyebrow">Development payment flow</span>
-                                <h1 id="mock-payos-title">Confirm your PayOS payment</h1>
-                                <p>This is a local simulator. No money will be transferred and no real PayOS account is charged.</p>
+                                <span className="mock-payos__eyebrow">{mockPayOS.developmentFlow}</span>
+                                <h1 id="mock-payos-title">{mockPayOS.heading}</h1>
+                                <p>{mockPayOS.description}</p>
                             </div>
 
-                            <div className="mock-payos__amount" aria-label="Payment amount">
-                                <span>Total to pay</span>
+                            <div className="mock-payos__amount" aria-label={mockPayOS.amountAria}>
+                                <span>{mockPayOS.totalToPay}</span>
                                 <strong>{formatCurrency(amount)}</strong>
-                                <small>Vietnamese dong · VND</small>
+                                <small>{mockPayOS.currency}</small>
                             </div>
 
                             <dl className="mock-payos__details">
-                                <div><dt>Order code</dt><dd>{orderCode}</dd></div>
-                                <div><dt>Payment link</dt><dd>{paymentLinkId}</dd></div>
-                                <div><dt>Environment</dt><dd>Mock / local only</dd></div>
+                                <div><dt>{mockPayOS.orderCode}</dt><dd>{orderCode}</dd></div>
+                                <div><dt>{mockPayOS.paymentLink}</dt><dd>{paymentLinkId}</dd></div>
+                                <div><dt>{mockPayOS.environment}</dt><dd>{mockPayOS.environmentValue}</dd></div>
                             </dl>
 
                             {error ? <div className="mock-payos__alert" role="alert">{error}</div> : null}
 
                             <div className="mock-payos__trust">
                                 <ShieldIcon size={18} />
-                                <span>The order remains pending until you explicitly confirm this simulated payment.</span>
+                                <span>{mockPayOS.confirmationPending}</span>
                             </div>
 
                             <div className="mock-payos__actions">
                                 <button type="button" className="mock-payos__confirm" onClick={() => void handleConfirm()} disabled={isSubmitting}>
                                     <CheckCircleIcon size={18} />
-                                    {isSubmitting ? "Confirming..." : "Simulate payment success"}
+                                    {isSubmitting ? mockPayOS.confirming : mockPayOS.simulateSuccess}
                                 </button>
-                                <Link to="/cart?payment=cancelled" className="mock-payos__cancel">Cancel and return to cart</Link>
+                                <Link to="/cart?payment=cancelled" className="mock-payos__cancel">{mockPayOS.cancel}</Link>
                             </div>
                         </>
                     )}

@@ -92,35 +92,51 @@
 
     &__switch {
         position: relative;
-        display: inline-grid;
-        place-items: center;
+        display: inline-block;
         flex: 0 0 auto;
-        width: 2.75rem;
-        min-width: 44px;
-        height: 2.75rem;
+        width: 52px;
+        min-width: 52px;
+        height: 44px;
         min-height: 44px;
-        padding: 0.18rem;
-        border: 1px solid var(--de-color-border-strong);
+        padding: 0;
+        border: 0;
         border-radius: 999px;
-        background: var(--de-color-surface-hover);
+        background: transparent;
         color: var(--de-color-text-muted);
         cursor: pointer;
-        transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast);
+        touch-action: manipulation;
+
+        &::before {
+            position: absolute;
+            top: 50%;
+            right: 2px;
+            left: 2px;
+            height: 26px;
+            border: 1px solid var(--de-color-border-strong);
+            border-radius: inherit;
+            background: var(--de-color-surface-hover);
+            content: "";
+            transform: translateY(-50%);
+            transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast);
+        }
 
         &.is-on {
-            border-color: var(--de-color-primary-emphasis);
-            background: var(--de-color-primary-emphasis);
-            color: var(--de-color-on-accent);
+            &::before {
+                border-color: var(--de-color-primary-emphasis);
+                background: var(--de-color-primary-emphasis);
+            }
         }
 
         &.is-unknown {
-            border-color: var(--de-color-border);
-            background: var(--de-color-surface-muted);
+            &::before {
+                border-color: var(--de-color-border);
+                background: var(--de-color-surface-muted);
+            }
         }
 
         &.is-unknown .product-alert-controls__thumb {
             opacity: 0.45;
-            transform: translateX(0.575rem);
+            left: 17px;
         }
 
         &:focus-visible {
@@ -135,17 +151,23 @@
     }
 
     &__thumb {
+        position: absolute;
+        z-index: 1;
+        top: 50%;
+        left: 6px;
         display: block;
-        width: 1.05rem;
-        height: 1.05rem;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        background: currentColor;
-        transform: translateX(0);
-        transition: transform var(--de-transition-fast);
+        background: var(--de-color-surface);
+        box-shadow: var(--de-shadow-sm);
+        transform: translateY(-50%);
+        transition: left var(--de-transition-fast), opacity var(--de-transition-fast);
     }
 
     &__switch.is-on &__thumb {
-        transform: translateX(1.15rem);
+        left: 28px;
+        background: var(--de-color-on-accent);
     }
 
     &__status,

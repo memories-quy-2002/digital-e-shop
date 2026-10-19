@@ -11,11 +11,22 @@ import { AdminPaymentAttemptsRepository } from "../payments/admin-payment-attemp
 import { AdminPaymentAttemptsService } from "../payments/admin-payment-attempts.service";
 import { OrdersModule } from "../orders/orders.module";
 import { PaymentsModule } from "../payments/payments.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [UsersModule, forwardRef(() => OrdersModule), PaymentsModule],
     controllers: [AdminEvidenceController, AdminCodSettlementsController, AdminPaymentAttemptsController],
-    providers: [EvidenceRepository, EvidenceService, CodSettlementRepository, CodSettlementService, AdminPaymentAttemptsRepository, AdminPaymentAttemptsService],
+    providers: [
+        AuthGuard,
+        RolesGuard,
+        EvidenceRepository,
+        EvidenceService,
+        CodSettlementRepository,
+        CodSettlementService,
+        AdminPaymentAttemptsRepository,
+        AdminPaymentAttemptsService,
+    ],
     exports: [EvidenceService, CodSettlementService],
 })
 export class FinancialOperationsModule {}

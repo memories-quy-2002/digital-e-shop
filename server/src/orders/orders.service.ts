@@ -1,6 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { getReturnDeadline } from "../after-sales/after-sales.policy";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 import { CURRENCY_CODE } from "#src/shared/constants/currency";
 import { env } from "#src/config/env.config";
@@ -30,6 +31,8 @@ import { createCheckoutError } from "./orders.errors";
 import { ShippingQuoteService, type QuoteCheckout } from "../shipping/shipping-quote.service";
 import { completeDeliveredOrder } from "./order-delivery";
 import { OrderEmailService } from "./order-email.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
+import { ShippingRepository } from "../shipping/shipping.repository";
 
 export { createCheckoutError } from "./orders.errors";
 
@@ -60,6 +63,7 @@ type CreateOrderFromCartInputBase = {
     };
     shippingAddress: string;
     paymentMethod: PaymentProviderName;
+    loyaltyPoints?: number;
     discountCode?: string;
 };
 
@@ -80,9 +84,11 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         private readonly ordersCancellationService: NestOrdersCancellationService,
+        private readonly shippingRepository: ShippingRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
         @Optional() private readonly shippingQuoteService?: ShippingQuoteService,
         @Optional() private readonly orderEmails?: OrderEmailService,
+        @Optional() private readonly loyaltyService?: LoyaltyService,
     ) {}
 
     private async createPaymentLedgerInTransaction(
@@ -309,6 +315,7 @@ export class NestOrdersService {
             shippingAddress,
             paymentMethod,
             discountCode,
+            loyaltyPoints = 0,
             guestQuote,
             deliveryCheckout,
         }: {
@@ -319,6 +326,7 @@ export class NestOrdersService {
             shippingAddress: string;
             paymentMethod: PaymentProviderName;
             discountCode?: string;
+            loyaltyPoints?: number;
             guestQuote?: CreateOrderFromCartInputBase["guestQuote"];
             deliveryCheckout?: QuoteCheckout;
         },
@@ -369,13 +377,36 @@ export class NestOrdersService {
 
         if (!this.shippingQuoteService || !deliveryCheckout) throw createCheckoutError("A delivery quote is required", HTTP_STATUS.CONFLICT);
         const delivery = await this.shippingQuoteService.validateQuote(tx, deliveryCheckout, transactionCart, transactionMerchandiseTotal, appliedDiscount);
-        await tx.query("UPDATE orders SET total_price = ?, discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?",
-            [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, JSON.stringify(delivery.pricing), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), orderId]);
+        if (loyaltyPoints > 0 && identity.kind !== "authenticated") throw createCheckoutError("Sign in to use loyalty points.", HTTP_STATUS.UNAUTHORIZED);
+        const loyaltyDiscount = loyaltyPoints > 0
+            ? await this.loyaltyService?.redeemOrderPoints(
+                tx,
+                identity.userId as string,
+                orderId,
+                loyaltyPoints,
+                delivery.pricing.itemsSubtotal,
+                delivery.pricing.merchandiseDiscount,
+            )
+            : 0;
+        if (loyaltyPoints > 0 && loyaltyDiscount === undefined) throw new Error("Loyalty point checkout is not configured");
+        const pointsDiscount = Number(loyaltyDiscount) || 0;
+        const pricingSnapshot = {
+            ...delivery.pricing,
+            promotionDiscount: delivery.pricing.merchandiseDiscount,
+            loyaltyDiscount: pointsDiscount,
+            loyaltyPointsRedeemed: loyaltyPoints,
+            merchandiseDiscount: delivery.pricing.merchandiseDiscount + pointsDiscount,
+            payableTotal: delivery.pricing.payableTotal - pointsDiscount,
+        };
+        appliedDiscount = pricingSnapshot.merchandiseDiscount;
+        await tx.query("UPDATE orders SET total_price = ?, discount = ?, loyalty_points_redeemed = ?, loyalty_discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?",
+            [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, appliedDiscount, loyaltyPoints, pointsDiscount, JSON.stringify(pricingSnapshot), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), orderId]);
         await this.createPaymentLedgerInTransaction(tx, {
             orderId,
             paymentMethod,
-            baseAmount: delivery.pricing.payableTotal,
+            baseAmount: pricingSnapshot.payableTotal,
         });
+        await this.shippingRepository.initializeOrderShipment(tx, orderId);
 
         return { orderId, appliedDiscount };
     }
@@ -530,6 +561,7 @@ export class NestOrdersService {
         shippingAddress,
         paymentMethod,
         discountCode,
+        loyaltyPoints = 0,
         deliveryCheckout,
     }: CreateOrderFromCartInput): Promise<{ id: number; date_added: string }> {
         const identity: OrderIdentity = suppliedIdentity || { kind: "authenticated", userId: uid as string };
@@ -556,6 +588,7 @@ export class NestOrdersService {
                 transactionCart: cart.cart,
                 transactionMerchandiseTotal: cart.merchandiseTotal,
                 requestedDiscount,
+                loyaltyPoints,
                 shippingAddress,
                 paymentMethod,
                 discountCode,
@@ -619,7 +652,7 @@ export class NestOrdersService {
 
     async makePurchase(
         uid: string,
-        { totalPrice, cart, discount, discountCode, shippingAddress, paymentMethod, shippingQuoteId, deliveryAddress, locale }: PurchasePayload,
+        { totalPrice, cart, discount, discountCode, loyaltyPoints = 0, shippingAddress, paymentMethod, shippingQuoteId, deliveryAddress, locale }: PurchasePayload,
     ) {
         logger.info({ uid, items: cart?.length, totalPrice, paymentMethod }, "[makePurchase] start");
 
@@ -665,6 +698,7 @@ export class NestOrdersService {
             authoritativeCart: checkoutValidation.cartItems,
             authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
             discount,
+            loyaltyPoints,
             discountCode,
             shippingAddress,
             paymentMethod,
@@ -761,6 +795,8 @@ export class NestOrdersService {
             payment_amount: order.payment_amount,
             payment_currency: order.payment_currency,
             payment_simulated: order.payment_simulated,
+            delivered_at: order.delivered_at || null,
+            return_eligible_until: order.return_eligible_until || null,
             items: order.items.map((item) => ({
                 orderItemId: item.id,
                 productId: item.productId,
@@ -906,7 +942,7 @@ export class NestOrdersService {
                 guestPhone: pending.guest_phone,
                 guestOrderTokenHash: pending.guest_order_token_hash,
                 totalPrice: Number(pending.total_price),
-                discount: Number(pending.discount),
+                discount: Number(pending.discount) + Number(pending.loyalty_discount || 0),
                 shippingAddress: pending.shipping_address,
                 paymentMethod: PAYMENT_PROVIDER.PAYOS,
                 currency: env.storeCurrency,
@@ -919,8 +955,10 @@ export class NestOrdersService {
                 }
             }
 
-            const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount), 0);
-            await tx.query("UPDATE orders SET pricing_snapshot = ?, delivery_snapshot = ? WHERE id = ?", [pending.pricing_snapshot ? JSON.stringify(typeof pending.pricing_snapshot === "string" ? JSON.parse(pending.pricing_snapshot) : pending.pricing_snapshot) : null, pending.delivery_snapshot ? JSON.stringify(typeof pending.delivery_snapshot === "string" ? JSON.parse(pending.delivery_snapshot) : pending.delivery_snapshot) : null, orderId]);
+            const loyaltyPointsRedeemed = Number(pending.loyalty_points_redeemed) || 0;
+            const loyaltyDiscount = Number(pending.loyalty_discount) || 0;
+            const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount) - loyaltyDiscount, 0);
+            await tx.query("UPDATE orders SET loyalty_points_redeemed = ?, loyalty_discount = ?, pricing_snapshot = ?, delivery_snapshot = ? WHERE id = ?", [loyaltyPointsRedeemed, loyaltyDiscount, pending.pricing_snapshot ? JSON.stringify(typeof pending.pricing_snapshot === "string" ? JSON.parse(pending.pricing_snapshot) : pending.pricing_snapshot) : null, pending.delivery_snapshot ? JSON.stringify(typeof pending.delivery_snapshot === "string" ? JSON.parse(pending.delivery_snapshot) : pending.delivery_snapshot) : null, orderId]);
             await this.createPaymentLedgerInTransaction(tx, {
                 orderId,
                 paymentMethod: PAYMENT_PROVIDER.PAYOS,
@@ -936,6 +974,8 @@ export class NestOrdersService {
                 },
                 status: PAYMENT_STATUS.PAID,
             });
+            await this.shippingRepository.initializeOrderShipment(tx, orderId);
+            if (this.loyaltyService) await this.loyaltyService.awardPaidOrder(tx, orderId);
 
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
             const orderItemSnapshots = authoritativeCart.map((item) =>
@@ -1090,7 +1130,7 @@ export class NestOrdersService {
             const orderResult = await this.ordersRepository.insertOrderInTransaction(tx, {
                 userId: pending.user_id, guestEmail: pending.guest_email, guestName: pending.guest_name,
                 guestPhone: pending.guest_phone, guestOrderTokenHash: pending.guest_order_token_hash,
-                totalPrice: Number(pending.total_price), discount: Number(pending.discount),
+                totalPrice: Number(pending.total_price), discount: Number(pending.discount) + Number(pending.loyalty_discount || 0),
                 shippingAddress: pending.shipping_address, paymentMethod: PAYMENT_PROVIDER.PAYOS, currency: env.storeCurrency,
             });
             const orderId = orderResult.insertId;
@@ -1098,8 +1138,12 @@ export class NestOrdersService {
                 const consumedRows = await this.promotionsRepository.consumePaidPromotionReservation(tx, pending.id, orderId);
                 if (consumedRows !== 1) throw createCheckoutError("Promotion reservation was already finalized.", HTTP_STATUS.CONFLICT);
             }
-            const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount), 0);
-            await tx.query("UPDATE orders SET pricing_snapshot = ?, delivery_snapshot = ?, contact_snapshot = ? WHERE id = ?", [
+            const loyaltyPointsRedeemed = Number(pending.loyalty_points_redeemed) || 0;
+            const loyaltyDiscount = Number(pending.loyalty_discount) || 0;
+            const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount) - loyaltyDiscount, 0);
+            await tx.query("UPDATE orders SET loyalty_points_redeemed = ?, loyalty_discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, contact_snapshot = ? WHERE id = ?", [
+                loyaltyPointsRedeemed,
+                loyaltyDiscount,
                 pending.pricing_snapshot ? JSON.stringify(typeof pending.pricing_snapshot === "string" ? JSON.parse(pending.pricing_snapshot) : pending.pricing_snapshot) : null,
                 pending.delivery_snapshot ? JSON.stringify(typeof pending.delivery_snapshot === "string" ? JSON.parse(pending.delivery_snapshot) : pending.delivery_snapshot) : null,
                 pending.contact_snapshot ? JSON.stringify(typeof pending.contact_snapshot === "string" ? JSON.parse(pending.contact_snapshot) : pending.contact_snapshot) : null,
@@ -1111,6 +1155,8 @@ export class NestOrdersService {
                 paymentQuote: { baseAmount: Number(payableAmount.toFixed(2)), baseCurrency: CURRENCY_CODE.VND, amount: expected, currency: CURRENCY_CODE.VND, fxRate: Number(pending.payment_fx_rate) || 1 },
                 status: PAYMENT_STATUS.PAID,
             });
+            await this.shippingRepository.initializeOrderShipment(tx, orderId);
+            if (this.loyaltyService) await this.loyaltyService.awardPaidOrder(tx, orderId);
             const attributes = await this.productAttributesRepository.getForProducts(tx, productIds);
             const itemSnapshots = authoritativeCart.map((item) => buildOrderItemSnapshot(item, attributes.get(Number(item.product_id || 0))));
             const orderItems = itemSnapshots.map((snapshot) => [orderId, snapshot.productId, snapshot.quantity, snapshot.unitPrice * snapshot.quantity,
@@ -1148,20 +1194,46 @@ export class NestOrdersService {
         });
     }
 
-    getOrdersPaginated(limit: number, offset: number): Promise<OrderSummaryRow[]> {
+    getOrdersPaginated(limit: number, offset: number, filters: { search?: string; status?: number; paymentMethod?: string; sort?: "newest" | "oldest" }): Promise<OrderSummaryRow[]> {
         return new Promise((resolve, reject) => {
-            this.ordersRepository.getOrdersPaginated(limit, offset, (err: Error | null, results: OrderSummaryRow[]) => {
+            this.ordersRepository.getOrdersPaginated(limit, offset, filters, (err: Error | null, results: OrderSummaryRow[]) => {
                 if (err) return reject(err);
                 resolve(results);
             });
         });
     }
 
-    getOrdersCount(): Promise<number> {
+    getAdminPendingQueue(): Promise<OrderSummaryRow[]> {
         return new Promise((resolve, reject) => {
-            this.ordersRepository.getOrdersCount((err: Error | null, results: Array<{ total: number }>) => {
+            this.ordersRepository.getAdminPendingQueue((err: Error | null, results: OrderSummaryRow[]) => {
+                if (err) return reject(err);
+                resolve(results);
+            });
+        });
+    }
+
+    getOrdersCount(filters: { search?: string; status?: number; paymentMethod?: string }): Promise<number> {
+        return new Promise((resolve, reject) => {
+            this.ordersRepository.getOrdersCount(filters, (err: Error | null, results: Array<{ total: number }>) => {
                 if (err) return reject(err);
                 resolve(results[0]?.total || 0);
+            });
+        });
+    }
+
+    getOrdersAdminSummary(): Promise<{ total: number; pending: number; completed: number; canceled: number; historicalPaymentMethods: number; revenue: number }> {
+        return new Promise((resolve, reject) => {
+            this.ordersRepository.getOrdersAdminSummary((err: Error | null, results: Array<Record<string, number | string>>) => {
+                if (err) return reject(err);
+                const row = results?.[0] || {};
+                resolve({
+                    total: Number(row.total) || 0,
+                    pending: Number(row.pending) || 0,
+                    completed: Number(row.completed) || 0,
+                    canceled: Number(row.canceled) || 0,
+                    historicalPaymentMethods: Number(row.historicalPaymentMethods) || 0,
+                    revenue: Number(row.revenue) || 0,
+                });
             });
         });
     }
@@ -1186,6 +1258,7 @@ export class NestOrdersService {
                     id: first.id,
                     date_added: first.date_added,
                     delivered_at: first.delivered_at || null,
+                    return_eligible_until: first.delivered_at ? getReturnDeadline(first.delivered_at) : null,
                     user_id: first.user_id,
                     guest_email: first.guest_email || null,
                     guest_name: first.guest_name || null,
@@ -1248,6 +1321,7 @@ export class NestOrdersService {
             const current = await this.ordersRepository.getOrderLifecycleForUpdate(tx, orderId);
             if (!current) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
             const changed = await completeDeliveredOrder(tx, orderId, new Date(), actorId == null ? null : String(actorId));
+            if (changed && this.loyaltyService) await this.loyaltyService.awardPaidOrder(tx, orderId);
             if (changed && this.orderEmails) await this.orderEmails.emitPaymentConfirmed(tx, orderId);
             return { userId: current.user_id, changed };
         }).then(async (result) => {
@@ -1283,17 +1357,8 @@ export class NestOrdersService {
         });
     }
 
-    applyDiscount(discountCode: string): Promise<PromotionRow | null> {
-        return new Promise((resolve, reject) => {
-            this.ordersRepository.applyDiscount(discountCode, (err: Error | null, results: PromotionRow[]) => {
-                if (err) return reject(err);
-                if (results.length === 0) {
-                    resolve(null);
-                    return;
-                }
-                resolve(results[0]);
-            });
-        });
+    applyDiscount(discountCode: string, userId?: string): Promise<PromotionRow | null> {
+        return this.promotionsRepository.getActivePromotionByCodeForCheckout(discountCode, userId);
     }
 
     getOrderByPayOSOrderCode(orderCode: number): Promise<OrderBySessionRow | null> {

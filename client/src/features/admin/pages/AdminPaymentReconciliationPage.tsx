@@ -26,6 +26,8 @@ import {
 import PrivateEvidenceUpload from "../components/PrivateEvidenceUpload";
 import { recordPaymentAttemptRefund, fetchPaymentAttemptException, fetchPaymentAttemptExceptions, retryPaymentAttempt } from "../operations.api";
 import type { PaymentAttemptException, PaymentAttemptExceptionDetail } from "../operations.types";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
+import { useLocale } from "../../../context/LocaleContext";
 
 const PAGE_LIMIT = PAYMENT_RECONCILIATION_LIMIT.DEFAULT;
 const reconciliationStatuses: Array<PaymentReconciliationStatus | ""> = [
@@ -46,24 +48,26 @@ const formatVnd = (value: number | null) => value === null
         maximumFractionDigits: 0,
     }).format(value);
 
-const formatDate = (value: string | null) => {
+const formatDate = (value: string | null, locale: string) => {
     if (!value) return "—";
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-GB", {
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale === "vi" ? "vi-VN" : "en-GB", {
         dateStyle: "medium",
         timeStyle: "short",
     });
 };
 
 const labelProvider = (provider: string) => provider === PAYMENT_METHOD.PAYOS ? "PayOS" : provider === PAYMENT_METHOD.CASH ? "COD" : provider;
-const labelTarget = (candidate: PaymentReconciliationCandidate) => candidate.orderId
-    ? `Order #${candidate.orderId}`
-    : candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? `Pending checkout #${candidate.targetId}` : `Payment #${candidate.targetId}`;
+const labelTarget = (candidate: PaymentReconciliationCandidate, tx: (source: string) => string) => candidate.orderId
+    ? `${tx("Order")} #${candidate.orderId}`
+    : candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? `${tx("Pending checkout")} #${candidate.targetId}` : `${tx("Payment")} #${candidate.targetId}`;
 const statusClass = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-const formatAttemptDate = (value: string) => new Date(value).toLocaleString();
+const formatAttemptDate = (value: string, locale: string) => new Date(value).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB");
 
 const PaymentAttemptExceptions = () => {
+    const tx = useAdminCopy();
+    const { locale } = useLocale();
     const [items, setItems] = useState<PaymentAttemptException[]>([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
@@ -123,7 +127,7 @@ const PaymentAttemptExceptions = () => {
         setNotice("");
         try {
             await retryPaymentAttempt(detail.attemptId, reason.trim());
-            setNotice("Fulfillment retry completed. The order was created from the verified payment.");
+            setNotice(tx("Fulfillment retry completed. The order was created from the verified payment."));
             setReason("");
             await loadQueue(page);
         } catch (requestError) {
@@ -155,7 +159,7 @@ const PaymentAttemptExceptions = () => {
                 evidenceId: evidence.id,
                 reason: refundReason.trim(),
             });
-            setNotice(`${result.replayed ? "Refund record already exists" : "Refund recorded"}. ${result.resolutionState === "RESOLVED" ? "Exception resolved." : "Partial refund; remaining balance stays open."}`);
+            setNotice(`${tx(result.replayed ? "Refund record already exists" : "Refund recorded")}. ${tx(result.resolutionState === "RESOLVED" ? "Exception resolved." : "Partial refund; remaining balance stays open.")}`);
             setEvidence(null);
             refundIdempotency.current = null;
             setRefundAmount("");
@@ -175,64 +179,66 @@ const PaymentAttemptExceptions = () => {
     return <section className="admin__card admin__payments__exceptions" aria-labelledby="payment-exceptions-title">
         <div className="admin__card__header admin__card__header--stacked">
             <div>
-                <h2 id="payment-exceptions-title">Paid payment exceptions</h2>
-                <p>Review verified PayOS payments without an order. Refunds require transfer evidence; fulfillment retry uses the verified payment amount.</p>
+                <h2 id="payment-exceptions-title">{tx("Paid payment exceptions")}</h2>
+                <p>{tx("Review verified PayOS payments without an order. Refunds require transfer evidence; fulfillment retry uses the verified payment amount.")}</p>
             </div>
-            <button type="button" className="admin__button admin__button--ghost" onClick={() => void loadQueue()} disabled={loading || busy}>Refresh exceptions</button>
+            <button type="button" className="admin__button admin__button--ghost" onClick={() => void loadQueue()} disabled={loading || busy}>{tx("Refresh exceptions")}</button>
         </div>
         {error ? <div className="admin__alert" role="alert">{error}</div> : null}
         {notice ? <div className="admin__alert admin__payments__notice" role="status">{notice}</div> : null}
-        {loading && items.length === 0 ? <AdminStatusPanel variant="loading" title="Loading payment exceptions" description="Fetching unresolved verified PayOS payments." /> : null}
-        {!loading && !error && items.length === 0 ? <AdminStatusPanel variant="empty" title="No paid payment exceptions" description="Unresolved PayOS payments without an order will appear here." /> : null}
+        {loading && items.length === 0 ? <AdminStatusPanel variant="loading" title={tx("Loading payment exceptions")} description={tx("Fetching unresolved verified PayOS payments.")} /> : null}
+        {!loading && !error && items.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No paid payment exceptions")} description={tx("Unresolved PayOS payments without an order will appear here.")} /> : null}
         {items.length ? <>
             <div className="admin__table-wrap admin__payments__exception-wrap" aria-busy={loading}>
                 <table className="admin__table admin__payments__exception-table">
-                    <caption className="admin__sr-only">Unresolved PayOS payment exceptions</caption>
-                    <thead><tr><th scope="col">Attempt</th><th scope="col">Payment state</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Refundable</th><th scope="col">Updated</th><th scope="col">Details</th></tr></thead>
+                    <caption className="admin__sr-only">{tx("Unresolved PayOS payment exceptions")}</caption>
+                    <thead><tr><th scope="col">{tx("Attempt")}</th><th scope="col">{tx("Payment state")}</th><th scope="col">{tx("Expected")}</th><th scope="col">{tx("Received")}</th><th scope="col">{tx("Refundable")}</th><th scope="col">{tx("Updated")}</th><th scope="col">{tx("Details")}</th></tr></thead>
                     <tbody>{items.map((item) => <tr key={item.attemptId}>
-                        <td><span className="admin__payments__attempt-id">{item.attemptId}</span><small>Order code {item.providerOrderCode}</small></td>
-                        <td><span className={`admin__pill admin__pill--${statusClass(item.paymentState)}`}>{item.paymentState}</span><small>{item.resolutionState}</small></td>
-                        <td>{formatVnd(item.expectedAmountVnd)}</td><td>{formatVnd(item.receivedAmountVnd)}</td><td>{formatVnd(item.refundableAmountVnd)}</td><td>{formatAttemptDate(item.updatedAt)}</td>
-                        <td><button type="button" className="admin__button admin__button--ghost admin__button--compact" aria-pressed={selectedId === item.attemptId} onClick={() => { setSelectedId(item.attemptId); setError(""); setNotice(""); }}>Review</button></td>
+                        <td><span className="admin__payments__attempt-id">{item.attemptId}</span><small>{tx("Order code")} {item.providerOrderCode}</small></td>
+                        <td><span className={`admin__pill admin__pill--${statusClass(item.paymentState)}`}>{tx(item.paymentState)}</span><small>{tx(item.resolutionState)}</small></td>
+                        <td>{formatVnd(item.expectedAmountVnd)}</td><td>{formatVnd(item.receivedAmountVnd)}</td><td>{formatVnd(item.refundableAmountVnd)}</td><td>{formatAttemptDate(item.updatedAt, locale)}</td>
+                        <td><button type="button" className="admin__button admin__button--ghost admin__button--compact" aria-pressed={selectedId === item.attemptId} onClick={() => { setSelectedId(item.attemptId); setError(""); setNotice(""); }}>{tx("Review")}</button></td>
                     </tr>)}</tbody>
                 </table>
             </div>
-            <div className="admin__payments__pagination" aria-label="Exception queue pagination">
-                <span>Page {page} of {Math.max(1, totalPages)}</span><div>
-                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page - 1)} disabled={page <= 1 || loading || busy}>Previous</button>
-                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page + 1)} disabled={page >= totalPages || loading || busy}>Next</button>
+            <div className="admin__payments__pagination" aria-label={tx("Exception queue pagination")}>
+                <span>{tx("Page")} {page} {tx("of")} {Math.max(1, totalPages)}</span><div>
+                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page - 1)} disabled={page <= 1 || loading || busy}>{tx("Previous")}</button>
+                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page + 1)} disabled={page >= totalPages || loading || busy}>{tx("Next")}</button>
                 </div>
             </div>
         </> : null}
         {selectedId ? <section className="admin__payments__attempt-detail" aria-labelledby="payment-attempt-detail-title" aria-busy={detailLoading}>
-            <h3 id="payment-attempt-detail-title">Payment attempt details</h3>
-            {detailLoading ? <p role="status">Loading safe payment snapshot…</p> : null}
+            <h3 id="payment-attempt-detail-title">{tx("Payment attempt details")}</h3>
+            {detailLoading ? <p role="status">{tx("Loading safe payment snapshot…")}</p> : null}
             {detail ? <>
                 <dl className="admin__payments__attempt-summary">
-                    <div><dt>Verified received</dt><dd>{formatVnd(detail.receivedAmountVnd)}</dd></div><div><dt>Refunded</dt><dd>{formatVnd(detail.refundedAmountVnd)}</dd></div><div><dt>Refundable balance</dt><dd>{formatVnd(detail.refundableAmountVnd)}</dd></div><div><dt>Resolution</dt><dd>{detail.resolutionState}</dd></div>
+                    <div><dt>{tx("Verified received")}</dt><dd>{formatVnd(detail.receivedAmountVnd)}</dd></div><div><dt>{tx("Refunded")}</dt><dd>{formatVnd(detail.refundedAmountVnd)}</dd></div><div><dt>{tx("Refundable balance")}</dt><dd>{formatVnd(detail.refundableAmountVnd)}</dd></div><div><dt>{tx("Resolution")}</dt><dd>{tx(detail.resolutionState)}</dd></div>
                 </dl>
-                <div className="admin__payments__snapshot"><h4>Purchased items</h4>{detail.items.length ? <ul>{detail.items.map((item) => <li key={item.productId}><span>{item.name} × {item.quantity}</span><strong>{formatVnd(item.unitPriceVnd * item.quantity)}</strong></li>)}</ul> : <p>No item snapshot was recorded.</p>}<p>Subtotal {formatVnd(detail.subtotalVnd)} · Discount {formatVnd(detail.discountVnd)} · Shipping {formatVnd(detail.shippingVnd)}</p><strong>Expected payment {formatVnd(detail.payableVnd)}</strong></div>
-                {detail.refunds.length ? <div className="admin__payments__refund-history"><h4>Refund records</h4><ul>{detail.refunds.map((refund) => <li key={refund.operationId}>{formatVnd(refund.amountVnd)} · {refund.transferReference} · {refund.transferredAt} · {refund.reason}</li>)}</ul></div> : null}
+                <div className="admin__payments__snapshot"><h4>{tx("Purchased items")}</h4>{detail.items.length ? <ul>{detail.items.map((item) => <li key={item.productId}><span>{item.name} × {item.quantity}</span><strong>{formatVnd(item.unitPriceVnd * item.quantity)}</strong></li>)}</ul> : <p>{tx("No item snapshot was recorded.")}</p>}<p>{tx("Subtotal")} {formatVnd(detail.subtotalVnd)} · {tx("Discount")} {formatVnd(detail.discountVnd)} · {tx("Shipping")} {formatVnd(detail.shippingVnd)}</p><strong>{tx("Expected payment")} {formatVnd(detail.payableVnd)}</strong></div>
+                {detail.refunds.length ? <div className="admin__payments__refund-history"><h4>{tx("Refund records")}</h4><ul>{detail.refunds.map((refund) => <li key={refund.operationId}>{formatVnd(refund.amountVnd)} · {refund.transferReference} · {refund.transferredAt} · {refund.reason}</li>)}</ul></div> : null}
                 {detail.paymentState === "PAID" && detail.orderState !== "CREATED" ? <form className="admin__payments__retry-form" onSubmit={(event) => { event.preventDefault(); void runRetry(); }}>
-                    <h4>Retry order creation</h4><p>Only use after confirming the order was not created. The server rechecks current eligibility and never changes the verified amount.</p>
-                    <label htmlFor="payment-retry-reason">Fulfillment retry reason</label><textarea id="payment-retry-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required />
-                    <button type="submit" className="admin__button admin__button--primary" disabled={busy || !reason.trim()}>{busy ? "Processing…" : "Retry fulfillment"}</button>
+                    <h4>{tx("Retry order creation")}</h4><p>{tx("Only use after confirming the order was not created. The server rechecks current eligibility and never changes the verified amount.")}</p>
+                    <label htmlFor="payment-retry-reason">{tx("Fulfillment retry reason")}</label><textarea id="payment-retry-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required />
+                    <button type="submit" className="admin__button admin__button--primary" disabled={busy || !reason.trim()}>{busy ? tx("Processing…") : tx("Retry fulfillment")}</button>
                 </form> : null}
                 {detail.refundableAmountVnd > 0 ? <form className="admin__payments__refund-form" onSubmit={(event) => void submitRefund(event)}>
-                    <h4>Record an offline refund</h4><p>Record a bank transfer already made. This action does not initiate a provider refund. Maximum remaining balance: <strong>{formatVnd(detail.refundableAmountVnd)}</strong>.</p>
-                    <label htmlFor="refund-amount">Refund amount (VND)</label><input id="refund-amount" type="number" min="1" max={detail.refundableAmountVnd} step="1" inputMode="numeric" required value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} />
-                    <label htmlFor="refund-reference">Transfer reference</label><input id="refund-reference" value={transferReference} onChange={(event) => setTransferReference(event.target.value)} maxLength={191} required />
-                    <label htmlFor="refund-date">Transfer date</label><input id="refund-date" type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
-                    <PrivateEvidenceUpload label="Private transfer evidence" evidence={evidence} onChange={setEvidence} />
-                    <label htmlFor="refund-reason">Transfer refund reason</label><textarea id="refund-reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} required />
-                    <button type="submit" className="admin__button admin__button--success" disabled={busy || !evidence || !Number.isSafeInteger(Number(refundAmount)) || Number(refundAmount) <= 0 || Number(refundAmount) > detail.refundableAmountVnd || !transferReference.trim() || !transferDate || !refundReason.trim()}>{busy ? "Recording…" : "Record transfer refund"}</button>
-                </form> : <p className="admin__payments__resolved-note">No refundable balance remains.</p>}
+                    <h4>{tx("Record an offline refund")}</h4><p>{tx("Record a bank transfer already made. This action does not initiate a provider refund. Maximum remaining balance:")} <strong>{formatVnd(detail.refundableAmountVnd)}</strong>.</p>
+                    <label htmlFor="refund-amount">{tx("Refund amount (VND)")}</label><input id="refund-amount" type="number" min="1" max={detail.refundableAmountVnd} step="1" inputMode="numeric" required value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} />
+                    <label htmlFor="refund-reference">{tx("Transfer reference")}</label><input id="refund-reference" value={transferReference} onChange={(event) => setTransferReference(event.target.value)} maxLength={191} required />
+                    <label htmlFor="refund-date">{tx("Transfer date")}</label><input id="refund-date" type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
+                    <PrivateEvidenceUpload label={tx("Private transfer evidence")} evidence={evidence} onChange={setEvidence} />
+                    <label htmlFor="refund-reason">{tx("Transfer refund reason")}</label><textarea id="refund-reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} required />
+                    <button type="submit" className="admin__button admin__button--success" disabled={busy || !evidence || !Number.isSafeInteger(Number(refundAmount)) || Number(refundAmount) <= 0 || Number(refundAmount) > detail.refundableAmountVnd || !transferReference.trim() || !transferDate || !refundReason.trim()}>{busy ? tx("Recording…") : tx("Record transfer refund")}</button>
+                </form> : <p className="admin__payments__resolved-note">{tx("No refundable balance remains.")}</p>}
             </> : null}
         </section> : null}
     </section>;
 };
 
 const AdminPaymentReconciliationPage = () => {
+    const tx = useAdminCopy();
+    const { locale } = useLocale();
     const { addToast } = useToast();
     const [provider, setProvider] = useState<"" | PaymentMethod>("");
     const [reconciliationStatus, setReconciliationStatus] = useState<"" | PaymentReconciliationStatus>("");
@@ -358,83 +364,83 @@ const AdminPaymentReconciliationPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Payment reconciliation | Digital-E</title>
-                <meta name="description" content="Review and reconcile PayOS and COD payment ledger records." />
+                <title>{tx("Payment reconciliation")} | Digital-E</title>
+                <meta name="description" content={tx("Review and reconcile PayOS and COD payment ledger records.")} />
             </Helmet>
             <main className="admin__page admin__page--payments">
                 <PaymentAttemptExceptions />
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Finance operations</span>
-                        <h1 className="admin__page__title">Payment reconciliation</h1>
+                        <span className="admin__page__eyebrow">{tx("Finance operations")}</span>
+                        <h1 className="admin__page__title">{tx("Payment reconciliation")}</h1>
                         <p className="admin__page__subtitle">
-                            Match PayOS settlements, confirm COD collection, and trace webhook evidence before fulfilment or support decisions.
+                            {tx("Match PayOS settlements, confirm COD collection, and trace webhook evidence before fulfilment or support decisions.")}
                         </p>
                     </div>
                     <div className="admin__page__actions">
                         <button type="button" className="admin__button admin__button--ghost" onClick={() => void loadCandidates()} disabled={isLoading || busyAction !== null}>
-                            Refresh queue
+                            {tx("Refresh queue")}
                         </button>
                         <button type="button" className="admin__button admin__button--primary" onClick={() => void runReconciliation()} disabled={busyAction !== null || isLoading}>
                             <ShieldIcon size={16} />
-                            {busyAction === "run" ? "Running checks..." : "Run PayOS checks"}
+                            {busyAction === "run" ? tx("Running checks...") : tx("Run PayOS checks")}
                         </button>
                     </div>
                 </header>
 
                 {actionError ? <div className="admin__alert" role="alert">{actionError}</div> : null}
 
-                <section className="admin__summary" aria-label="Payment reconciliation summary">
-                    <div className="admin__summary-card"><span>Queue total</span><strong>{counts.total}</strong><p>Records requiring review</p></div>
-                    <div className="admin__summary-card"><span>PayOS in view</span><strong>{counts.payos}</strong><p>Provider lookups available</p></div>
-                    <div className="admin__summary-card"><span>COD in view</span><strong>{counts.cash}</strong><p>Manual collection review</p></div>
-                    <div className="admin__summary-card"><span>Needs attention</span><strong>{counts.attention}</strong><p>Mismatch or unavailable</p></div>
+                <section className="admin__summary" aria-label={tx("Payment reconciliation summary")}>
+                    <div className="admin__summary-card"><span>{tx("Queue total")}</span><strong>{counts.total}</strong><p>{tx("Records requiring review")}</p></div>
+                    <div className="admin__summary-card"><span>{tx("PayOS in view")}</span><strong>{counts.payos}</strong><p>{tx("Provider lookups available")}</p></div>
+                    <div className="admin__summary-card"><span>{tx("COD in view")}</span><strong>{counts.cash}</strong><p>{tx("Manual collection review")}</p></div>
+                    <div className="admin__summary-card"><span>{tx("Needs attention")}</span><strong>{counts.attention}</strong><p>{tx("Mismatch or unavailable")}</p></div>
                 </section>
 
                 <section className="admin__card admin__payments__workspace">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>Reconciliation queue</h3>
-                            <span aria-live="polite">{paymentPage.candidates.length} records in this view · VND only</span>
+                            <h3>{tx("Reconciliation queue")}</h3>
+                            <span aria-live="polite">{paymentPage.candidates.length} {tx("records in this view · VND only")}</span>
                         </div>
-                        <div className="admin__payments__filters" aria-label="Reconciliation filters">
+                        <div className="admin__payments__filters" aria-label={tx("Reconciliation filters")}>
                             <label>
-                                <span>Provider</span>
-                                <select aria-label="Filter by provider" value={provider} onChange={(event) => { setProvider(event.target.value as typeof provider); setCurrentPage(1); }}>
-                                    <option value="">All providers</option>
+                                <span>{tx("Provider")}</span>
+                                <select aria-label={tx("Filter by provider")} value={provider} onChange={(event) => { setProvider(event.target.value as typeof provider); setCurrentPage(1); }}>
+                                    <option value="">{tx("All providers")}</option>
                                     <option value={PAYMENT_METHOD.PAYOS}>PayOS</option>
-                                    <option value={PAYMENT_METHOD.CASH}>Cash on delivery</option>
+                                    <option value={PAYMENT_METHOD.CASH}>{tx("Cash on delivery")}</option>
                                 </select>
                             </label>
                             <label>
-                                <span>Reconciliation status</span>
-                                <select aria-label="Filter by reconciliation status" value={reconciliationStatus} onChange={(event) => { setReconciliationStatus(event.target.value as typeof reconciliationStatus); setCurrentPage(1); }}>
-                                    {reconciliationStatuses.map((status) => <option key={status || "all"} value={status}>{status || "All statuses"}</option>)}
+                                <span>{tx("Reconciliation status")}</span>
+                                <select aria-label={tx("Filter by reconciliation status")} value={reconciliationStatus} onChange={(event) => { setReconciliationStatus(event.target.value as typeof reconciliationStatus); setCurrentPage(1); }}>
+                                    {reconciliationStatuses.map((status) => <option key={status || "all"} value={status}>{tx(status || "All statuses")}</option>)}
                                 </select>
                             </label>
                         </div>
                     </div>
 
                     {loadError && !hasLoaded ? (
-                        <AdminStatusPanel variant="error" title="Reconciliation unavailable" description={loadError.message} onRetry={() => void loadCandidates()} />
+                        <AdminStatusPanel variant="error" title={tx("Reconciliation unavailable")} description={loadError.message} onRetry={() => void loadCandidates()} />
                     ) : isLoading && !hasLoaded ? (
-                        <AdminStatusPanel variant="loading" title="Loading reconciliation queue" description="Fetching payment ledger candidates and their latest local state." />
+                        <AdminStatusPanel variant="loading" title={tx("Loading reconciliation queue")} description={tx("Fetching payment ledger candidates and their latest local state.")} />
                     ) : paymentPage.candidates.length === 0 ? (
-                        <AdminStatusPanel variant="empty" title="Reconciliation queue is clear" description="No payment records match the current filters." />
+                        <AdminStatusPanel variant="empty" title={tx("Reconciliation queue is clear")} description={tx("No payment records match the current filters.")} />
                     ) : (
                         <>
                             <div className="admin__table-wrap admin__payments__table-wrap" aria-busy={isLoading}>
                                 <table className="admin__table admin__payments__table">
                                     <thead>
                                         <tr>
-                                            <th scope="col">Target</th>
-                                            <th scope="col">Provider</th>
-                                            <th scope="col">Local state</th>
-                                            <th scope="col">Expected</th>
-                                            <th scope="col">Provider result</th>
-                                            <th scope="col">Last event</th>
-                                            <th scope="col">Mismatch reason</th>
-                                            <th scope="col"><span className="admin__sr-only">Actions</span></th>
+                                            <th scope="col">{tx("Target")}</th>
+                                            <th scope="col">{tx("Provider")}</th>
+                                            <th scope="col">{tx("Local state")}</th>
+                                            <th scope="col">{tx("Expected")}</th>
+                                            <th scope="col">{tx("Provider result")}</th>
+                                            <th scope="col">{tx("Last event")}</th>
+                                            <th scope="col">{tx("Mismatch reason")}</th>
+                                            <th scope="col"><span className="admin__sr-only">{tx("Actions")}</span></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -451,35 +457,35 @@ const AdminPaymentReconciliationPage = () => {
                                                 <React.Fragment key={`${candidate.targetType}-${candidate.targetId}`}>
                                                     <tr>
                                                         <td>
-                                                            <div className="admin__table__stack"><strong>{labelTarget(candidate)}</strong><small>{candidate.targetType.replace("_", " ")} #{candidate.targetId}</small></div>
+                                                            <div className="admin__table__stack"><strong>{labelTarget(candidate, tx)}</strong><small>{tx(candidate.targetType.replaceAll("_", " "))} #{candidate.targetId}</small></div>
                                                         </td>
                                                         <td><span className="admin__payments__provider"><CashStackIcon size={15} />{labelProvider(candidate.provider)}</span><small>{candidate.providerReference || "No provider link"}</small></td>
-                                                        <td><div className="admin__table__stack"><span className={`admin__pill admin__pill--${statusClass(candidate.localStatus)}`}>{candidate.localStatus}</span><small>{candidate.reconciliationStatus}</small></div></td>
-                                                        <td><div className="admin__table__stack"><strong>{formatVnd(candidate.expectedAmount)}</strong><small>{candidate.expectedCurrency || "Currency unknown"}</small></div></td>
-                                                        <td><div className="admin__table__stack"><strong>{formatVnd(candidate.providerAmount)}</strong><small>{candidate.providerStatus || "Not checked yet"}{candidate.providerCurrency ? ` · ${candidate.providerCurrency}` : ""}</small></div></td>
-                                                        <td><div className="admin__table__stack"><span>{candidate.lastEventStatus || "No event recorded"}</span><small>{formatDate(candidate.lastEventAt)}</small></div></td>
+                                                        <td><div className="admin__table__stack"><span className={`admin__pill admin__pill--${statusClass(candidate.localStatus)}`}>{tx(candidate.localStatus)}</span><small>{tx(candidate.reconciliationStatus)}</small></div></td>
+                                                        <td><div className="admin__table__stack"><strong>{formatVnd(candidate.expectedAmount)}</strong><small>{tx(candidate.expectedCurrency || "Currency unknown")}</small></div></td>
+                                                        <td><div className="admin__table__stack"><strong>{formatVnd(candidate.providerAmount)}</strong><small>{tx(candidate.providerStatus || "Not checked yet")}{candidate.providerCurrency ? ` · ${candidate.providerCurrency}` : ""}</small></div></td>
+                                                        <td><div className="admin__table__stack"><span>{tx(candidate.lastEventStatus || "No event recorded")}</span><small>{formatDate(candidate.lastEventAt, locale)}</small></div></td>
                                                         <td><p>{candidate.mismatchReason || "—"}</p></td>
                                                         <td>
                                                             <div className="admin__table__actions admin__payments__actions">
-                                                                {canReconcile ? <button type="button" className="admin__button admin__button--primary admin__button--compact" onClick={() => void reconcilePayment(candidate)} disabled={busyAction !== null}>{rowBusy ? "Checking..." : "Reconcile"}</button> : null}
+                                                                {canReconcile ? <button type="button" className="admin__button admin__button--primary admin__button--compact" onClick={() => void reconcilePayment(candidate)} disabled={busyAction !== null}>{rowBusy ? tx("Checking...") : tx("Reconcile")}</button> : null}
                                                                 {canConfirmCod ? (
                                                                     <>
-                                                                        <label className="admin__payments__note"><span className="admin__sr-only">COD note for payment {candidate.targetId}</span><input aria-label={`COD note for payment ${candidate.targetId}`} value={codNotes[candidate.targetId] || ""} onChange={(event) => setCodNotes((current) => ({ ...current, [candidate.targetId]: event.target.value }))} placeholder="Optional audit note" maxLength={500} /></label>
-                                                                        <button type="button" className="admin__button admin__button--success admin__button--compact" onClick={() => void confirmCod(candidate)} disabled={busyAction !== null}>{rowBusy ? "Confirming..." : "Confirm COD"}</button>
+                                                                        <label className="admin__payments__note"><span className="admin__sr-only">{tx("COD note for payment")} {candidate.targetId}</span><input aria-label={`${tx("COD note for payment")} ${candidate.targetId}`} value={codNotes[candidate.targetId] || ""} onChange={(event) => setCodNotes((current) => ({ ...current, [candidate.targetId]: event.target.value }))} placeholder={tx("Optional audit note")} maxLength={500} /></label>
+                                                                        <button type="button" className="admin__button admin__button--success admin__button--compact" onClick={() => void confirmCod(candidate)} disabled={busyAction !== null}>{rowBusy ? tx("Confirming...") : tx("Confirm COD")}</button>
                                                                     </>
-                                                                ) : isCodConfirmed ? <span className="admin__pill admin__pill--success"><CheckCircleIcon size={13} />Collected</span> : null}
-                                                                {isOrderPayment ? <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void toggleWebhookEvents(candidate)} disabled={busyAction !== null}>{busyAction === `events-${candidate.targetId}` ? "Loading..." : expandedPaymentId === candidate.targetId ? "Hide events" : "Webhook events"}</button> : null}
-                                                                {!canReconcile && !canConfirmCod && !isCodConfirmed && candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? <small className="admin__payments__action-note">Run the queue check to process this reservation.</small> : null}
+                                                                ) : isCodConfirmed ? <span className="admin__pill admin__pill--success"><CheckCircleIcon size={13} />{tx("Collected")}</span> : null}
+                                                                {isOrderPayment ? <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void toggleWebhookEvents(candidate)} disabled={busyAction !== null}>{busyAction === `events-${candidate.targetId}` ? tx("Loading...") : expandedPaymentId === candidate.targetId ? tx("Hide events") : tx("Webhook events")}</button> : null}
+                                                                {!canReconcile && !canConfirmCod && !isCodConfirmed && candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? <small className="admin__payments__action-note">{tx("Run the queue check to process this reservation.")}</small> : null}
                                                             </div>
                                                         </td>
                                                     </tr>
                                                     {expandedPaymentId === candidate.targetId ? (
                                                         <tr className="admin__payments__events-row">
                                                             <td colSpan={8}>
-                                                                <div className="admin__payments__events" aria-label={`Webhook history for payment ${candidate.targetId}`}>
-                                                                    <div><strong>Webhook history</strong><span>{webhookEvents[candidate.targetId]?.length || 0} events</span></div>
+                                                                <div className="admin__payments__events" aria-label={`${tx("Webhook history for payment")} ${candidate.targetId}`}>
+                                                                    <div><strong>{tx("Webhook history")}</strong><span>{webhookEvents[candidate.targetId]?.length || 0} {tx("events")}</span></div>
                                                                     {webhookErrors[candidate.targetId] ? <p className="admin__payments__event-error" role="alert">{webhookErrors[candidate.targetId]}</p> : null}
-                                                                    {webhookEvents[candidate.targetId]?.length ? webhookEvents[candidate.targetId].map((event) => <WebhookEventRow key={event.id} event={event} />) : <span>No webhook events are linked to this payment.</span>}
+                                                                    {webhookEvents[candidate.targetId]?.length ? webhookEvents[candidate.targetId].map((event) => <WebhookEventRow key={event.id} event={event} tx={tx} locale={locale} />) : <span>{tx("No webhook events are linked to this payment.")}</span>}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -490,12 +496,12 @@ const AdminPaymentReconciliationPage = () => {
                                     </tbody>
                                 </table>
                             </div>
-                            {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={() => void loadCandidates()} retryLabel="Retry refresh" /> : null}
-                            <div className="admin__payments__pagination" aria-label="Reconciliation pagination">
-                                <span>Page {paymentPage.pagination.page} of {Math.max(paymentPage.pagination.totalPages, 1)}</span>
+                            {loadError && hasLoaded ? <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={() => void loadCandidates()} retryLabel={tx("Retry refresh")} /> : null}
+                            <div className="admin__payments__pagination" aria-label={tx("Reconciliation pagination")}>
+                                <span>{tx("Page")} {paymentPage.pagination.page} {tx("of")} {Math.max(paymentPage.pagination.totalPages, 1)}</span>
                                 <div>
-                                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={!hasPreviousPage || isLoading}>Previous</button>
-                                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => setCurrentPage((value) => value + 1)} disabled={!hasNextPage || isLoading}>Next</button>
+                                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={!hasPreviousPage || isLoading}>{tx("Previous")}</button>
+                                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => setCurrentPage((value) => value + 1)} disabled={!hasNextPage || isLoading}>{tx("Next")}</button>
                                 </div>
                             </div>
                         </>
@@ -506,11 +512,11 @@ const AdminPaymentReconciliationPage = () => {
     );
 };
 
-const WebhookEventRow = ({ event }: { event: PaymentWebhookEvent }) => (
+const WebhookEventRow = ({ event, tx, locale }: { event: PaymentWebhookEvent; tx: (source: string) => string; locale: string }) => (
     <article className="admin__payments__event">
-        <div><strong>{event.eventType}</strong><span className={`admin__pill admin__pill--${statusClass(event.status)}`}>{event.status}</span></div>
-        <p>{event.lastError || "No processing error recorded."}</p>
-        <small>{formatDate(event.receivedAt)} · Attempt {event.attemptCount}</small>
+        <div><strong>{tx(event.eventType)}</strong><span className={`admin__pill admin__pill--${statusClass(event.status)}`}>{tx(event.status)}</span></div>
+        <p>{event.lastError || tx("No processing error recorded.")}</p>
+        <small>{formatDate(event.receivedAt, locale)} · {tx("Attempt")} {event.attemptCount}</small>
     </article>
 );
 

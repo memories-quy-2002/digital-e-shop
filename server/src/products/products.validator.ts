@@ -73,10 +73,6 @@ const parseMultipartJson = (value: unknown) => {
 const attributesInputSchema = z.preprocess(parseMultipartJson, productAttributesSchema).optional().default([]);
 
 export const productCreateSchema = z.object({
-    parcelWeightGrams: z.coerce.number().int().min(1).max(30000).optional(),
-    parcelLengthCm: z.coerce.number().int().min(1).max(200).optional(),
-    parcelWidthCm: z.coerce.number().int().min(1).max(200).optional(),
-    parcelHeightCm: z.coerce.number().int().min(1).max(200).optional(),
     name: requiredText("Product name"),
     description: z.string().trim().optional().default(""),
     category: requiredText("Category"),
@@ -89,11 +85,6 @@ export const productCreateSchema = z.object({
     price: nonNegativeNumber("Price"),
     inventory: z.coerce.number({ error: "Inventory must be a number" }).int("Inventory must be a whole number").nonnegative("Inventory cannot be negative"),
     imageUrl: z.string().trim().optional(),
-}).superRefine((data, context) => {
-    const fields = ["parcelWeightGrams", "parcelLengthCm", "parcelWidthCm", "parcelHeightCm"] as const;
-    if (fields.some((field) => data[field] !== undefined)) for (const field of fields) {
-        if (data[field] === undefined) context.addIssue({ code: "custom", path: [field], message: "Supply all parcel dimensions and weight" });
-    }
 });
 
 export const productUpdateSchema = z.object({
@@ -113,4 +104,12 @@ export const productUpdateSchema = z.object({
 
 export const inventoryUpdateSchema = z.object({
     stock: z.coerce.number({ error: "Stock must be a number" }).int("Stock must be a whole number").nonnegative("Stock cannot be negative"),
+    reason: z.string().trim().min(8, "Provide a reason with at least 8 characters").max(255, "Reason cannot exceed 255 characters"),
+});
+
+export const adminProductsQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+    limit: z.coerce.number().int().positive().max(100).default(25),
+    search: z.string().trim().max(120).default(""),
+    stock: z.enum(["all", "low", "out"]).default("all"),
 });

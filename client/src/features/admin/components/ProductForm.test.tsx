@@ -1,14 +1,9 @@
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ProductForm, { type ProductFormValues } from "./ProductForm";
-
-vi.mock("../../shipping/components/ParcelFields", () => ({
-    default: ({ value, onChange }: { value: { grams: number }; onChange: (next: { grams: number }) => void }) => (
-        <button type="button" onClick={() => onChange({ grams: value.grams + 100 })}>Parcel weight: {value.grams}</button>
-    ),
-}));
 
 const values: ProductFormValues = {
     name: "RTX 4070 SUPER",
@@ -37,7 +32,7 @@ const callbacks = () => ({
 
 describe("ProductForm", () => {
     it("keeps edit inventory read-only and exposes semantic sections", () => {
-        render(<ProductForm mode="edit" values={values} currentStock={7} {...callbacks()} />);
+        renderWithLocale(<ProductForm mode="edit" values={values} currentStock={7} {...callbacks()} />);
 
         expect(screen.getByRole("group", { name: "Product identity" })).toBeInTheDocument();
         expect(screen.getByRole("group", { name: "Pricing" })).toBeInTheDocument();
@@ -51,7 +46,7 @@ describe("ProductForm", () => {
 
     it("routes controlled field changes through the shared callback", () => {
         const formCallbacks = callbacks();
-        render(<ProductForm mode="create" values={{ ...values, inventory: "0" }} {...formCallbacks} />);
+        renderWithLocale(<ProductForm mode="create" values={{ ...values, inventory: "0" }} {...formCallbacks} />);
 
         fireEvent.change(screen.getByLabelText(/Product Name/), { target: { value: "Updated product" } });
         fireEvent.change(screen.getByLabelText(/Inventory Quantity/), { target: { value: "12" } });
@@ -60,11 +55,4 @@ describe("ProductForm", () => {
         expect(formCallbacks.onChange).toHaveBeenNthCalledWith(2, "inventory", "12");
     });
 
-    it("shows editable parcel metadata on the product edit form", () => {
-        const onParcelChange = vi.fn();
-        render(<ProductForm mode="edit" values={values} parcel={{ grams: 500, lengthCm: 20, widthCm: 10, heightCm: 5 }} onParcelChange={onParcelChange} {...callbacks()} />);
-
-        fireEvent.click(screen.getByRole("button", { name: "Parcel weight: 500" }));
-        expect(onParcelChange).toHaveBeenCalledWith({ grams: 600 });
-    });
 });

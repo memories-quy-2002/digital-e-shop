@@ -14,18 +14,24 @@ Back to [[index]]. Related: [[0004-guest-cart-and-checkout]], [[architecture]].
    payment method. The server reads current data again and performs the
    transactional validation.
 4. COD returns an order ID and raw token once. PayOS returns a server-created
-   provider URL, order code, and token; the success page uses the token-protected
-   PayOS order-code lookup after redirect.
+   provider URL, order code, and token. Before redirect, the browser stores the
+   token in `sessionStorage` with the payment attempt; after verified payment,
+   the success page uses the token-protected attempt lookup and shows the guest
+   access card.
 5. The client clears the active cart after a successful COD purchase or confirmed
    PayOS finalization, then refreshes shared cart state. The success page masks
    the raw access token by default and offers explicit Reveal and Copy controls.
+   If the browser session is lost, the guest can request an email OTP with the
+   order ID and order email. The request response is generic, the code expires
+   after ten minutes and is one-use, and successful verification rotates the
+   order and guest after-sales token hashes atomically. The new token appears
+   only in the verification response body.
    Authenticated checkout stores the shipping snapshot so Admin order detail
    can render the full destination; checkout can also suggest unique addresses
    from prior orders.
-6. The current runtime does not send an external order email after the
-   immediate order transaction or PayOS finalization commits. Guests receive
-   the checkout-success response and protected lookup remains available;
-   authenticated customers receive database-backed in-app order notifications.
+6. Guest lookup returns the server-calculated inclusive UTC return deadline.
+   The checkout recovery email contains only the six-digit OTP and order ID;
+   it does not include the guest capability token.
 
 PayOS checkout can use the local symbolic simulator in development; that path
 finalizes the reserved order without calling an external provider. Production
@@ -41,9 +47,19 @@ and is not implied by the guest access model.
 | Order identity | `user_id = NULL` plus validated contact snapshot |
 | Secret access | Raw token in active `sessionStorage`; SHA-256 hash in the database |
 | Lookup | Order ID and token together; guest-safe response only |
+| Recovery | Email OTP; generic request response, one-use token rotation |
 | Confirmation | Checkout-success response and protected lookup; raw token is excluded from URLs and database rows |
 | Customer history | Excluded from authenticated user order history |
 | Admin view | Left-joined user data with guest name/email/phone fallback |
+
+## Cart merge
+
+Sign-in sends one immutable guest-cart snapshot with an `operationId`. The
+server locks the owner row and stores accepted increments plus the result in
+one transaction. Retrying the same ID and snapshot returns the saved result;
+reusing the ID with a different payload conflicts. After a partial result, the
+client retains rejected quantities and starts a new operation for the next
+attempt.
 
 ## Anonymous cart analytics
 

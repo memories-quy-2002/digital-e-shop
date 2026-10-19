@@ -2,6 +2,9 @@ import { Module, RequestMethod } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { OrdersController } from "./orders.controller";
 import { GuestOrdersController } from "./guest-orders.controller";
+import { GuestOrderAccessRecoveryController } from "./guest-order-access-recovery.controller";
+import { GuestOrderAccessRecoveryRepository } from "./guest-order-access-recovery.repository";
+import { GuestOrderAccessRecoveryService } from "./guest-order-access-recovery.service";
 import { AdminPaymentsController } from "../payments/admin-payments.controller";
 import { PaymentReconciliationRepository } from "../payments/payment-reconciliation.repository";
 import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
@@ -26,11 +29,18 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 import { ShippingModule } from "../shipping/shipping.module";
 import { CustomerShippingController } from "../shipping/customer-shipping.controller";
 import { TasksModule } from "../operations/tasks.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
+import { VerifiedEmailGuard } from "../guards/verified-email.guard";
+import { LoyaltyModule } from "../loyalty/loyalty.module";
 
 @Module({
-    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule, TasksModule],
-    controllers: [OrdersController, GuestOrdersController, AdminPaymentsController, CustomerShippingController],
+    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule, TasksModule, LoyaltyModule],
+    controllers: [OrdersController, GuestOrdersController, GuestOrderAccessRecoveryController, AdminPaymentsController, CustomerShippingController],
     providers: [
+        AuthGuard,
+        RolesGuard,
+        VerifiedEmailGuard,
         NestOrdersService,
         NestOrdersCancellationService,
         NestOrdersPayOSService,
@@ -41,12 +51,15 @@ import { TasksModule } from "../operations/tasks.module";
         PaymentReconciliationRepository,
         PaymentReconciliationService,
         OrderTimelineRepository,
+        GuestOrderAccessRecoveryRepository,
+        GuestOrderAccessRecoveryService,
     ],
     exports: [NestOrdersService, NestOrdersPayOSService, CheckoutReservationService, PaymentReconciliationService],
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController, GuestOrdersController, CustomerShippingController);
+        consumer.apply(createRateLimitMiddleware(30)).forRoutes(GuestOrderAccessRecoveryController);
         consumer.apply(createRateLimitMiddleware(60, { name: "status", limit: 60, windowMs: 60_000 }))
             .forRoutes(
                 { path: "orders/payment-attempts/:attemptId", method: RequestMethod.GET },

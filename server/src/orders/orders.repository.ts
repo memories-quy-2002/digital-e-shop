@@ -19,6 +19,41 @@ import type { OrderPaymentLedgerWrite, OrderLifecycleRow, OrderItemQuantityRow, 
 
 const QUERY_TIMEOUT = 8000;
 
+const escapeLikeTerm = (value: string) => value.replace(/[!%_]/g, "!$&");
+
+const getAdminOrderWhere = (filters: { search?: string; status?: number; paymentMethod?: string }) => {
+    const conditions: string[] = [];
+    const params: Array<string | number> = [];
+    const search = filters.search?.trim().toLowerCase();
+
+    if (search) {
+        const term = `%${escapeLikeTerm(search)}%`;
+        conditions.push(`(
+            CAST(o.id AS CHAR) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(u.username, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(u.email, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(o.guest_name, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(o.guest_email, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(o.guest_phone, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(o.shipping_address, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(o.payment_method, '')) LIKE ? ESCAPE '!'
+        )`);
+        params.push(term, term, term, term, term, term, term, term);
+    }
+    if (filters.status !== undefined) {
+        conditions.push("o.status = ?");
+        params.push(filters.status);
+    }
+    if (filters.paymentMethod === "none") {
+        conditions.push("(o.payment_method IS NULL OR o.payment_method = '')");
+    } else if (filters.paymentMethod) {
+        conditions.push("o.payment_method = ?");
+        params.push(filters.paymentMethod);
+    }
+
+    return { where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", params };
+};
+
 @Injectable()
 export class OrdersRepository {
     constructor(private readonly promotionsRepository: PromotionsRepository) {}
@@ -28,9 +63,8 @@ export class OrdersRepository {
               `SELECT user_id, status, delivered_at, inventory_restored_at,
                       (SELECT state FROM shipments WHERE order_id = orders.id) AS fulfillment_state,
                       (SELECT stock_received_at FROM shipments WHERE order_id = orders.id) AS returned_stock_received_at,
-                      (SELECT task.state FROM shipments shipment
-                       JOIN operations_tasks task ON task.kind = 'SHIPMENT_CREATE' AND task.business_key = shipment.client_reference
-                       WHERE shipment.order_id = orders.id ORDER BY task.id DESC LIMIT 1) AS shipment_creation_state
+                      EXISTS(SELECT 1 FROM delivery_assignments assignment WHERE assignment.order_id = orders.id
+                             AND assignment.status IN ('ASSIGNED', 'OUT_FOR_DELIVERY')) AS active_delivery_assignment
                FROM orders WHERE id = ? FOR UPDATE`, [orderId],
         );
         return order || null;
@@ -288,12 +322,53 @@ export class OrdersRepository {
         this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} ORDER BY o.date_added DESC`, callback);
     }
 
-    getOrdersPaginated(limit: number, offset: number, callback: QueryCallback<OrderSummaryRow[]>) {
-        this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} ORDER BY o.date_added DESC LIMIT ? OFFSET ?`, [limit, offset], callback);
+    getOrdersPaginated(
+        limit: number,
+        offset: number,
+        filters: { search?: string; status?: number; paymentMethod?: string; sort?: "newest" | "oldest" },
+        callback: QueryCallback<OrderSummaryRow[]>,
+    ) {
+        const { where, params } = getAdminOrderWhere(filters);
+        const direction = filters.sort === "oldest" ? "ASC" : "DESC";
+        this.query(
+            `SELECT ${this.orderSelect} ${this.orderUserJoin} ${where} ORDER BY o.date_added ${direction}, o.id ${direction} LIMIT ? OFFSET ?`,
+            [...params, limit, offset],
+            callback,
+        );
     }
 
-    getOrdersCount(callback: QueryCallback<CountRow[]>) {
-        this.query(`SELECT COUNT(*) AS total FROM orders`, callback);
+    getAdminPendingQueue(callback: QueryCallback<OrderSummaryRow[]>) {
+        this.query(
+            `SELECT o.id, o.user_id, o.guest_name, o.guest_email,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.username) AS customer_name,
+                u.email AS customer_email, o.status, o.total_price, o.discount, o.date_added, o.payment_method
+             FROM orders o
+             LEFT JOIN users u ON u.id = o.user_id
+             WHERE o.status = ?
+             ORDER BY o.date_added ASC, o.id ASC
+             LIMIT 5`,
+            [ORDER_STATUS.PENDING],
+            callback,
+        );
+    }
+
+    getOrdersCount(filters: { search?: string; status?: number; paymentMethod?: string }, callback: QueryCallback<CountRow[]>) {
+        const { where, params } = getAdminOrderWhere(filters);
+        this.query(`SELECT COUNT(*) AS total FROM orders o LEFT JOIN users u ON u.id = o.user_id ${where}`, params, callback);
+    }
+
+    getOrdersAdminSummary(callback: QueryCallback<Array<Record<string, number | string>>>) {
+        this.query(
+            `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN status = ${ORDER_STATUS.PENDING} THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status = ${ORDER_STATUS.DONE} THEN 1 ELSE 0 END) AS completed,
+                SUM(CASE WHEN status = ${ORDER_STATUS.CANCELED} THEN 1 ELSE 0 END) AS canceled,
+                SUM(CASE WHEN payment_method IN ('${PAYMENT_PROVIDER.CASH}', '${PAYMENT_PROVIDER.PAYOS}') THEN 0
+                    WHEN payment_method IS NULL OR payment_method = '' THEN 0 ELSE 1 END) AS historicalPaymentMethods,
+                COALESCE(SUM(CASE WHEN status <> ${ORDER_STATUS.CANCELED} THEN total_price - discount ELSE 0 END), 0) AS revenue
+             FROM orders`,
+            callback,
+        );
     }
 
     updateOrderStatus(orderId: number, status: number, callback: QueryCallback<UpdateResult>) {

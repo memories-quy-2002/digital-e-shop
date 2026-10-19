@@ -58,6 +58,7 @@ Digital-E is a full-stack e-commerce project for electronic devices and componen
 - **Product discovery:** Search and filter the catalog, inspect product specifications, compare options, and explore recommendations.
 - **Shopping journey:** Use guest or signed-in carts, review server-calculated totals, and complete checkout with cash on delivery or PayOS.
 - **Account experience:** Sign in with Firebase, manage account information, follow orders, and write eligible product reviews.
+- **Loyalty rewards:** Earn points on paid orders, redeem them at checkout, or claim customer-owned promotion vouchers.
 
 ### Admin workspace
 

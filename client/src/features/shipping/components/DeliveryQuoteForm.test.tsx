@@ -3,93 +3,180 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeliveryQuoteForm from "./DeliveryQuoteForm";
 import * as shippingApi from "../api";
+import type { DeliveryMapConfig, InternalDeliveryQuote } from "../types";
+import { dictionaries } from "../../../i18n";
 
-vi.mock("../api", () => ({ fetchShippingProvinces: vi.fn(), fetchShippingWards: vi.fn(), fetchShippingServices: vi.fn(), requestShippingQuote: vi.fn() }));
-vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "vi" }) }));
 const mocks = vi.hoisted(() => ({ translate: (key: string) => key }));
+vi.mock("../api", () => ({ fetchDeliveryMapConfig: vi.fn(), findDeliveryAddressLocations: vi.fn(), requestInternalDeliveryQuote: vi.fn() }));
+vi.mock("./DeliveryMapPicker", () => ({
+    default: ({ destination, onDestinationChange }: { destination: { latitude: number; longitude: number } | null; onDestinationChange: (point: { latitude: number; longitude: number }) => void }) => (
+        <>
+            <button type="button" onClick={() => onDestinationChange({ latitude: 10.79, longitude: 106.71 })}>Choose destination pin</button>
+            <input aria-label="shipping.latitude" readOnly value={destination?.latitude ?? ""} />
+            <input aria-label="shipping.longitude" readOnly value={destination?.longitude ?? ""} />
+        </>
+    ),
+}));
+vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "vi" }) }));
 vi.mock("../../../hooks/useT", () => ({ useT: () => mocks.translate }));
 
+const mapConfig: DeliveryMapConfig = {
+    storeAddress: "Digital-E Store",
+    origin: { latitude: 10.78, longitude: 106.7 },
+    tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png",
+    tileAttribution: "Map data contributors",
+};
+const quote: InternalDeliveryQuote = {
+    id: "quote-1",
+    address: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "12 Main Street, HCMC", city: "HCMC", country: "VN", latitude: 10.79, longitude: 106.71 },
+    origin: mapConfig.origin,
+    destination: { latitude: 10.79, longitude: 106.71 },
+    distanceMeters: 4300,
+    routeGeometry: [[106.7, 10.78], [106.71, 10.79]],
+    pricing: { itemsSubtotal: 100000, merchandiseDiscount: 5000, shippingFee: 0, payableTotal: 95000, currency: "VND" as const },
+    settingsVersion: 2,
+    tileUrl: mapConfig.tileUrl,
+    tileAttribution: mapConfig.tileAttribution,
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+};
+
 describe("DeliveryQuoteForm", () => {
+    const onQuoteChange = vi.fn();
+    const cart = [{ productId: 5, quantity: 1 }];
+
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(shippingApi.fetchShippingProvinces).mockResolvedValue([{ code: "1", name: "Province" }]);
-        vi.mocked(shippingApi.fetchShippingWards).mockResolvedValue([{ code: "2", provinceCode: "1", name: "Ward" }]);
-        vi.mocked(shippingApi.fetchShippingServices).mockResolvedValue([{ serviceId: 9, serviceTypeId: 3, name: "Standard" }]);
-        vi.mocked(shippingApi.requestShippingQuote).mockResolvedValue({ id: "q1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 1000, merchandiseDiscount: 0, shippingFee: 200, payableTotal: 1200, currency: "VND" }, address: {} as never, parcel: { grams: 100, lengthCm: 1, widthCm: 1, heightCm: 1 }, serviceTypeId: 3, expectedDeliveryAt: null, sandbox: true, parcelEstimated: true });
+        vi.mocked(shippingApi.fetchDeliveryMapConfig).mockResolvedValue(mapConfig);
+        vi.mocked(shippingApi.findDeliveryAddressLocations).mockResolvedValue([]);
+        vi.mocked(shippingApi.requestInternalDeliveryQuote).mockResolvedValue(quote);
     });
 
-    it("quotes a complete structured address and emits the owner-bound quote", async () => {
-        const onQuoteChange = vi.fn();
-        render(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 1 }]} discountCode="SAVE" onQuoteChange={onQuoteChange} />);
-        fireEvent.change(await screen.findByLabelText("shipping.recipientName"), { target: { value: "Buyer" } });
-        fireEvent.change(screen.getByLabelText("shipping.recipientPhone"), { target: { value: "0901234567" } });
-        fireEvent.change(screen.getByLabelText("shipping.addressLine"), { target: { value: "1 Main" } });
-        fireEvent.change(screen.getByLabelText("shipping.province"), { target: { value: "1" } });
-        fireEvent.change(await screen.findByLabelText("shipping.ward"), { target: { value: "2" } });
-        fireEvent.change(await screen.findByLabelText("shipping.service"), { target: { value: "3" } });
-        fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
-        await waitFor(() => expect(shippingApi.requestShippingQuote).toHaveBeenCalledWith(expect.objectContaining({ cart: [{ productId: 5, quantity: 1 }], discountCode: "SAVE", locale: "vi" }), true));
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(expect.objectContaining({ wardCode: "2", country: "VN" }), expect.objectContaining({ id: "q1" })));
+    it("uses clear delivery-address and delivery-fee wording in both locales", () => {
+        expect(dictionaries.en.shipping.deliveryAddress).toBe("Delivery address");
+        expect(dictionaries.en.shipping.deliveryDetails).toBe("Delivery address");
+        expect(dictionaries.en.shipping.getQuote).toBe("Calculate delivery fee");
+        expect(dictionaries.vi.shipping.deliveryAddress).toBe("Địa chỉ giao hàng");
+        expect(dictionaries.vi.shipping.deliveryDetails).toBe("Địa chỉ giao hàng");
+        expect(dictionaries.vi.shipping.getQuote).toBe("Tính phí giao hàng");
     });
 
-    it("invalidates an existing quote when the cart changes", async () => {
-        const onQuoteChange = vi.fn();
-        const view = render(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 1 }]} onQuoteChange={onQuoteChange} />);
-        fireEvent.change(await screen.findByLabelText("shipping.recipientName"), { target: { value: "Buyer" } });
+    it("creates an internal road-distance quote using a manually selected pin", async () => {
+        const { container } = render(<DeliveryQuoteForm cart={cart} discountCode="SAVE" guest onQuoteChange={onQuoteChange} />);
+
+        fireEvent.change(screen.getByLabelText("shipping.recipientName"), { target: { value: "Guest Buyer" } });
         fireEvent.change(screen.getByLabelText("shipping.recipientPhone"), { target: { value: "0901234567" } });
-        fireEvent.change(screen.getByLabelText("shipping.addressLine"), { target: { value: "1 Main" } });
-        fireEvent.change(screen.getByLabelText("shipping.province"), { target: { value: "1" } });
-        fireEvent.change(await screen.findByLabelText("shipping.ward"), { target: { value: "2" } });
-        fireEvent.change(await screen.findByLabelText("shipping.service"), { target: { value: "3" } });
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street, HCMC" } });
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        await screen.findByRole("button", { name: "Choose destination pin" });
+        fireEvent.click(screen.getByRole("button", { name: "Choose destination pin" }));
         fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(expect.any(Object), expect.objectContaining({ id: "q1" })));
-        view.rerender(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 2 }]} onQuoteChange={onQuoteChange} />);
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(null, null));
-        expect(screen.queryByText("shipping.sandboxQuote")).not.toBeInTheDocument();
+
+        await waitFor(() => expect(shippingApi.requestInternalDeliveryQuote).toHaveBeenCalledWith({
+            address: {
+                recipientName: "Guest Buyer",
+                recipientPhone: "0901234567",
+                addressLine: "12 Main Street, HCMC",
+                city: "HCMC",
+                country: "VN",
+                latitude: 10.79,
+                longitude: 106.71,
+            },
+            locale: "vi",
+            discountCode: "SAVE",
+            cart,
+        }, true));
+        expect(container.querySelector(".shipping-quote__result")).toHaveTextContent("shipping.roadDistance");
+        expect(screen.getByText("4.3 km")).toBeInTheDocument();
+        expect(onQuoteChange).toHaveBeenLastCalledWith(quote.address, quote);
     });
 
-    it("invalidates a guest quote when the checkout identity changes", async () => {
-        const onQuoteChange = vi.fn();
-        const view = render(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 1 }]} onQuoteChange={onQuoteChange} />);
-        fireEvent.change(await screen.findByLabelText("shipping.recipientName"), { target: { value: "Buyer" } });
-        fireEvent.change(screen.getByLabelText("shipping.recipientPhone"), { target: { value: "0901234567" } });
-        fireEvent.change(screen.getByLabelText("shipping.addressLine"), { target: { value: "1 Main" } });
-        fireEvent.change(screen.getByLabelText("shipping.province"), { target: { value: "1" } });
-        fireEvent.change(await screen.findByLabelText("shipping.ward"), { target: { value: "2" } });
-        fireEvent.change(await screen.findByLabelText("shipping.service"), { target: { value: "3" } });
-        fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(expect.any(Object), expect.objectContaining({ id: "q1" })));
+    it("explains that checkout is blocked when the store has no delivery configuration", async () => {
+        vi.mocked(shippingApi.fetchDeliveryMapConfig).mockResolvedValue(null);
+        render(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} />);
 
-        view.rerender(<DeliveryQuoteForm guest={false} cart={[{ productId: 5, quantity: 1 }]} onQuoteChange={onQuoteChange} />);
-
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(null, null));
-        expect(screen.queryByText("shipping.sandboxQuote")).not.toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toHaveTextContent("shipping.mapNotConfigured");
+        expect(screen.queryByRole("button", { name: "shipping.retryMap" })).not.toBeInTheDocument();
+        expect(screen.queryByText("shipping.quoteRequired")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "shipping.getQuote" })).toBeDisabled();
+        expect(shippingApi.requestInternalDeliveryQuote).not.toHaveBeenCalled();
     });
 
-    it("expires the quote and requires the customer to request a fresh one", async () => {
-        const onQuoteChange = vi.fn();
-        vi.mocked(shippingApi.requestShippingQuote).mockResolvedValue({
-            id: "q-expiring",
-            expiresAt: new Date(Date.now() + 120).toISOString(),
-            pricing: { itemsSubtotal: 1000, merchandiseDiscount: 0, shippingFee: 200, payableTotal: 1200, currency: "VND" },
-            address: {} as never,
-            parcel: { grams: 100, lengthCm: 1, widthCm: 1, heightCm: 1 },
-            serviceTypeId: 3,
-            expectedDeliveryAt: null,
-            sandbox: true,
-            parcelEstimated: true,
-        });
-        render(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 1 }]} onQuoteChange={onQuoteChange} />);
-        fireEvent.change(await screen.findByLabelText("shipping.recipientName"), { target: { value: "Buyer" } });
+    it("prefills saved coordinates and offers address suggestions when an address has no pin", async () => {
+        const { rerender } = render(<DeliveryQuoteForm
+            cart={cart}
+            guest={false}
+            addressPrefill={{ key: "saved:1", recipientName: "Buyer", recipientPhone: "0901234567", addressLine: "12 Main Street", city: "HCMC", latitude: 10.79, longitude: 106.71 }}
+            onQuoteChange={onQuoteChange}
+        />);
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        expect(await screen.findByLabelText("shipping.latitude")).toHaveValue("10.79");
+        expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC");
+
+        rerender(<DeliveryQuoteForm cart={cart} guest={false} addressPrefill={{ key: "saved:2", recipientName: "Buyer", recipientPhone: "0901234567", addressLine: "12 Main Street", city: "HCMC" }} onQuoteChange={onQuoteChange} />);
+        await waitFor(() => expect(screen.getByLabelText("shipping.latitude")).toHaveValue(""));
+        expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC");
+        expect(screen.getByRole("button", { name: "shipping.getQuote" })).toBeEnabled();
+        fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("shipping.chooseMapPin");
+        expect(shippingApi.requestInternalDeliveryQuote).not.toHaveBeenCalled();
+    });
+
+    it("automatically suggests locations and moves the map when a suggestion is selected", async () => {
+        const onCoordinatesConfirmed = vi.fn().mockResolvedValue(true);
+        vi.mocked(shippingApi.findDeliveryAddressLocations).mockResolvedValue([
+            { label: "12 Main Street, HCMC", city: "Ho Chi Minh City", latitude: 10.79, longitude: 106.71 },
+        ]);
+        render(<DeliveryQuoteForm cart={cart} guest={false}
+            addressPrefill={{ key: "saved:2", addressLine: "12 Main Street", city: "HCMC" }}
+            onQuoteChange={onQuoteChange} onCoordinatesConfirmed={onCoordinatesConfirmed} />);
+
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street" } });
+        fireEvent.click(await screen.findByRole("option", { name: /12 Main Street, HCMC/ }));
+
+        expect(shippingApi.findDeliveryAddressLocations).toHaveBeenCalledWith({ addressLine: "12 Main Street", city: "", locale: "vi" });
+        await waitFor(() => expect(onCoordinatesConfirmed).toHaveBeenCalledWith({ latitude: 10.79, longitude: 106.71 }, "12 Main Street, HCMC", "Ho Chi Minh City"));
+        expect(screen.getByLabelText("shipping.latitude")).toHaveValue("10.79");
+        expect(screen.getByText("Choose destination pin")).toBeVisible();
+        expect(await screen.findByRole("status")).toHaveTextContent("shipping.locationSaved");
+    });
+
+    it("shows retryable route failures and does not retain an invalid quote", async () => {
+        vi.mocked(shippingApi.requestInternalDeliveryQuote).mockRejectedValueOnce(new Error("No route"));
+        render(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} />);
+        fireEvent.change(screen.getByLabelText("shipping.recipientName"), { target: { value: "Buyer" } });
         fireEvent.change(screen.getByLabelText("shipping.recipientPhone"), { target: { value: "0901234567" } });
-        fireEvent.change(screen.getByLabelText("shipping.addressLine"), { target: { value: "1 Main" } });
-        fireEvent.change(screen.getByLabelText("shipping.province"), { target: { value: "1" } });
-        fireEvent.change(await screen.findByLabelText("shipping.ward"), { target: { value: "2" } });
-        fireEvent.change(await screen.findByLabelText("shipping.service"), { target: { value: "3" } });
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street, HCMC" } });
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        await screen.findByRole("button", { name: "Choose destination pin" });
+        fireEvent.click(screen.getByRole("button", { name: "Choose destination pin" }));
         fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
 
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(expect.any(Object), expect.objectContaining({ id: "q-expiring" })));
-        await waitFor(() => expect(onQuoteChange).toHaveBeenLastCalledWith(null, null), { timeout: 1000 });
+        expect(await screen.findByRole("alert")).toHaveTextContent("shipping.quoteError");
+        expect(onQuoteChange).toHaveBeenLastCalledWith(null, null);
+        fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
+        await waitFor(() => expect(shippingApi.requestInternalDeliveryQuote).toHaveBeenCalledTimes(2));
+        expect(document.querySelector(".shipping-quote__result")).toHaveTextContent("shipping.roadDistance");
+    });
+
+    it("invalidates a checkout quote while keeping the address and map pin intact", async () => {
+        const props = { invalidateQuoteKey: 0 };
+        const { rerender } = render(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} {...props} />);
+        fireEvent.change(screen.getByLabelText("shipping.recipientName"), { target: { value: "Guest Buyer" } });
+        fireEvent.change(screen.getByLabelText("shipping.recipientPhone"), { target: { value: "0901234567" } });
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street, HCMC" } });
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        fireEvent.click(await screen.findByRole("button", { name: "Choose destination pin" }));
+        fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
+        await waitFor(() => expect(document.querySelector(".shipping-quote__result")).toBeInTheDocument());
+
+        rerender(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} invalidateQuoteKey={1} />);
+
+        expect(screen.getByLabelText("shipping.recipientName")).toHaveValue("Guest Buyer");
+        expect(screen.getByLabelText("shipping.recipientPhone")).toHaveValue("0901234567");
+        expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC");
+        expect(screen.getByLabelText("shipping.latitude")).toHaveValue("10.79");
+        expect(screen.queryByText("shipping.roadDistance")).not.toBeInTheDocument();
+        expect(screen.getByRole("alert")).toHaveTextContent("shipping.quoteInvalidated");
         expect(screen.getByRole("button", { name: "shipping.getQuote" })).toBeEnabled();
     });
 });

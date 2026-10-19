@@ -10,6 +10,7 @@ import { NestOrdersCancellationService } from "../orders-cancellation.service";
 import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 import { PromotionsRepository } from "../../promotions/promotions.repository";
 import { ProductAttributesRepository } from "../../products/product-attributes.repository";
+import { ShippingRepository } from "../../shipping/shipping.repository";
 import {
     cleanupTestData,
     closeIntegrationPools,
@@ -46,6 +47,7 @@ function buildOrdersService() {
         new PromotionsRepository(),
         new ProductAttributesRepository(),
         new NestOrdersCancellationService(repository, orderTimelineService as never, inventoryService as never),
+        new ShippingRepository(),
     );
 
     return { ordersService, orderTimelineService, inventoryService, notificationsService };

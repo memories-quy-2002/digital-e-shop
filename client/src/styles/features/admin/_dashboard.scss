@@ -821,13 +821,6 @@
     border-top: 1px solid var(--de-color-border);
 }
 
-@media (min-width: 901px) {
-    .admin__dashboard__analysis--overview {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-    }
-}
-
 .admin__dashboard__realtime {
     display: block;
 }
@@ -840,81 +833,6 @@
 .admin__dashboard__secondary > section,
 .admin__dashboard__secondary > .admin__card {
     min-width: 0;
-}
-
-.admin__dashboard__promotion-performance {
-    grid-column: 1 / -1;
-}
-
-.admin__dashboard__secondary .admin__dashboard__promotion-performance .admin__table-scroll-region__hint {
-    display: none;
-}
-
-.admin__dashboard__promotion-performance .admin__table-wrap {
-    overflow-x: hidden;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion {
-    width: 100%;
-    min-width: 0;
-    table-layout: fixed;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th,
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td {
-    padding: 0.7rem 0.75rem;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(1),
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(1) {
-    width: 27%;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(2),
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(2) {
-    width: 16%;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(3),
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(3) {
-    width: 32%;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(4),
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(4) {
-    width: 25%;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(3) {
-    white-space: normal;
-}
-
-.admin__dashboard__promotion-code {
-    color: var(--de-color-text) !important;
-    font-family: var(--de-font-family-mono);
-    font-weight: 800 !important;
-    overflow-wrap: anywhere;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion .admin__table__numeric {
-    color: var(--de-color-text) !important;
-    font-family: var(--de-font-family-mono);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-    white-space: nowrap;
-}
-
-.admin__dashboard__promotion-performance .admin__table--dashboard-promotion .inline-flex {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.admin__dashboard__table-empty {
-    padding: 0.8rem 0;
-    color: var(--de-color-text-muted);
-    font-size: 0.8rem;
 }
 
 .admin__dashboard__activity-grid {

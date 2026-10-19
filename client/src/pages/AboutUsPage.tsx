@@ -1,7 +1,7 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import heroImage from "../assets/images/about_us.jpg";
+import { aboutHeroImage } from "../assets/images/editorialHeroImages";
 import Layout from "../components/layout/Layout";
 import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import { useT } from "../hooks/useT";
@@ -9,7 +9,7 @@ import "../styles/pages/_about.scss";
 
 const AboutUsPage: React.FC = () => {
     const t = useT();
-    const heroImageSource = getResponsiveImageSource(heroImage, {
+    const heroImageSource = getResponsiveImageSource(aboutHeroImage, {
         widths: HERO_IMAGE_WIDTHS,
         sizes: "100vw",
         fit: "fill",
@@ -63,24 +63,11 @@ const AboutUsPage: React.FC = () => {
                             </Link>
                         </div>
                     </div>
-                </section>
-
-                <section className="about__stats" aria-label={t("about.statsAriaLabel")}>
-                    <div>
-                        <strong>5K+</strong>
-                        <span>{t("about.stats.products")}</span>
-                    </div>
-                    <div>
-                        <strong>120+</strong>
-                        <span>{t("about.stats.brands")}</span>
-                    </div>
-                    <div>
-                        <strong>24/7</strong>
-                        <span>{t("about.stats.support")}</span>
-                    </div>
-                    <div>
-                        <strong>{t("about.stats.orderValue")}</strong>
-                        <span>{t("about.stats.orderTime")}</span>
+                    <div className="about__stats info-page__hero__rail" aria-label={t("about.statsAriaLabel")}>
+                        <div><strong>5K+</strong><span>{t("about.stats.products")}</span></div>
+                        <div><strong>120+</strong><span>{t("about.stats.brands")}</span></div>
+                        <div><strong>24/7</strong><span>{t("about.stats.support")}</span></div>
+                        <div><strong>{t("about.stats.orderValue")}</strong><span>{t("about.stats.orderTime")}</span></div>
                     </div>
                 </section>
 

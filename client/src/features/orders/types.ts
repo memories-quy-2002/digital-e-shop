@@ -3,6 +3,8 @@ import type { PaymentMethod, PayOSPaymentMethod } from "./constants";
 export type CustomerOrder = {
     id: number;
     date_added: string;
+    delivered_at?: string | null;
+    return_eligible_until?: string | null;
     status: number;
     total_price: number;
     discount: number;
@@ -126,6 +128,8 @@ export type GuestOrderItem = {
 export type GuestOrderDetail = {
     id: number;
     date_added: string;
+    delivered_at?: string | null;
+    return_eligible_until?: string | null;
     guest_email: string | null;
     guest_name: string | null;
     guest_phone: string | null;

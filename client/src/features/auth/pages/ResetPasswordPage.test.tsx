@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ResetPasswordPage from "./ResetPasswordPage";
+import { LocaleProvider } from "../../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
     verifyFirebasePasswordResetCode: vi.fn(),
@@ -18,15 +19,16 @@ vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 describe("ResetPasswordPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.localStorage.removeItem("digital-e:locale:v1");
         mocks.verifyFirebasePasswordResetCode.mockResolvedValue("buyer@example.com");
         mocks.confirmFirebasePasswordReset.mockResolvedValue(undefined);
     });
 
     it("uses Firebase action-code helpers for a Firebase reset link", async () => {
         render(
-            <MemoryRouter initialEntries={["/reset-password?mode=resetPassword&oobCode=firebase-code"]}>
+            <LocaleProvider><MemoryRouter initialEntries={["/reset-password?mode=resetPassword&oobCode=firebase-code"]}>
                 <ResetPasswordPage />
-            </MemoryRouter>,
+            </MemoryRouter></LocaleProvider>,
         );
 
         expect(await screen.findByText(/buyer@example.com/)).toBeInTheDocument();
@@ -43,9 +45,9 @@ describe("ResetPasswordPage", () => {
         mocks.confirmFirebasePasswordReset.mockRejectedValue({ code: "auth/expired-action-code" });
 
         render(
-            <MemoryRouter initialEntries={["/reset-password?mode=resetPassword&oobCode=firebase-code"]}>
+            <LocaleProvider><MemoryRouter initialEntries={["/reset-password?mode=resetPassword&oobCode=firebase-code"]}>
                 <ResetPasswordPage />
-            </MemoryRouter>,
+            </MemoryRouter></LocaleProvider>,
         );
 
         expect(await screen.findByText(/buyer@example.com/)).toBeInTheDocument();
@@ -57,5 +59,19 @@ describe("ResetPasswordPage", () => {
             "This Firebase action link is invalid or expired. Request a new link and try again.",
         );
         expect(screen.getByRole("link", { name: "Back to login" })).toBeInTheDocument();
+    });
+
+    it("localizes the missing-link recovery state", () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+
+        render(
+            <LocaleProvider><MemoryRouter initialEntries={["/reset-password"]}>
+                <ResetPasswordPage />
+            </MemoryRouter></LocaleProvider>,
+        );
+
+        expect(screen.getByRole("heading", { name: "Chọn mật khẩu mới" })).toBeInTheDocument();
+        expect(screen.getByRole("alert")).toHaveTextContent("Liên kết đặt lại mật khẩu thiếu mã thao tác Firebase.");
+        expect(screen.getByRole("link", { name: "Quay lại đăng nhập" })).toBeInTheDocument();
     });
 });

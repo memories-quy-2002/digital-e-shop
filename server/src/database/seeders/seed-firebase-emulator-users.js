@@ -11,10 +11,10 @@ const LOCAL_FIREBASE_PROJECT_ID = "demo-digital-e-local";
 const LOCAL_FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 const DEMO_PASSWORD = "DemoPass123!";
 const DEMO_FIREBASE_USERS = [
-    { uid: "demo-digital-e-admin", email: "demo.admin@digital-e.local", displayName: "Minh Nguyen" },
-    { uid: "demo-digital-e-alice", email: "demo.alice@digital-e.local", displayName: "Ngoc Anh Nguyen" },
-    { uid: "demo-digital-e-bob", email: "demo.bob@digital-e.local", displayName: "Quang Huy Tran" },
-    { uid: "demo-digital-e-carol", email: "demo.carol@digital-e.local", displayName: "Thu Ha Pham" },
+    { uid: "demo-digital-e-admin", email: "demo.admin@digital-e.local", emailVerified: true, displayName: "Minh Nguyen" },
+    { uid: "demo-digital-e-alice", email: "demo.alice@digital-e.local", emailVerified: true, displayName: "Ngoc Anh Nguyen" },
+    { uid: "demo-digital-e-bob", email: "demo.bob@digital-e.local", emailVerified: true, displayName: "Quang Huy Tran" },
+    { uid: "demo-digital-e-carol", email: "demo.carol@digital-e.local", emailVerified: true, displayName: "Thu Ha Pham" },
 ];
 
 const assertLocalFirebaseEmulatorEnvironment = (environment = process.env) => {
@@ -50,7 +50,7 @@ const seedFirebaseEmulatorUsers = async () => {
             uid: user.uid,
             email: user.email,
             password: DEMO_PASSWORD,
-            emailVerified: false,
+            emailVerified: user.emailVerified,
             displayName: user.displayName,
         };
 

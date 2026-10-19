@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import AdminDashboardOperations from "./AdminDashboardOperations";
@@ -22,7 +23,7 @@ const pendingOrder = {
 
 describe("AdminDashboardOperations", () => {
     it("renders pending orders with a clear queue action", () => {
-        render(
+        renderWithLocale(
             <MemoryRouter>
                 <AdminDashboardOperations
                     pendingOrders={[pendingOrder]}
@@ -40,7 +41,7 @@ describe("AdminDashboardOperations", () => {
     });
 
     it("renders successful empty states", () => {
-        render(
+        renderWithLocale(
             <MemoryRouter>
                 <AdminDashboardOperations
                     pendingOrders={[]}
@@ -57,7 +58,7 @@ describe("AdminDashboardOperations", () => {
     });
 
     it("shows a retryable status instead of an empty table after a request failure", () => {
-        render(
+        renderWithLocale(
             <MemoryRouter>
                 <AdminDashboardOperations
                     pendingOrders={[]}

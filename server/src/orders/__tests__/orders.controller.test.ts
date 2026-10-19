@@ -8,7 +8,7 @@ vi.mock("#src/shared/utils/logger", () => ({ logger: { error: vi.fn(), info: vi.
 
 function buildController() {
     const ordersService = {
-        applyDiscount: vi.fn(), makePurchase: vi.fn(), changeOrderStatus: vi.fn(), getOrderDetail: vi.fn(),
+        applyDiscount: vi.fn(), makePurchase: vi.fn(), changeOrderStatus: vi.fn(), getOrderDetail: vi.fn(), getAdminPendingQueue: vi.fn(),
     } as unknown as NestOrdersService;
     return { controller: new OrdersController(ordersService), ordersService };
 }
@@ -23,11 +23,11 @@ describe("OrdersController", () => {
         vi.mocked(ordersService.applyDiscount).mockResolvedValue({ id: 1, discount_code: "SAVE10", discount_percent: 10, min_order_value: 0 });
         vi.mocked(ordersService.makePurchase).mockResolvedValue({ id: 7, date_added: "2026-08-24T00:00:00.000Z" });
         await controller.makePurchase("user-1", { totalPrice: 100, cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 99, discountCode: "SAVE10", shippingAddress: "123 Main St", paymentMethod: "cash" });
-        expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10");
+        expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10", "user-1");
         expect(ordersService.makePurchase).toHaveBeenCalledWith("user-1", expect.objectContaining({ discount: 10 }));
     });
 
-    it.each(["stripe", "card", "bank_transfer"])("rejects %s before persistence", async (paymentMethod) => {
+    it.each(["unsupported_provider", "card", "bank_transfer"])("rejects %s before persistence", async (paymentMethod) => {
         const { controller, ordersService } = buildController();
         await expect(controller.makePurchase("user-1", { totalPrice: 100_000, cart: [{ productId: 7, quantity: 1, price: 100_000 }], discount: 0, shippingAddress: "Test address", paymentMethod })).rejects.toMatchObject({ status: 400 });
         expect(ordersService.makePurchase).not.toHaveBeenCalled();
@@ -52,6 +52,16 @@ describe("OrdersController", () => {
         expect(ordersService.changeOrderStatus).toHaveBeenCalledWith(41, 1, "admin-1");
     });
 
+    it("returns the bounded admin pending-order queue", async () => {
+        const { controller, ordersService } = buildController();
+        vi.mocked(ordersService.getAdminPendingQueue).mockResolvedValue([{ id: 42, status: 0 }] as never);
+
+        await expect(controller.getAdminPendingQueue()).resolves.toMatchObject({
+            orders: [{ id: 42, status: 0 }],
+        });
+        expect(ordersService.getAdminPendingQueue).toHaveBeenCalledOnce();
+    });
+
     it("returns attempt identity and session state for authenticated PayOS checkout", async () => {
         const payosService = {
             createCheckoutSession: vi.fn().mockResolvedValue({
@@ -65,6 +75,20 @@ describe("OrdersController", () => {
             shippingQuoteId: "quote-1", deliveryAddress: {} as never, totalPrice: 100,
             cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 0, shippingAddress: "address",
         })).resolves.toMatchObject({ attemptId: "11111111-1111-4111-8111-111111111111", sessionState: "CREATING" });
+    });
+
+    it("binds simulated PayOS confirmation to the supplied payment attempt", async () => {
+        const payosService = { confirmMockPayment: vi.fn().mockResolvedValue({ id: 827 }) };
+        const controller = new OrdersController({} as never, payosService as never);
+        const payload = {
+            paymentAttemptId: "11111111-1111-4111-8111-111111111111",
+            orderCode: 123456789,
+            paymentLinkId: "mock-link",
+            amount: 100,
+        };
+
+        await expect(controller.confirmMockPayOSPayment(payload)).resolves.toMatchObject({ orderId: 827 });
+        expect(payosService.confirmMockPayment).toHaveBeenCalledWith(payload.paymentAttemptId, payload.orderCode, payload.paymentLinkId, payload.amount);
     });
 
     it("rejects malformed authenticated PayOS idempotency keys before creating a session", async () => {

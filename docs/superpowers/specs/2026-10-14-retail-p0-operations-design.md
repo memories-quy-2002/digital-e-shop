@@ -1,30 +1,36 @@
 # Retail P0 operations design
 
 Date: 2026-10-14
-Status: written design approved by the owner on 2026-10-14; implementation has not started.
+Status: original design approved on 2026-10-14; scope amended by the owner on 2026-10-16 to use internal delivery only.
 Scope authorized: all three P0 capabilities, with sandbox-first acceptance.
 Related: [roadmap and tracker](../../backlog/README.md),
 [deferred P1](../../backlog/P1.md), [QA checklist](../../bmad/qa-checklist.md).
 
-Implementation: [P0 task plan](../plans/2026-10-14-retail-p0-operations.md),
-awaiting plan review and execution-method selection.
+Implementation: [P0 task plan](../plans/2026-10-14-retail-p0-operations.md).
+The later [internal delivery design](2026-10-16-internal-delivery-design.md)
+and [implementation plan](../plans/2026-10-16-internal-delivery.md) provide the
+authoritative workflow and acceptance details for P0-01.
 
 ## Outcome and boundary
 
-One electronics retailer can accept an order, price delivery, pack and ship it,
-track delivery, distinguish COD collected from money remitted, record an actual
-manual refund, and notify the customer without losing work during a restart.
+One electronics retailer can accept an order, price internal delivery, assign
+its own delivery staff, track delivery, distinguish COD collected from money
+remitted, record an actual manual refund, and notify the customer without losing
+work during a restart.
 
 All three P0 capabilities belong to this release. Initial operation uses one
-warehouse, one parcel per order, GHN as the carrier and Resend as the email
-provider. Multiple parcels, partial fulfillment, automated bank payouts,
-reverse-logistics pickup and replacement shipping are outside this release.
-Return-to-origin for an undelivered outbound parcel is included.
+warehouse, Digital-E delivery staff and Resend as the email provider. GHN or
+another third-party carrier is not required or in scope. Multiple warehouses,
+multi-parcel fulfillment, automated bank payouts, reverse-logistics pickup and
+replacement shipping are outside this release. Historical GHN records remain
+read-only.
 
-The owner has no provider accounts yet and selected sandbox-first delivery.
-Provide deterministic local adapters plus real provider adapters. Local
-simulation is never described as a GHN staging call, a delivered external email
-or a bank transfer. Sandbox adapters are rejected in production.
+The owner selected internal delivery and sandbox-first acceptance. Internal
+delivery uses an operator-configured store pin, allowlisted road-routing/map
+services, manually selected customer address pins, fee bands, and scheduled
+Digital-E delivery staff. Local email/payment simulation is never described as
+a delivered external email or a bank transfer. Sandbox email/payment modes are
+rejected in production.
 
 ## Confirmed current boundaries
 
@@ -53,31 +59,37 @@ services coordinate; repositories own parameterized SQL; pure policies own
 pricing, transitions and refund allocation. Client features reuse the shared
 HTTP client, existing guards, i18n and theme tokens.
 
-Use narrow carrier and email provider interfaces because local sandbox and real
-providers are both required. Reuse existing Axios/Node capabilities where
-appropriate; introduce a dependency only when verified webhook handling needs
-a maintained SDK. Do not adopt a new commerce framework.
+Use internal delivery settings, quote, assignment and status boundaries; there
+is no carrier-provider interface or carrier network workflow. Keep the Resend
+and email-sandbox provider boundary for transactional email. Reuse existing
+Axios/Node capabilities where appropriate; introduce a dependency only when a
+verified webhook needs a maintained SDK. Do not adopt a new commerce framework.
 
-A durable MySQL task/outbox boundary supports carrier operations and email.
+A durable MySQL task/outbox boundary supports transactional email and other
+explicit asynchronous work; internal shipment creation and assignment are
+committed with their business transactions.
 Transactions insert jobs with the business change; an explicit bounded runner
 claims them later. External HTTP never holds the order/payment transaction
-open. Separate email retry policy from shipment recovery policy.
+open. Internal delivery state changes stay transaction-bound; email retries use
+their own policy.
 
 Alternative approaches considered: process-local timers lose work after restart;
 a separate broker adds infrastructure not required for this single retailer.
 The MySQL outbox is the selected proposed approach.
 
-## P0-01: Order fulfillment and GHN
+## P0-01: Internal order fulfillment and delivery
 
 ### Checkout and pricing
 
-- Add structured delivery addresses and server-owned product parcel dimensions
-  and weights. Validate delivery coverage, sender configuration and selected
-  service before issuing a quote. Missing parcel data blocks delivery pricing
-  with an actionable error instead of silently inventing weights.
+- Use structured delivery addresses, a manually selected destination pin, an
+  operator-configured store pin and allowlisted road-routing/map services.
+  Missing delivery settings or an unavailable route fails quote creation with
+  an actionable error; do not invent distance or fee. Parcel dimensions and
+  external carrier service codes are not required for internal delivery.
 - Quote IDs are random, expiring and bound to the owner/anonymous cart, cart
-  contents, address, provider and authoritative fee. Recalculate merchandise
-  and promotions before accepting a quote at checkout.
+  contents, address/pin, route, delivery settings version and authoritative
+  fee. Recalculate merchandise and promotions before accepting a quote at
+  checkout.
 - Snapshot merchandise subtotal, merchandise discount, shipping fee and payable
   total on pending checkout/order. Use exact integer VND and a single rounding
   policy. Shipping is not discounted by merchandise percentage promotions.
@@ -94,53 +106,39 @@ The MySQL outbox is the selected proposed approach.
 
 ### Fulfillment lifecycle
 
-Maintain a separate fulfillment state and append-only events. Normal flow:
+Maintain a separate fulfillment state and append-only events. Packing advances
+to `READY_TO_SHIP`; the assigned employee then moves the assignment through
+`ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED` or `DELIVERY_FAILED`.
 
-`UNFULFILLED -> CONFIRMED -> PICKING -> PACKED -> READY_TO_SHIP -> SHIPPED -> DELIVERED`
+Internal shipments are created in the order transaction. Admins assign an
+eligible delivery employee and a non-overlapping Vietnam-local delivery window;
+the assigned employee records `OUT_FOR_DELIVERY`, `DELIVERED`, or
+`DELIVERY_FAILED`. A failed delivery returns to the admin for a new assignment.
+There are no external carrier callbacks, labels, tracking codes, or shipment
+creation jobs. Historical GHN rows remain read-only. Canceled pre-delivery
+orders follow existing cancellation guards; stock restoration remains once-only
+and requires the applicable physical-return confirmation.
 
-`DELIVERY_FAILED` can proceed to a new delivery attempt or `RETURNING`, then
-`RETURNED`. Unknown carrier events remain reviewable rather than becoming Done.
-Canceled pre-shipment orders follow existing cancellation guards. Admin cannot
-cancel an in-transit parcel and immediately return its stock to availability.
-Returned stock requires explicit physical-receipt confirmation; inventory
-restoration still uses the existing once-only order guard.
-
-Successful delivery sets `delivered_at` once and completes the order through a
-shared transaction-aware lifecycle operation. Preserve the simulated-PayOS and
-unpaid-PayOS completion guards. COD customer collection may be confirmed on
-delivery; carrier remittance is a distinct financial state. For orders with
-shipments, legacy admin completion routes must enforce the delivery policy too.
-
-### Provider reliability and access
-
-- Use a stable client order reference for creation. Persist an operation key
-  before calling GHN. On an ambiguous create timeout, look up that reference
-  before retrying; unresolved cases require operator recovery.
-- Authenticated carrier callbacks enter only their exact route. Configure a
-  custom shared-secret header and constant-time validation; confirm ShopID and
-  match a known shipment. Do not invent an undocumented GHN HMAC signature.
-- Deduplicate persisted carrier events and enqueue bounded verification/work.
-  Commit durable receipt before acknowledgment; persistence failure returns a
-  retryable response. Stale events cannot reverse terminal delivery states.
-- Query authenticated provider order data to recover missed callbacks or
-  ambiguous state. Inconsistent status/amounts become operator exceptions.
-- Shipping labels are obtained through the admin boundary; never expose tokens
-  or blindly redirect to an arbitrary URL supplied by the client/provider.
-- New customers see guest-safe shipment status, expected delivery information
-  and timeline; signed-in customers remain owner-scoped.
+Successful staff-confirmed delivery sets `delivered_at` once and completes the
+order through the shared transaction-aware lifecycle operation. Preserve the
+simulated-PayOS and unpaid-PayOS completion guards. COD collection is recorded
+by the assigned delivery employee; remittance to the shop remains a distinct
+financial state. Assignment ownership, schedule conflicts, status transitions
+and repeated updates are checked server-side and recorded in an append-only
+history. Customer views remain owner/guest-token scoped and expose only the
+assignee, schedule, public status and delivery timeline. The internal delivery
+workflow does not request or store staff/customer GPS.
 
 ## P0-02: COD settlement and manual refunds
 
-Record expected COD, customer-collected amount, carrier fees, carrier-remitted
-amount, dates, references and discrepancy status separately from payment status.
-For prepaid PayOS, shipment COD is zero. Where the shop pays shipping, reconcile
-gross COD minus actual carrier charges to expected net remittance. Customers see
-their payment state, not internal carrier accounting or bank information.
-
-Authenticated carrier events can report remittance, but do not silently resolve
-an amount discrepancy. Admin settlement confirmation includes a unique transfer
-reference and evidence; duplicate references cannot credit money twice.
-Record actor, timestamp and previous/new values. Retain existing PayOS recovery.
+Record expected COD, staff-collected amount, amount remitted to the shop, dates,
+references and discrepancy status separately from payment status. For prepaid
+PayOS, shipment COD is zero. Internal delivery has no third-party carrier fee
+or carrier remittance; the expected COD remittance is the collected amount.
+Keep any discrepancy unresolved until an admin records the transfer reference
+and evidence. Duplicate references cannot credit money twice. Record actor,
+timestamp and previous/new values. Customers see their payment state, not
+internal settlement or bank information. Retain existing PayOS recovery.
 
 Manual refund is an explicit operation that records an already executed payment
 to the customer; it is not a fake automatic payment-provider response. The
@@ -204,14 +202,15 @@ proves restart/retry behavior; hosted scheduling remains a deployment gate.
 
 Add forward migrations and matching Prisma projections for:
 
-- Product parcel metadata and order/pending-checkout pricing/address snapshots.
-- Delivery quotes, shipments, shipment operations and shipment events.
+- Order/pending-checkout pricing and address snapshots.
+- Internal delivery quotes, settings, shipments, assignments and status events.
 - COD settlements/remittance evidence and manual refund operations/evidence.
 - Durable tasks/email jobs, attempt leases and deduplicated provider events.
 
 Use foreign keys aligned with existing tables, unique business-operation keys,
-indexes for owner lookup/provider reference/due work, and bounded queries.
-Backfill historical compatibility without inventing shipment or remittance facts.
+indexes for owner lookup, assignment/schedule lookup and due work, and bounded
+queries. Preserve historical GHN records without inventing shipment or
+remittance facts.
 
 Feature surfaces: server shipping module; existing orders/cart/payment and
 after-sales boundaries; transactional-email module and narrow task runner.
@@ -222,18 +221,20 @@ have separate exact authentication boundaries, not broad CSRF exemptions.
 
 ## Configuration and operational readiness
 
-Document placeholder-only settings for carrier mode, GHN token/shop/webhook
-secret, sender address, email mode/API key/from address/webhook secret,
-scheduler secret, request timeouts and bounded runner limits. Validate explicit
-allowlisted provider base URLs to prevent environment-driven SSRF.
+Document placeholder-only settings for the internal-delivery routing endpoint,
+map tile URL/attribution, sender address, email mode/API key/from address/webhook
+secret, scheduler secret, request timeouts and bounded runner limits. Validate
+explicit routing/tile allowlists to prevent environment-driven SSRF. No GHN
+credentials, carrier mode or carrier webhook secret are required.
 
 Provider credentials and recipient/evidence data never appear in logs. Redact
 diagnostics, mask recipient/account fields in admin lists, and keep evidence
 files private. Public guest responses omit internal references and audit data.
 
-Use local sandbox fixtures for success, failure, duplicate, out-of-order,
-timeout, remittance mismatch and email retry. GHN staging/real Resend calls
-require accounts/API keys; these are future verification, not assumed results.
+Use local fixtures for internal delivery pricing and status transitions,
+assignment conflicts, remittance mismatch and email retry. No GHN staging check
+is required. Real routing/map configuration, Resend, PayOS and hosted scheduler
+verification remain separate operational gates; do not claim them from fixtures.
 
 ## Acceptance and verification
 
@@ -241,8 +242,8 @@ require accounts/API keys; these are future verification, not assumed results.
 | --- | --- |
 | A01 | Guest and signed-in COD/PayOS checkout include server-owned shipping; tampered, expired and foreign quote IDs fail |
 | A02 | Payment-link and ledger amounts equal VND pricing snapshots, including discounts and shipping |
-| A03 | Packing/shipping makes no second stock deduction; duplicate or ambiguous carrier creation does not make duplicate parcels |
-| A04 | Callback authentication, ShopID checks, duplicate and stale events cannot forge delivery, money or ownership |
+| A03 | Internal shipment creation and delivery assignments do not repeat stock deductions; duplicate assignment/status requests do not duplicate side effects |
+| A04 | Admin/assigned-staff authorization, schedule-overlap checks and duplicate/stale delivery updates cannot forge delivery, money or ownership |
 | A05 | Delivery sets the warranty/return start once; in-transit return does not restore stock before physical receipt |
 | A06 | COD collection, remittance and fees remain distinct; duplicate references and amount discrepancies are handled explicitly |
 | A07 | Refund evidence is mandatory; net item allocation, concurrency, replay and cumulative caps prevent over-refund |
@@ -269,8 +270,8 @@ schedules remain separate operational actions.
 
 ## References
 
-- [GHN order creation](https://developer.ghn.vn/vi/docs/order/create)
-- [GHN callbacks and custom headers](https://developer.ghn.vn/vi/docs/webhook/callback-order-status)
+- [Internal delivery design](2026-10-16-internal-delivery-design.md)
+- [Internal delivery implementation plan](../plans/2026-10-16-internal-delivery.md)
 - [Resend sending API](https://resend.com/docs/api-reference/emails/send-email)
 - [Resend idempotency window](https://resend.com/docs/dashboard/emails/idempotency-keys)
 - [Resend delivery events](https://resend.com/docs/webhooks/event-types)

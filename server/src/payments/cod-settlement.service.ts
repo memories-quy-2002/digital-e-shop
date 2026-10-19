@@ -35,10 +35,10 @@ export class CodSettlementService {
                 if (!settlement) throw settlementError("COD settlement not found.", HTTP_STATUS.NOT_FOUND);
                 const existing = await this.repository.findByTransferReference(tx, input.transferReference);
                 const actualCarrierFeeVnd = settlement.actualCarrierFeeVnd;
-                if (actualCarrierFeeVnd == null) throw settlementError("Carrier fee has not been verified yet.", HTTP_STATUS.CONFLICT);
+                if (actualCarrierFeeVnd == null) throw settlementError("Delivery fee has not been recorded yet.", HTTP_STATUS.CONFLICT);
                 validVnd(actualCarrierFeeVnd, "actualCarrierFeeVnd");
                 const expectedNetVnd = settlement.collectedVnd - actualCarrierFeeVnd;
-                if (expectedNetVnd < 0) throw settlementError("Carrier fees cannot exceed collected COD.", HTTP_STATUS.CONFLICT);
+                if (expectedNetVnd < 0) throw settlementError("Delivery fees cannot exceed collected COD.", HTTP_STATUS.CONFLICT);
                 if (existing) {
                     const same = existing.orderId === orderId && existing.actorId === actorId
                         && existing.amountVnd === input.remittedVnd && existing.carrierFeeVnd === actualCarrierFeeVnd

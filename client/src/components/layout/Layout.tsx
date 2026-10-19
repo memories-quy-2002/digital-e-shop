@@ -1,6 +1,7 @@
 import React from "react";
 import { Header } from "./Header";
 import Footer from "./Footer";
+import BackToTopButton from "./BackToTopButton";
 import ComparisonTray from "../../features/products/components/ComparisonTray";
 import { useT } from "../../hooks/useT";
 
@@ -22,6 +23,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </main>
             <ComparisonTray />
             <Footer />
+            <BackToTopButton />
         </div>
     );
 };

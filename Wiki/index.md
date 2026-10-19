@@ -2,13 +2,13 @@
 
 This Wiki records durable Digital-E understanding for maintainers and AI agents. Use [AGENTS.md](../AGENTS.md) for repository rules and [docs/](../docs/) for task-oriented human guides.
 
-**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
+**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target. Internal delivery includes admin-managed store pins and distance fees, scheduled staff assignments, employee status updates, and customer-visible delivery progress without GPS tracking.
 
-**Last updated:** 2026-10-15
+**Last updated:** 2026-10-18
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, GHN/local-sandbox fulfillment and delivery quotes, COD settlement and evidence-backed manual refunds, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
+The current implementation includes authenticated and guest carts, transactional idempotent cart merging, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, guest order email-OTP access recovery, exact UTC return deadlines, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, internal road-distance checkout quotes with configurable fees and stable stale-quote errors, scheduled internal delivery assignments with employee-scoped status updates and exactly-once order completion, COD settlement and evidence-backed manual refunds, loyalty points and reward vouchers, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Historical GHN shipment/address data remains readable only; it no longer triggers provider calls or delivery state changes.
 
-The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
+The local demo seed creates a linked graph with 120 products across 8 categories and 16 brands. All four seeded accounts (three customers and one admin) have at least 25 orders, including completed and canceled orders; every product has an image, a successful customer purchase, a customer review, and a wishlist link. Verification checks plan-derived counts, account order/status coverage, order totals, image coverage, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
 ## Start here
 
@@ -55,17 +55,21 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 
 ### Concepts
 
+- [[admin-operations]]: bounded admin lists, aggregate dashboard polling, transactional audit events, and persisted alert triage.
 - [[durable-operations]]: transactional task persistence, bounded leases and fencing.
-- [[shipping-and-fulfillment]]: owner-bound delivery quotes, GHN/sandbox shipment lifecycle and COD delivery snapshots.
+- [[shipping-and-fulfillment]]: internal route-priced checkout quotes, immutable delivery snapshots, scheduled staff assignments, and the read-only legacy shipment boundary.
 - [[transactional-email-operations]]: immutable business events, durable delivery attempts, provider webhooks and operator recovery.
 
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
+- [[loyalty-rewards]]: point earning/redemption rules, owner-bound vouchers, and checkout/payment integration
 
 ### Decisions
 
 Accepted architectural decisions belong under `decisions/`, one decision per file. Preserve historical context and add a current-status note when implementation changes.
+
+- [[0007-internal-delivery-only]]: internal delivery is the only active fulfillment integration; historical GHN records remain read-only
 
 
 ### Sources and synthesis

@@ -36,7 +36,7 @@ test("baseline import preserves historical SQL order without exposing passwords 
     const steps = buildDockerPlan("import", env, root);
     assert.equal(steps.length, 2);
     assert.match(steps[0].inputFile, /defaultdb_2026-06-01_142319.sql$/);
-    assert.match(steps[1].inputFile, /2026-07-07-add-stripe-payment-support.sql$/);
+    assert.match(steps[1].inputFile, /2026-07-07-legacy-checkout-schema.sql$/);
     assert.equal(steps[0].stripGtid, true);
     assert.ok(steps[0].args.includes("MYSQL_PWD"));
     assert.ok(!steps[0].args.join(" ").includes(env.DB_PASSWORD));

@@ -13,6 +13,8 @@ export type PromotionInput = {
     expires_at?: string | null;
     usageLimit?: number | string | null;
     usage_limit?: number | string | null;
+    loyaltyPointsCost?: number | string | null;
+    loyalty_points_cost?: number | string | null;
 };
 
 export type PromotionPayload = {
@@ -23,4 +25,5 @@ export type PromotionPayload = {
     startsAt: string | null;
     expiresAt: string | null;
     usageLimit: number | null;
+    loyaltyPointsCost: number | null;
 };

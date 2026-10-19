@@ -75,19 +75,11 @@ vi.mock("../hooks/useT", () => ({
             "home.categoryKicker": "Explore our collections",
             "home.categoryTitle": "Shop by category",
             "home.categoryGaming": "Gaming",
-            "home.categoryGamingBody": "Consoles, games, and accessories.",
             "home.categoryLaptops": "Laptops",
-            "home.categoryLaptopsBody": "Work, study, and create.",
             "home.categoryAudio": "Audio",
-            "home.categoryAudioBody": "Headphones, speakers, and microphones.",
             "home.categoryComponents": "Components",
-            "home.categoryComponentsBody": "GPUs, CPUs, RAM, and storage.",
             "home.categorySmartHome": "Smart home",
-            "home.categorySmartHomeBody":
-                "Cameras, lighting, and everyday automation.",
             "home.categoryAccessories": "Accessories",
-            "home.categoryAccessoriesBody":
-                "Cables, chargers, and useful extras.",
             "home.viewAllCategories": "View all categories",
             "home.trendingKicker": "Trending products",
             "home.trendingTitle": "Good choices, ready now",
@@ -178,7 +170,12 @@ vi.mock("../components/common/ProductItem", () => ({
 }));
 
 vi.mock("../components/common/RecentlyViewedStrip", () => ({
-    default: () => null,
+    default: ({ items }: { items: unknown[] }) =>
+        items.length > 0 ? (
+            <section aria-label="Recently viewed">
+                <h2>Recently viewed</h2>
+            </section>
+        ) : null,
 }));
 
 vi.mock("../components/common/StorefrontSkeleton", () => ({
@@ -287,11 +284,6 @@ describe("HomePage Open Bench landing", () => {
             screen.getByRole("heading", { name: "A better way to shop tech." }),
         ).toBeVisible();
         expect(
-            screen.getByRole("heading", {
-                name: "Level up your setup for less.",
-            }),
-        ).toBeVisible();
-        expect(
             screen.getByRole("button", {
                 name: "Pause featured product rotation",
             }),
@@ -302,6 +294,41 @@ describe("HomePage Open Bench landing", () => {
         expect(
             screen.getByRole("button", { name: "Add Canon EOS R8 to cart" }),
         ).toBeVisible();
+    });
+
+    it("places recently viewed before the value section and removes the bundle feature", async () => {
+        localStorage.setItem(
+            "digital-e:recently-viewed:v1",
+            JSON.stringify([products[0]]),
+        );
+        mocks.fetchProduct.mockResolvedValue(products[0]);
+
+        render(
+            <MemoryRouter>
+                <HomePage />
+            </MemoryRouter>,
+        );
+
+        const recentlyViewed = await screen.findByRole("region", {
+            name: "Recently viewed",
+        });
+        const valueHeading = await screen.findByRole("heading", {
+            name: "A better way to shop tech.",
+        });
+        const valueSection = valueHeading.closest("section");
+
+        expect(valueSection).not.toBeNull();
+        expect(
+            recentlyViewed.compareDocumentPosition(valueSection!) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            screen.queryByRole("heading", {
+                name: "Level up your setup for less.",
+            }),
+        ).not.toBeInTheDocument();
+
+        localStorage.removeItem("digital-e:recently-viewed:v1");
     });
 
     it("loads the above-the-fold featured product image with high priority", async () => {
@@ -387,6 +414,9 @@ describe("HomePage Open Bench landing", () => {
             name: "Play featured product rotation",
         });
         expect(playButton).toBeInTheDocument();
+        const playIcon = screen.getByTestId("hero-carousel-play-icon");
+        expect(playIcon).toHaveAttribute("aria-hidden", "true");
+        expect(playIcon.querySelector("path")).toBeInTheDocument();
 
         fireEvent.click(playButton);
 
@@ -395,5 +425,8 @@ describe("HomePage Open Bench landing", () => {
                 name: "Pause featured product rotation",
             }),
         ).toBeInTheDocument();
+        const pauseIcon = screen.getByTestId("hero-carousel-pause-icon");
+        expect(pauseIcon).toHaveAttribute("aria-hidden", "true");
+        expect(pauseIcon.querySelectorAll("rect")).toHaveLength(2);
     });
 });

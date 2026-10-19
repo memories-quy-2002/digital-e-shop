@@ -16,18 +16,17 @@ import ProductForm, {
     type ProductFormField,
     type ProductFormValues,
 } from "../components/ProductForm";
-import { validateParcel } from "../../shipping/components/ParcelFields";
-import type { ShippingParcel } from "../../shipping/types";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 
 type ProductData = Omit<ProductFormValues, "inventory"> & {
     image: File | null;
     imageUrl: string;
     inventory: string;
-    parcel: ShippingParcel;
 };
 
 const AdminAddProductPage = () => {
     const navigate = useNavigate();
+    const tx = useAdminCopy();
     const [productData, setProductData] = useState<ProductData>({
         name: "",
         sku: "",
@@ -45,7 +44,6 @@ const AdminAddProductPage = () => {
         highlights: "",
         price: "0",
         inventory: "0",
-        parcel: { grams: 0, lengthCm: 0, widthCm: 0, heightCm: 0 },
         attributes: [],
     });
     const [error, setError] = useState<string | null>(null);
@@ -68,16 +66,16 @@ const AdminAddProductPage = () => {
 
     const handleUploadToBlob = async () => {
         if (!productData.image) {
-            addToast("Upload image", "Please choose an image first.");
+            addToast(tx("Upload image"), tx("Please choose an image first."));
             return;
         }
         setUploading(true);
         try {
             const url = await uploadBlob(productData.image);
             setProductData((prevData) => ({ ...prevData, imageUrl: url }));
-            addToast("Upload image", "Image uploaded to Blob successfully.");
+            addToast(tx("Upload image"), tx("Image uploaded successfully."));
         } catch {
-            addToast("Upload image", "Unable to upload image.");
+            addToast(tx("Upload image"), tx("Unable to upload image."));
         } finally {
             setUploading(false);
         }
@@ -113,7 +111,7 @@ const AdminAddProductPage = () => {
 
         if (firstInvalidField) {
             setValidationErrors(nextValidationErrors);
-            setError(nextValidationErrors[firstInvalidField] || "Please fix the highlighted fields.");
+            setError(nextValidationErrors[firstInvalidField] || tx("Please fix the highlighted fields."));
             const fieldIds: Record<AddProductField, string> = {
                 name: "form-name",
                 category: "form-category",
@@ -122,13 +120,6 @@ const AdminAddProductPage = () => {
                 inventory: "form-inventory",
             };
             document.getElementById(fieldIds[firstInvalidField])?.focus();
-            return;
-        }
-
-        const invalidParcelField = Object.keys(validateParcel(productData.parcel))[0] as keyof ShippingParcel | undefined;
-        if (invalidParcelField) {
-            setError("Enter valid positive whole-number parcel dimensions before saving this shippable product.");
-            document.getElementById(`form-parcel-${invalidParcelField}`)?.focus();
             return;
         }
 
@@ -142,7 +133,7 @@ const AdminAddProductPage = () => {
             const message = error instanceof Error ? error.message : "Product attributes are invalid.";
             setAttributeError(message);
             setError(message);
-            addToast("Adding product", "Unable to add product.");
+            addToast(tx("Adding product"), tx("Unable to add product."));
             return;
         }
 
@@ -154,10 +145,6 @@ const AdminAddProductPage = () => {
             formData.append("brand", productData.brand.trim());
             formData.append("price", String(productData.price));
             formData.append("inventory", String(productData.inventory));
-            formData.append("parcelWeightGrams", String(productData.parcel.grams));
-            formData.append("parcelLengthCm", String(productData.parcel.lengthCm));
-            formData.append("parcelWidthCm", String(productData.parcel.widthCm));
-            formData.append("parcelHeightCm", String(productData.parcel.heightCm));
 
             if (productData.sku.trim()) formData.append("sku", productData.sku.trim());
             if (productData.manufacturerPartNumber.trim()) {
@@ -184,28 +171,28 @@ const AdminAddProductPage = () => {
             formData.append("attributes", JSON.stringify(attributes));
             await addProduct(formData);
             setError(null);
-            addToast("Adding product", "Product has been added successfully");
+            addToast(tx("Adding product"), tx("Product has been added successfully."));
             navigate("/admin/products");
         } catch (error) {
             const message = error instanceof Error ? error.message : "An unknown error occurred";
             setError(message);
-            addToast("Adding product", "Unable to add product.");
+            addToast(tx("Adding product"), tx("Unable to add product."));
         }
     };
 
     return (
         <AdminLayout>
             <Helmet>
-                <title>Add Product | Digital-E</title>
-                <meta name="description" content="Admin page to add new products." />
+                <title>{tx("Add new product")} | Digital-E</title>
+                <meta name="description" content={tx("Admin page to add new products.")} />
             </Helmet>
             <main className="admin__page admin__page--add-product">
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Catalog</span>
-                        <h1 className="admin__page__title">Add new product</h1>
+                        <span className="admin__page__eyebrow">{tx("Catalog")}</span>
+                        <h1 className="admin__page__title">{tx("Add new product")}</h1>
                         <p className="admin__page__subtitle">
-                            Provide product details, pricing, and inventory. Fields marked with * are required.
+                            {tx("Provide product details, pricing, and inventory. Fields marked with * are required.")}
                         </p>
                     </div>
                     <div className="admin__page__actions">
@@ -214,18 +201,18 @@ const AdminAddProductPage = () => {
                             className="admin__button admin__button--ghost"
                             onClick={() => navigate("/admin/products")}
                         >
-                            Back to list
+                            {tx("Back to list")}
                         </button>
                     </div>
                 </header>
 
-                {error && <div className="admin__alert" role="alert">{error}</div>}
+                {error && <div className="admin__alert" role="alert">{tx(error)}</div>}
 
                 <section className="admin__card">
                     <div className="admin__card__header">
                         <div>
-                            <h3>Product details</h3>
-                            <span>Upload rich content to boost conversions.</span>
+                            <h3>{tx("Product details")}</h3>
+                            <span>{tx("Upload rich content to boost conversions.")}</span>
                         </div>
                     </div>
                     <div className="admin__card__body">
@@ -245,12 +232,10 @@ const AdminAddProductPage = () => {
                                 onImageChange={(file) => setProductData((current) => ({ ...current, image: file, imageUrl: "" }))}
                                 onUploadImage={handleUploadToBlob}
                                 isUploading={uploading}
-                                parcel={productData.parcel}
-                                onParcelChange={(parcel) => setProductData((current) => ({ ...current, parcel }))}
                             />
                             <div className="admin__form-actions">
                                 <button type="submit" className="admin__button admin__button--success">
-                                    Save Product
+                                    {tx("Save Product")}
                                 </button>
                             </div>
                         </Form>

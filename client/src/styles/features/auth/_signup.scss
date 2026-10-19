@@ -43,7 +43,7 @@
         background: var(--de-color-surface-strong);
         color: var(--de-color-text);
         font-weight: 800;
-        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        transition: border-color var(--de-transition-fast), box-shadow var(--de-transition-fast), transform var(--de-transition-fast);
 
         &:hover:not(:disabled) {
             border-color: var(--de-color-primary-emphasis);

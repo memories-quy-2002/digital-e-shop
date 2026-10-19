@@ -1,11 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CheckoutSuccessPage from "./CheckoutSuccessPage";
 
 const mocks = vi.hoisted(() => ({
-    auth: { userData: null as { username?: string; email?: string } | null, loading: false },
+    auth: { userData: null as { id?: string; username?: string; email?: string } | null, loading: false },
     clearCart: vi.fn(),
     fetchCart: vi.fn(),
     fetchGuestOrderByPayOSOrderCode: vi.fn(),
@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("../../../context/CartContext", () => ({ useCart: () => ({ clearCart: mocks.clearCart, fetchCart: mocks.fetchCart }) }));
+vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "en" }) }));
 vi.mock("../api", () => ({
     fetchGuestOrderByPayOSOrderCode: mocks.fetchGuestOrderByPayOSOrderCode,
     lookupGuestOrder: mocks.lookupGuestOrder,
@@ -44,7 +45,32 @@ vi.mock("../../../components/layout/Layout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
-const mockTranslate = vi.hoisted(() => (key: string) => key);
+const mockTranslate = vi.hoisted(() => {
+    const copy: Record<string, string> = {
+        "checkout.attemptUnknownTitle": "Payment status unavailable",
+        "checkout.attemptUnknownBody": "We could not verify this payment yet.",
+        "checkout.attemptMissingReferenceBody": "This return link does not identify a payment attempt.",
+        "checkout.attemptPendingTitle": "Waiting for payment",
+        "checkout.attemptPendingBody": "Your payment is still pending.",
+        "checkout.attemptPaymentSuccessTitle": "Successful payment",
+        "checkout.attemptConfirmedTitle": "Order confirmed",
+        "checkout.attemptConfirmed": "The server confirmed payment and created this order.",
+        "checkout.attemptCheckAgain": "Check again",
+        "checkout.attemptCancel": "Cancel payment",
+        "checkout.attemptCancelOrderExists": "This payment already has an order.",
+        "checkout.attemptOpenOrders": "View order status",
+        "checkout.attemptOrderDetail": "Order detail",
+        "checkout.attemptItems": "Items",
+        "checkout.attemptSubtotal": "Subtotal",
+        "checkout.attemptDiscount": "Discount",
+        "checkout.attemptShipping": "Shipping",
+        "checkout.attemptTotal": "Total",
+        "checkout.attemptReference": "Support reference",
+        "checkout.attemptExpires": "Payment link expires",
+        "checkout.orderSummary": "Order summary",
+    };
+    return (key: string) => copy[key] ?? key;
+});
 vi.mock("../../../hooks/useT", () => ({ useT: () => mockTranslate }));
 vi.mock("../../shipping/api", () => ({ fetchCustomerShipment: vi.fn().mockResolvedValue(null), fetchGuestShipment: vi.fn().mockResolvedValue(null) }));
 
@@ -98,8 +124,12 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        expect(await screen.findByRole("heading", { name: "attemptPendingTitle" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Waiting for payment" })).toBeInTheDocument();
         expect(screen.getByText(/110\.000/)).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Order summary" })).toBeInTheDocument();
+        expect(screen.getByText("Subtotal")).toBeInTheDocument();
+        expect(screen.getByText("Server item").closest("li")).toHaveTextContent(/100\.000/);
+        expect(screen.queryByText("checkout.attemptPendingTitle")).not.toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: "Order confirmed" })).not.toBeInTheDocument();
         expect(mocks.clearCart).not.toHaveBeenCalled();
         expect(mocks.guestAttempt).toHaveBeenCalledWith(attemptId);
@@ -134,8 +164,109 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        expect(await screen.findByRole("heading", { name: "attemptConfirmedTitle" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Successful payment" })).toBeInTheDocument();
         expect(screen.getByText("42")).toBeInTheDocument();
+    });
+
+    it("recovers the guest order and shows its saved capability after PayOS confirms payment", async () => {
+        const attemptId = "123e4567-e89b-42d3-a456-426614174000";
+        const guestOrderToken = "g".repeat(43);
+        let resolveGuestOrder!: (order: unknown) => void;
+        sessionStorage.setItem("checkoutPending", JSON.stringify({
+            version: 2,
+            idempotencyKey: "123e4567-e89b-42d3-a456-426614174001",
+            requestFingerprint: "checkout-draft-hash",
+            attemptId,
+            providerOrderCode: "123456",
+            guestOrderToken,
+            cartSnapshot: [{ productId: 7, quantity: 1 }],
+        }));
+        mocks.guestAttempt.mockResolvedValue({
+            attemptId,
+            providerOrderCode: "123456",
+            paymentState: "PAID",
+            orderState: "CREATED",
+            resolutionState: "NONE",
+            orderId: 42,
+            items: [],
+            delivery: null,
+            subtotalVnd: 100_000,
+            discountVnd: 0,
+            shippingVnd: 0,
+            payableVnd: 100_000,
+            currency: "VND",
+            expiresAt: "2026-10-15T10:00:00.000Z",
+            lastCheckedAt: null,
+            retryAfterSeconds: null,
+            supportReference: "PAY-12345678",
+            resumeUrl: null,
+        });
+        mocks.lookupGuestOrder.mockReturnValue(new Promise((resolve) => { resolveGuestOrder = resolve; }));
+
+        render(
+            <MemoryRouter initialEntries={[`/checkout-success?payment_attempt_id=${attemptId}`]}>
+                <CheckoutSuccessPage />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "Successful payment" })).toBeInTheDocument();
+        expect(await screen.findByRole("region", { name: "checkoutSuccess.guestAccessTitle" })).toBeInTheDocument();
+        await waitFor(() => expect(mocks.lookupGuestOrder).toHaveBeenCalledWith(42, guestOrderToken));
+        await waitFor(() => expect(sessionStorage.getItem("checkoutSuccess")).toContain(guestOrderToken));
+        expect(JSON.parse(sessionStorage.getItem("checkoutSuccess") || "{}")).toMatchObject({
+            orderId: "42",
+            totalPrice: 100_000,
+            guestOrderToken,
+        });
+        expect(sessionStorage.getItem("checkoutPending")).toBeNull();
+
+        await act(async () => {
+            resolveGuestOrder({
+                id: 42,
+                date_added: "2026-10-15T10:00:00.000Z",
+                guest_email: "buyer@example.test",
+                guest_name: "Guest Buyer",
+                guest_phone: "09012345678",
+                status: 0,
+                total_price: 100_000,
+                discount: 0,
+                items: [],
+            });
+        });
+    });
+
+    it("links an authenticated customer to the created order detail after payment succeeds", async () => {
+        const attemptId = "123e4567-e89b-42d3-a456-426614174000";
+        mocks.auth.userData = { id: "customer-1" };
+        mocks.customerAttempt.mockResolvedValue({
+            attemptId,
+            providerOrderCode: "123456",
+            paymentState: "PAID",
+            orderState: "CREATED",
+            resolutionState: "NONE",
+            orderId: 42,
+            items: [],
+            delivery: null,
+            subtotalVnd: 0,
+            discountVnd: 0,
+            shippingVnd: 0,
+            payableVnd: 0,
+            currency: "VND",
+            expiresAt: "2026-10-15T10:00:00.000Z",
+            lastCheckedAt: null,
+            retryAfterSeconds: null,
+            supportReference: "PAY-12345678",
+            resumeUrl: null,
+        });
+
+        render(
+            <MemoryRouter initialEntries={[`/checkout-success?payment_attempt_id=${attemptId}`]}>
+                <CheckoutSuccessPage />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "Successful payment" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Order detail" })).toHaveAttribute("href", "/account/orders?order=42");
     });
 
     it("keeps the payment state and points to order policy when cancellation returns 409", async () => {
@@ -168,11 +299,11 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        fireEvent.click(await screen.findByRole("button", { name: "attemptCancel" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Cancel payment" }));
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("attemptCancelOrderExists");
-        expect(screen.getByRole("heading", { name: "attemptPendingTitle" })).toBeInTheDocument();
-        expect(screen.getByRole("link", { name: "attemptOpenOrders" })).toHaveAttribute("href", "/guest-order");
+        expect(await screen.findByRole("alert")).toHaveTextContent("This payment already has an order.");
+        expect(screen.getByRole("heading", { name: "Waiting for payment" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "View order status" })).toHaveAttribute("href", "/guest-order");
     });
 
     it("masks the immediate guest order token by default", async () => {
@@ -196,8 +327,8 @@ describe("CheckoutSuccessPage guest flow", () => {
         );
 
         expect(await screen.findByDisplayValue("guest-token")).toBeInTheDocument();
-        expect(screen.getByLabelText("Guest order access token")).toHaveAttribute("type", "password");
-        expect(screen.getByRole("link", { name: /look up guest order/i })).toHaveAttribute("href", "/guest-order");
+        expect(screen.getByLabelText("checkoutSuccess.accessToken")).toHaveAttribute("type", "password");
+        expect(screen.getByRole("link", { name: "checkoutSuccess.lookupGuestOrder" })).toHaveAttribute("href", "/guest-order");
         expect(screen.queryByText(/Order updates will be sent/)).not.toBeInTheDocument();
         await waitFor(() => expect(mocks.fetchCart).toHaveBeenCalled());
         expect(mocks.clearCart).toHaveBeenCalled();
@@ -223,16 +354,39 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        const tokenInput = await screen.findByLabelText("Guest order access token");
+        const tokenInput = await screen.findByLabelText("checkoutSuccess.accessToken");
         expect(tokenInput).toHaveAttribute("type", "password");
 
-        fireEvent.click(screen.getByRole("button", { name: "Reveal token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.revealToken" }));
         expect(tokenInput).toHaveAttribute("type", "text");
-        fireEvent.click(screen.getByRole("button", { name: "Hide token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.hideToken" }));
         expect(tokenInput).toHaveAttribute("type", "password");
 
-        fireEvent.click(screen.getByRole("button", { name: "Copy access token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.copyAccessToken" }));
         await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("guest-token"));
+    });
+
+    it("shows the payable total after subtracting the stored discount", async () => {
+        sessionStorage.setItem("checkoutSuccess", JSON.stringify({
+            orderId: "42",
+            totalPrice: 200,
+            discount: 20,
+            subtotal: 160,
+            shippingFee: 40,
+            itemsCount: 2,
+            paymentMethod: "cash",
+        }));
+
+        render(
+            <MemoryRouter initialEntries={["/checkout-success"]}>
+                <CheckoutSuccessPage />
+            </MemoryRouter>,
+        );
+
+        const dueCard = await screen.findByText("checkoutSuccess.amountDue");
+        expect(dueCard.closest("article")).toHaveTextContent(/180/);
+        expect(screen.getAllByText("checkout.cashOnDelivery")).toHaveLength(2);
+        expect(screen.getByRole("region", { name: "checkoutSuccess.orderSummary" })).toBeInTheDocument();
     });
 
     it("hydrates guest contact and shipping details after a success-page refresh", async () => {
@@ -288,8 +442,8 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        expect(screen.getByRole("heading", { name: "attemptUnknownTitle" })).toBeInTheDocument();
-        expect(screen.getByText("attemptMissingReferenceBody")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Payment status unavailable" })).toBeInTheDocument();
+        expect(screen.getByText("This return link does not identify a payment attempt.")).toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: "Order confirmed" })).not.toBeInTheDocument();
         expect(mocks.fetchGuestOrderByPayOSOrderCode).not.toHaveBeenCalled();
         expect(mocks.clearCart).not.toHaveBeenCalled();

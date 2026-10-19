@@ -1,42 +1,106 @@
 import http from "../../lib/http";
 import type {
-    CarrierProvince,
-    CarrierService,
-    CarrierWard,
+    DeliveryMapConfig,
     DeliveryAddress,
     FulfillmentOrder,
     ShipmentSummary,
-    ShippingParcel,
-    ShippingQuote,
+    InternalDeliveryQuote,
+    DeliveryAssignment,
+    DeliverySettings,
+    DeliverySettingsConfig,
+    DeliveryStaffMember,
+    AssignableDeliveryOrder,
+    DeliveryStatus,
 } from "./types";
 
-export const fetchShippingProvinces = async (): Promise<CarrierProvince[]> => (await http.get("/api/shipping/provinces")).data;
-export const fetchShippingWards = async (provinceCode: string): Promise<CarrierWard[]> =>
-    (await http.get(`/api/shipping/provinces/${encodeURIComponent(provinceCode)}/wards`)).data;
-export const fetchShippingServices = async (): Promise<CarrierService[]> =>
-    (await http.get("/api/shipping/services")).data;
+export async function fetchDeliveryMapConfig(): Promise<DeliveryMapConfig | null> {
+    const response = await http.get("/api/shipping/delivery/map-config");
+    return response.data.map ?? null;
+}
 
-export async function requestShippingQuote(input: {
+export type DeliveryAddressSuggestion = {
+    label: string;
+    city?: string;
+    state?: string;
+    latitude: number;
+    longitude: number;
+};
+
+export async function findDeliveryAddressLocations(input: {
+    addressLine: string;
+    city?: string;
+    locale?: "en" | "vi";
+}): Promise<DeliveryAddressSuggestion[]> {
+    const response = await http.post("/api/shipping/address-locations", input);
+    return Array.isArray(response.data.suggestions) ? response.data.suggestions : [];
+}
+
+export async function requestInternalDeliveryQuote(input: {
     address: DeliveryAddress;
     locale?: "en" | "vi";
     discountCode?: string;
-    serviceTypeId?: number;
     cart?: Array<{ productId: number; quantity: number }>;
-}, guest = false): Promise<ShippingQuote> {
-    const { cart, ...body } = input;
-    const payload = guest ? { ...body, cart: cart || [] } : body;
-    const response = await http.post(guest ? "/api/shipping/guest/quotes" : "/api/shipping/quotes", payload);
-    return response.data as ShippingQuote;
+}, guest = false): Promise<InternalDeliveryQuote> {
+    const url = guest ? "/api/shipping/guest/quotes" : "/api/shipping/quotes";
+    const response = await http.post(url, input);
+    return response.data as InternalDeliveryQuote;
+}
+
+export async function fetchAdminDeliverySettings(): Promise<DeliverySettingsConfig> {
+    const response = await http.get("/api/admin/delivery/settings");
+    return response.data as DeliverySettingsConfig;
+}
+
+export async function updateAdminDeliverySettings(input: Omit<DeliverySettings, "version">): Promise<DeliverySettings> {
+    const response = await http.put("/api/admin/delivery/settings", input);
+    return response.data.settings as DeliverySettings;
+}
+
+export async function fetchAssignableDeliveryOrders(): Promise<AssignableDeliveryOrder[]> {
+    const response = await http.get("/api/admin/delivery/assignable-orders");
+    return Array.isArray(response.data.orders) ? response.data.orders : [];
+}
+
+export async function fetchDeliveryStaff(): Promise<DeliveryStaffMember[]> {
+    const response = await http.get("/api/admin/delivery/staff");
+    return Array.isArray(response.data.staff) ? response.data.staff : [];
+}
+
+export async function fetchDeliveryAssignmentHistory(orderId: number): Promise<DeliveryAssignment[]> {
+    const response = await http.get(`/api/admin/delivery/orders/${orderId}`);
+    return Array.isArray(response.data.assignments) ? response.data.assignments : [];
+}
+
+export async function assignDeliveryOrder(orderId: number, input: {
+    employeeId: string;
+    scheduledStartAt: string;
+    scheduledEndAt: string;
+}): Promise<DeliveryAssignment> {
+    const response = await http.post(`/api/admin/delivery/orders/${orderId}/assignments`, input);
+    return response.data as DeliveryAssignment;
+}
+
+export async function fetchDeliveryStaffAssignments(): Promise<DeliveryAssignment[]> {
+    const response = await http.get("/api/delivery/staff/assignments");
+    return Array.isArray(response.data.assignments) ? response.data.assignments : [];
+}
+
+export async function updateDeliveryStaffAssignment(assignmentId: number, input: {
+    status: Exclude<DeliveryStatus, "ASSIGNED">;
+    failureReason?: string;
+}): Promise<DeliveryAssignment> {
+    const response = await http.post(`/api/delivery/staff/assignments/${assignmentId}/status`, input);
+    return response.data as DeliveryAssignment;
 }
 
 export async function fetchCustomerShipment(orderId: number): Promise<ShipmentSummary | null> {
     const response = await http.get(`/api/shipping/orders/${orderId}`);
-    return response.data.shipment ?? null;
+    return response.data.shipment ? { ...response.data.shipment, ...(response.data.delivery !== undefined ? { delivery: response.data.delivery } : {}) } : null;
 }
 
 export async function fetchGuestShipment(orderId: number, guestOrderToken: string): Promise<ShipmentSummary | null> {
     const response = await http.post("/api/shipping/guest/shipment", { orderId, guestOrderToken });
-    return response.data.shipment ?? null;
+    return response.data.shipment ? { ...response.data.shipment, ...(response.data.delivery !== undefined ? { delivery: response.data.delivery } : {}) } : null;
 }
 
 export async function fetchFulfillmentOrders(): Promise<FulfillmentOrder[]> {
@@ -51,21 +115,4 @@ export async function fetchFulfillmentOrder(orderId: number): Promise<ShipmentSu
 
 export async function transitionFulfillment(orderId: number, state: "CONFIRMED" | "PICKING" | "PACKED" | "READY_TO_SHIP") {
     return (await http.post(`/api/admin/shipping/${orderId}/transition`, { state })).data;
-}
-
-export async function createFulfillmentShipment(orderId: number, key: string) {
-    return (await http.post(`/api/admin/shipping/${orderId}/create`, { key })).data;
-}
-
-export async function fetchFulfillmentLabel(orderId: number): Promise<{ token: string; expiresAt: string }> {
-    return (await http.post(`/api/admin/shipping/${orderId}/label`, {})).data;
-}
-
-export async function confirmReturnedShipment(orderId: number) {
-    return (await http.post(`/api/admin/shipping/${orderId}/receive-return`, {})).data;
-}
-
-export async function saveProductParcel(productId: number, parcel: ShippingParcel): Promise<ShippingParcel> {
-    const response = await http.put(`/api/shipping/admin/products/${productId}/parcel`, parcel);
-    return response.data.parcel as ShippingParcel;
 }

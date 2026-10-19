@@ -5,6 +5,8 @@ import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { useToast } from "../../../context/ToastContext";
+import { useLocale } from "../../../context/LocaleContext";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 import { fetchSupportTickets, updateSupportTicket, type SupportTicket } from "../../support/api";
 import {
     SUPPORT_PRIORITIES,
@@ -14,14 +16,16 @@ import {
     type SupportStatus,
 } from "../../support/constants";
 
-const formatDate = (value: string) =>
-    new Intl.DateTimeFormat("en-US", {
+const formatDate = (value: string, locale: "en" | "vi") =>
+    new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
         dateStyle: "medium",
         timeStyle: "short",
     }).format(new Date(value));
 
 const AdminSupportPage = () => {
     const { addToast } = useToast();
+    const { locale } = useLocale();
+    const tx = useAdminCopy();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<SupportStatus | "">("");
@@ -94,44 +98,44 @@ const AdminSupportPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Support tickets | Digital-E</title>
+                <title>{tx("Support tickets")} | Digital-E</title>
                 <meta name="description" content="Manage persisted customer support tickets." />
             </Helmet>
             <main className="admin__page admin__page--support">
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Customer care</span>
-                        <h1 className="admin__page__title">Support tickets</h1>
-                        <p className="admin__page__subtitle">Manage the customer requests stored by the support workflow.</p>
+                        <span className="admin__page__eyebrow">{tx("Customer care")}</span>
+                        <h1 className="admin__page__title">{tx("Support tickets")}</h1>
+                        <p className="admin__page__subtitle">{tx("Manage the customer requests stored by the support workflow.")}</p>
                     </div>
                     <div className="admin__page__actions">
-                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SupportStatus | "")} aria-label="Filter support tickets">
-                            <option value="">All statuses</option>
-                            {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SupportStatus | "")} aria-label={tx("Filter support tickets")}>
+                            <option value="">{tx("All statuses")}</option>
+                            {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{tx(status.replaceAll("_", " "))}</option>)}
                         </select>
-                        <button type="button" className="admin__button admin__button--ghost" onClick={loadTickets}>Refresh</button>
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadTickets}>{tx("Refresh")}</button>
                     </div>
                 </header>
 
                 <section className="admin__summary">
-                    <div className="admin__summary-card"><span>Visible tickets</span><strong>{filteredTickets.length}</strong><p>Current filters</p></div>
-                    <div className="admin__summary-card"><span>Needs action</span><strong>{openCount}</strong><p>Open or waiting</p></div>
+                    <div className="admin__summary-card"><span>{tx("Visible tickets")}</span><strong>{filteredTickets.length}</strong><p>{tx("Current filters")}</p></div>
+                    <div className="admin__summary-card"><span>{tx("Needs action")}</span><strong>{openCount}</strong><p>{tx("Open or waiting")}</p></div>
                 </section>
 
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>Ticket queue</h3>
-                            <span>{filteredTickets.length} visible tickets</span>
+                            <h3>{tx("Ticket queue")}</h3>
+                            <span>{filteredTickets.length} {tx("visible tickets")}</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
-                                <label className="admin__sr-only" htmlFor="support-search">Search support tickets</label>
+                                <label className="admin__sr-only" htmlFor="support-search">{tx("Search support tickets")}</label>
                                 <input
                                     id="support-search"
                                     type="search"
                                     value={searchTerm}
-                                    placeholder="Search subject, customer, order, status, or priority…"
+                                    placeholder={tx("Search subject, customer, order, status, or priority…")}
                                     onChange={(event) => setSearchTerm(event.target.value)}
                                 />
                                 <button
@@ -140,7 +144,7 @@ const AdminSupportPage = () => {
                                     onClick={() => setSearchTerm("")}
                                     disabled={!searchTerm}
                                 >
-                                    Clear
+                                    {tx("Clear")}
                                 </button>
                             </div>
                         </div>
@@ -148,15 +152,15 @@ const AdminSupportPage = () => {
                     {loadError && !hasLoaded ? (
                         <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadTickets} />
                     ) : null}
-                    {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading support tickets" description="Fetching the latest customer requests." /> : null}
+                    {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading support tickets")} description={tx("Fetching the latest customer requests.")} /> : null}
                     {loadError && hasLoaded ? (
-                        <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadTickets} retryLabel="Retry refresh" />
+                        <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={loadTickets} retryLabel={tx("Retry refresh")} />
                     ) : null}
-                    {!isLoading && !loadError && hasLoaded && filteredTickets.length === 0 ? <AdminStatusPanel variant="empty" title="No support tickets match this filter" description="Try another status or search term." /> : null}
-                    {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredTickets.length > 0 ? <AdminTableScrollHint label="Support ticket list">
+                    {!isLoading && !loadError && hasLoaded && filteredTickets.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No support tickets match this filter")} description={tx("Try another status or search term.")} /> : null}
+                    {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredTickets.length > 0 ? <AdminTableScrollHint label={tx("Support ticket list")}>
                         <table className="admin__table admin__table--support">
                             <thead>
-                                <tr><th>Ticket</th><th>Customer / order</th><th>Status</th><th>Priority</th><th>Created</th></tr>
+                                <tr><th>{tx("Ticket")}</th><th>{tx("Customer / order")}</th><th>{tx("Status")}</th><th>{tx("Priority")}</th><th>{tx("Created")}</th></tr>
                             </thead>
                             <tbody>
                                 {filteredTickets.map((ticket) => (
@@ -164,17 +168,17 @@ const AdminSupportPage = () => {
                                         <td>
                                             <strong>#{ticket.id} · {ticket.subject}</strong>
                                             <p>{ticket.message}</p>
-                                            {ticket.admin_note ? <small>Admin note: {ticket.admin_note}</small> : null}
+                                            {ticket.admin_note ? <small>{tx("Admin note:")} {ticket.admin_note}</small> : null}
                                         </td>
-                                        <td><span>{ticket.user_id || "Customer"}</span><small>{ticket.order_id ? `Order #${ticket.order_id}` : "General request"}</small></td>
+                                        <td><span>{ticket.user_id || tx("Customer")}</span><small>{ticket.order_id ? `${tx("Order")} #${ticket.order_id}` : tx("General request")}</small></td>
                                         <td>
                                             <select
                                                 value={ticket.status}
                                                 disabled={updatingId === ticket.id}
                                                 onChange={(event) => handleUpdate(ticket, { status: event.target.value as SupportStatus })}
-                                                aria-label={`Status for ticket ${ticket.id}`}
+                                                aria-label={`${tx("Status")} ${tx("for ticket")} ${ticket.id}`}
                                             >
-                                                {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                                                {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{tx(status.replaceAll("_", " "))}</option>)}
                                             </select>
                                         </td>
                                         <td>
@@ -182,12 +186,12 @@ const AdminSupportPage = () => {
                                                 value={ticket.priority}
                                                 disabled={updatingId === ticket.id}
                                                 onChange={(event) => handleUpdate(ticket, { priority: event.target.value as SupportPriority })}
-                                                aria-label={`Priority for ticket ${ticket.id}`}
+                                                aria-label={`${tx("Priority")} ${tx("for ticket")} ${ticket.id}`}
                                             >
-                            {SUPPORT_PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                            {SUPPORT_PRIORITIES.map((priority) => <option key={priority} value={priority}>{tx(priority)}</option>)}
                                             </select>
                                         </td>
-                                        <td>{formatDate(ticket.created_at)}</td>
+                                        <td>{formatDate(ticket.created_at, locale)}</td>
                                     </tr>
                                 ))}
                             </tbody>

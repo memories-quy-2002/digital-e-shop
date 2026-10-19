@@ -92,13 +92,13 @@ document at `/api/openapi.json` defines this shared error schema.
 | GET | /api/products/search | Search products |
 | GET | /api/products/facets | Read catalog facets |
 | GET | /api/products/relevant/:pid | Read related products |
-| GET | /api/products/recommendations/:uid | Read recommendations |
 | GET | /api/products/images/:filename | Read a product image |
 | GET | /api/reviews/:pid | Read product reviews |
 | GET | /api/cart/guest | Read the anonymous cart |
 | POST | /api/cart/guest/preview | Preview authoritative prices and stock |
 | POST | /api/cart/guest/sync | Synchronize the anonymous cart |
 | POST | /api/cart/guest/clear | Clear the anonymous cart |
+| POST | /api/cart/merge | Idempotently merge a guest cart for the signed-in owner |
 
 GET /api/products accepts pagination, term, category, brand, price, sort, and
 JSON-encoded typed attribute filters. The server bounds pagination and
@@ -119,6 +119,14 @@ Guest cart synchronization accepts
 HttpOnly digitalEGuestCartId cookie and stores only product IDs and quantities.
 The cookie expires after 30 days. Sending { "converted": true } to the clear
 route also records the cart as converted for aggregate admin analytics.
+
+On sign-in, `POST /api/cart/merge` accepts an `operationId` UUID and immutable
+product/quantity snapshot. The server stores accepted/rejected results in the
+same transaction as accepted cart increments. A retry with the same ID and
+snapshot returns that result without incrementing again; reusing the ID with a
+different snapshot returns `CART_MERGE_IDEMPOTENCY_CONFLICT`. After a partial
+result, the client keeps rejected quantities and uses a new ID for the next
+snapshot.
 
 ### Authentication
 
@@ -170,6 +178,7 @@ user record.
 | GET | /api/orders/by-payos-order-code/:orderCode | Order owner or admin |
 | POST | /api/orders/:oid/cancel | Order owner or admin |
 | POST | /api/orders/discount | Customer or admin |
+| GET | /api/products/recommendations/:uid | Authenticated owner or admin |
 | GET | /api/users/:id/addresses | Owner or admin |
 | POST | /api/users/:id/addresses | Owner or admin |
 | PUT | /api/users/:id/addresses/:addressId | Owner or admin |
@@ -198,6 +207,23 @@ of the list limit.
 Authenticated checkout and review creation require a verified Firebase email.
 Customers can still browse, maintain a cart, view order history, and use
 support while unverified.
+
+### Loyalty rewards
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/loyalty/me | Authenticated customer |
+| POST | /api/loyalty/rewards/:promotionId/claim | Authenticated customer |
+
+The account overview returns the current point balance, recent ledger entries,
+customer-owned vouchers, and active promotions configured with a point cost.
+New accounts start at zero without a backfill. Orders earn one point per
+1,000 VND of merchandise remaining after promotion and point discounts;
+shipping is excluded. PayOS orders earn only after verified payment, and COD
+orders earn after collection is confirmed. A point offsets one VND at checkout.
+Claiming a reward atomically debits its cost and creates a unique voucher code
+bound to that customer. Guest checkout cannot read, earn, claim, or spend loyalty
+points or vouchers.
 
 ### Product alerts
 
@@ -245,6 +271,8 @@ totals:
 | POST | /api/orders/guest/payment-attempts/:attemptId/cancel | Request cancellation of an unpaid guest attempt |
 | POST | /api/orders/guest/lookup | Read a guest order with its token |
 | POST | /api/orders/guest/by-payos-order-code | Read a guest PayOS order with its token |
+| POST | /api/orders/guest/access-recovery/request | Request a guest-order email OTP |
+| POST | /api/orders/guest/access-recovery/verify | Verify OTP and rotate guest access |
 | POST | /api/orders/mock-payos/confirm | Confirm a local mock PayOS payment |
 
 The guest purchase shape is:
@@ -274,7 +302,15 @@ The guest purchase shape is:
 The server validates contact and shipping fields, rechecks stock and
 promotions, and creates a one-time guest order token. The database stores only
 the token hash. Public lookup requires the order ID or PayOS order code
-together with that token.
+together with that token. PayOS checkout stores the guest token in
+`sessionStorage` on the pending payment attempt before redirecting; the token
+never appears in a URL. If the browser session is lost, email recovery uses
+the order ID and guest email. The request route always returns a generic
+response. Codes are six digits, expire after ten minutes, allow five failed
+attempts, enforce a 60-second resend wait and three requests per hour per
+order/email. Successful verification returns a new token once and atomically
+rotates the order and guest after-sales token hashes. Guest order details
+include `delivered_at` and the exact inclusive UTC `return_eligible_until`.
 
 Guest after-sales uses the same capability token but keeps it in POST bodies:
 
@@ -283,6 +319,9 @@ Guest after-sales uses the same capability token but keeps it in POST bodies:
 | POST | /api/orders/guest/after-sales/requests | Create a guest return/warranty request |
 | POST | /api/orders/guest/after-sales/requests/lookup | List guest requests |
 | POST | /api/orders/guest/after-sales/requests/:id/lookup | Read one guest request |
+
+Return requests are accepted through 23:59:59.999 UTC on the seventh UTC
+calendar day after delivery. Warranty limits remain based on the item snapshot.
 
 The admin after-sales queue is available at
 `/api/admin/after-sales/requests`. Admin status transitions use
@@ -301,6 +340,9 @@ ledger is marked simulated cannot transition to delivered status.
 | --- | --- | --- |
 | GET | /api/analytics/summary | Read analytics |
 | GET | /api/admin/alerts | Read operational alerts |
+| PUT | /api/admin/alerts/acknowledge | Persist the current admin's alert read state |
+| PUT | /api/admin/alerts/triage | Claim, release, resolve, or reopen an active alert |
+| GET | /api/admin/audit | Search paginated inventory, account-access, and promotion audit events |
 | GET | /api/users | List users |
 | GET | /api/users/:id | Read a user |
 | GET | /api/users/:id/profile | Read a customer profile |
@@ -310,12 +352,14 @@ ledger is marked simulated cannot transition to delivered status.
 | PUT | /api/products/:id/inventory | Adjust stock |
 | DELETE | /api/products | Soft-delete products |
 | GET | /api/products/admin/inventory-movements | Read inventory movements |
+| GET | /api/products/admin/list | Read a filtered, paginated admin product list and stock summary |
 | GET | /api/promotions | List promotions |
 | POST | /api/promotions | Create a promotion |
 | PUT | /api/promotions/:id | Update a promotion |
 | DELETE | /api/promotions/:id | Delete a promotion |
 | GET | /api/orders | List orders |
 | GET | /api/orders/item | List order items and sales |
+| GET | /api/orders/admin/pending-queue | Read the five oldest pending orders for the dashboard |
 | POST | /api/orders/status/:oid | Update order status |
 | PATCH | /api/support/tickets/:id | Update a support ticket |
 | GET | /api/admin/after-sales/requests | List after-sales requests |
@@ -324,9 +368,21 @@ ledger is marked simulated cannot transition to delivered status.
 | POST | /api/admin/after-sales/requests/:id/refund | Retired (410); use evidence-backed manual-refund route |
 | POST | /api/blob/upload | Upload a product image |
 
-Admin list endpoints accept bounded pagination where implemented. Admin access
-requires the admin role. Product deletion preserves the existing soft-delete
-behavior, and stock changes record inventory movements.
+Admin order, product, account, and audit lists use bounded server-side
+pagination and filters. `/api/orders` accepts `page`, `limit`, `search`,
+`status`, `paymentMethod`, and `sort`; its response includes the current page,
+pagination metadata, and global order summary. `/api/products/admin/list`
+accepts `page`, `limit`, `search`, and `stock` (`all`, `low`, or `out`) and
+returns global inventory counts. `/api/users` accepts `page`, `limit`,
+`search`, `role`, and `status`. `/api/admin/audit` accepts `page`, `limit`,
+`search`, and `entityType` (`product`, `user`, or `promotion`). All list limits
+are capped at 100. Admin access requires the admin role. Inventory adjustments
+and account-access updates require a reason; stock, account-access, and
+promotion changes are recorded in the admin audit log. Alert acknowledgements
+are stored per administrator; ownership and resolution state are shared across
+admins. An admin can claim an unassigned alert, release their own claim, resolve
+a claimed alert, or reopen a resolved alert. Product deletion preserves the
+existing soft-delete behavior.
 
 ### Payment operations and webhook
 
@@ -341,9 +397,8 @@ behavior, and stock changes record inventory movements.
 
 The active payment providers are PayOS and cash on delivery. All new catalog,
 checkout, order, and payment-ledger records use exact whole-number VND amounts.
-There is no active Stripe or bank_transfer checkout path, and no foreign
-exchange conversion is applied. Historical USD orders remain readable for
-database compatibility.
+Checkout supports PayOS and cash on delivery. No foreign exchange conversion
+is applied. Historical USD orders remain readable for database compatibility.
 
 PayOS checkout returns a payment URL, provider order code, payment-link ID,
 amount, and currency. Return URLs only resume status polling. They never prove
@@ -395,20 +450,22 @@ Browser return parameters and cached checkout data never establish payment.
 
 | Method | Path | Access |
 | --- | --- | --- |
-| GET | /api/shipping/provinces | Public provider locations |
-| GET | /api/shipping/provinces/:code/wards | Public provider locations |
-| GET | /api/shipping/services | Public available services |
+| GET | /api/shipping/delivery/map-config | Public minimal map configuration |
 | POST | /api/shipping/quotes | Authenticated customer; cart is server-owned |
 | POST | /api/shipping/guest/quotes | Guest cart cookie plus submitted cart |
 | GET | /api/shipping/orders/:id | Order owner or admin |
 | POST | /api/shipping/guest/shipment | Guest order capability in POST body |
-| POST | /api/shipping/webhooks/ghn | GHN shared-secret and ShopID validation |
 | GET | /api/admin/shipping | Admin |
+| GET | /api/admin/shipping/:id | Admin; shipment and read-only legacy history |
 | POST | /api/admin/shipping/:id/transition | Admin |
-| POST | /api/admin/shipping/:id/create | Admin; idempotency key required |
-| POST | /api/admin/shipping/:id/label | Admin; temporary access |
-| POST | /api/admin/shipping/:id/receive-return | Admin; confirms physical receipt before stock restoration |
-| PUT | /api/shipping/admin/products/:id/parcel | Admin; validated parcel dimensions |
+| GET/PUT | /api/admin/delivery/settings | Admin; internal delivery settings |
+| GET | /api/admin/delivery/assignable-orders | Admin; packed internal orders |
+| GET | /api/admin/delivery/staff | Admin; active delivery staff |
+| GET | /api/admin/delivery/orders/:orderId | Admin; assignment history |
+| POST | /api/admin/delivery/orders/:orderId/assignments | Admin; assign or reschedule staff |
+| GET | /api/delivery/staff/assignments | Assigned employee |
+| GET | /api/delivery/staff/assignments/:id | Owning employee |
+| POST | /api/delivery/staff/assignments/:id/status | Owning employee; status and failure reason |
 | GET | /api/admin/payments/cod-settlements | Admin |
 | POST | /api/admin/payments/cod-settlements/:orderId/remittance | Admin; transfer reference and private evidence required |
 | GET | /api/admin/payments/attempt-exceptions?page=1&limit=25 | Admin; bounded unresolved PayOS exception queue, max 100 |
@@ -424,12 +481,19 @@ Browser return parameters and cached checkout data never establish payment.
 | POST | /api/operations/run | Scheduler bearer secret |
 | POST | /api/email/webhooks/resend | Resend signed raw-body webhook |
 
-New quotes bind the current cart, address, parcel and whole-VND pricing to a
-single-use expiring quote. COD collection at delivery is distinct from later
+New quotes bind the current cart, address coordinates, road route and whole-VND
+pricing to a single-use expiring quote; parcel metadata and carrier services are
+not used. COD collection at delivery is distinct from later
 bank remittance. Manual refund requests carry no amount; the server allocates
 net merchandise value and requires private evidence. Email acceptance is
 distinct from provider delivery. The runner is bounded and must be invoked by
 an external scheduler; this repository does not enable a hosted schedule.
+
+Checkout returns stable quote errors so the client can discard stale pricing:
+`DELIVERY_QUOTE_EXPIRED`, `DELIVERY_QUOTE_CHANGED`,
+`DELIVERY_QUOTE_INVALID`, and `DELIVERY_SETTINGS_CHANGED`. The client keeps the
+entered delivery address and map pin, asks for a fresh quote, and blocks order
+submission until that quote is confirmed.
 
 ### Support, returns, warranty, and refunds
 
@@ -460,6 +524,10 @@ Addresses preserve both /api/users/:id/addresses and
 profile and user management routes also
 preserve the /api/user controller alias. Use the plural /api/users routes for
 new clients.
+
+Historical saved addresses may still contain province and ward codes. These
+values remain readable for old records, are not accepted as active delivery
+inputs, and are preserved when customers update other address details.
 
 ## Performance-safe routes
 

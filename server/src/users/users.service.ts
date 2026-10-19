@@ -17,16 +17,24 @@ export class NestUsersService {
         return (await this.usersRepository.getAll()).map(toPublicUser);
     }
 
-    async getAllUsersPaginated(limit: number, offset: number) {
-        return (await this.usersRepository.getPaginated(limit, offset)).map(toPublicUser);
+    async getAllUsersPaginated(limit: number, offset: number, filters: { search?: string; role?: string; status?: string }) {
+        return (await this.usersRepository.getAdminPaginated(limit, offset, filters)).map(toPublicUser);
     }
 
-    async getUsersCount() {
-        return this.usersRepository.getCount();
+    async getUsersCount(filters: { search?: string; role?: string; status?: string }) {
+        return this.usersRepository.getAdminCount(filters);
     }
 
-    async updateUserAdmin(uid: string, { role, status }: UpdateUserAdminInput) {
-        const result = await this.usersRepository.updateUserAdmin(uid, role, status);
+    async getAdminSummary() {
+        return this.usersRepository.getAdminSummary();
+    }
+
+    getActiveDeliveryStaff() {
+        return this.usersRepository.getActiveDeliveryStaff();
+    }
+
+    async updateUserAdmin(uid: string, { role, status, reason }: UpdateUserAdminInput, currentAdminId: string) {
+        const result = await this.usersRepository.updateUserAdmin(uid, role, status, currentAdminId, reason);
         if (result.affectedRows === 0) {
             throw new NotFoundException({ msg: "User not found" });
         }

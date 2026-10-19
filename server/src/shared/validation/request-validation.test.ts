@@ -14,7 +14,7 @@ const purchase = {
 };
 
 describe("purchase schema", () => {
-    it.each(["stripe", "card", "bank_transfer"])("rejects legacy payment method %s", (paymentMethod) => {
+    it.each(["unsupported_provider", "card", "bank_transfer"])("rejects legacy payment method %s", (paymentMethod) => {
         expect(() => purchaseSchema.parse({ ...purchase, paymentMethod })).toThrow("Unsupported payment method");
     });
 

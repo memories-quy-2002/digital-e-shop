@@ -1,1 +1,195 @@
-// Promotions page currently uses shared admin page, summary, card, form-grid, and table styles.
+.admin__page.admin__page--promotions .admin__card--promotion-editor .admin__promotion-form {
+    gap: 1.2rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__section {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__section + .admin__promotion-form__section {
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--de-color-border);
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__section legend {
+    float: none;
+    width: 100%;
+    margin: 0 0 0.75rem;
+    padding: 0;
+    color: var(--de-color-text);
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields {
+    display: grid;
+    gap: 0.9rem 1.1rem;
+    padding-top: 0;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields--discount {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields--two-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields > label {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.45rem;
+    color: var(--de-color-text-soft);
+    font-size: 0.8rem;
+    font-weight: 750;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields > label > span:first-child {
+    min-height: 1.15rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface-strong);
+    color: var(--de-color-text);
+    font: inherit;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields input:focus-visible {
+    border-color: var(--de-color-electric);
+    outline: 3px solid color-mix(in srgb, var(--de-color-electric) 34%, transparent);
+    outline-offset: 1px;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields input::placeholder {
+    color: var(--de-color-text-muted);
+    opacity: 1;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__fields small {
+    color: var(--de-color-text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+    gap: 1rem 1.5rem;
+    padding: 1rem 1.1rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.45rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__copy h4 {
+    margin: 0;
+    color: var(--de-color-text);
+    font-size: 0.95rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__copy p {
+    margin: 0;
+    color: var(--de-color-text-muted);
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__field {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    color: var(--de-color-text-soft);
+    font-size: 0.78rem;
+    font-weight: 750;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__field input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface-strong);
+    color: var(--de-color-text);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-preview__field input:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--de-color-electric) 34%, transparent);
+    outline-offset: 1px;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__footer {
+    align-items: center;
+    margin-top: 0.1rem;
+    padding-top: 1rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__toggle {
+    box-sizing: border-box;
+    min-height: 2.75rem;
+    padding: 0.45rem 0.75rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__toggle input {
+    width: 1.1rem;
+    height: 1.1rem;
+    min-height: 1.1rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__footer .admin__form-grid__actions {
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-form__footer .admin__button {
+    min-height: 2.75rem;
+}
+
+.admin__page.admin__page--promotions #promotion-search {
+    box-sizing: border-box;
+    min-height: 2.75rem;
+}
+
+@media (max-width: 900px) {
+    .admin__page.admin__page--promotions .admin__promotion-form__fields--discount,
+    .admin__page.admin__page--promotions .admin__promotion-form__fields--two-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .admin__page.admin__page--promotions .admin__promotion-form__fields--discount,
+    .admin__page.admin__page--promotions .admin__promotion-form__fields--two-column,
+    .admin__page.admin__page--promotions .admin__promotion-preview {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin__page.admin__page--promotions .admin__promotion-form__footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin__page.admin__page--promotions .admin__promotion-form__footer .admin__form-grid__actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+}

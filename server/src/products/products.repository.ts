@@ -199,11 +199,29 @@ const getProductListOrderParams = (filters: ProductListFilters = {}) => {
     return [normalizedTerm, `${normalizedTerm}%`, normalizedTerm, normalizedTerm, `%${normalizedTerm}%`];
 };
 
+const getAdminProductWhere = (filters: { search?: string; stock?: "all" | "low" | "out" }) => {
+    const conditions = ["products.stock >= 0"];
+    const params: Array<string | number> = [];
+    const search = filters.search?.trim().toLowerCase();
+    if (search) {
+        const term = `%${search.replace(/[!%_]/g, "!$&")}%`;
+        conditions.push(`(
+            LOWER(products.name) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(products.sku, '')) LIKE ? ESCAPE '!'
+            OR LOWER(COALESCE(products.manufacturer_part_number, '')) LIKE ? ESCAPE '!'
+            OR LOWER(categories.name) LIKE ? ESCAPE '!'
+            OR LOWER(brands.name) LIKE ? ESCAPE '!'
+            OR CAST(products.id AS CHAR) LIKE ? ESCAPE '!'
+        )`);
+        params.push(term, term, term, term, term, term);
+    }
+    if (filters.stock === "low") conditions.push(`products.stock > 0 AND products.stock <= ${LOW_STOCK_THRESHOLD}`);
+    if (filters.stock === "out") conditions.push("products.stock = 0");
+    return { where: `WHERE ${conditions.join(" AND ")}`, params };
+};
+
 @Injectable()
 export class NestProductsRepository {
-    setParcelInTransaction(tx: TransactionContext, id: number, parcel: { grams: number; lengthCm: number; widthCm: number; heightCm: number }) {
-        return tx.query<{ affectedRows: number }>("UPDATE products SET parcel_grams = ?, parcel_length_cm = ?, parcel_width_cm = ?, parcel_height_cm = ? WHERE id = ?", [parcel.grams, parcel.lengthCm, parcel.widthCm, parcel.heightCm, id]);
-    }
     async ensureNamedIdInTransaction(tx: TransactionContext, tableName: "categories" | "brands", name: string): Promise<number> {
         const [row] = await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [name]);
         if (row) return Number(row.id);
@@ -427,6 +445,62 @@ export class NestProductsRepository {
                 (err: Error | null, rows: ProductEditorRow[]) => {
                     if (err) return reject(err);
                     resolve(rows);
+                },
+            );
+        });
+    }
+
+    getAdminProductsPaginated(
+        limit: number,
+        offset: number,
+        filters: { search?: string; stock?: "all" | "low" | "out" },
+    ): Promise<ProductEditorRow[]> {
+        const { where, params } = getAdminProductWhere(filters);
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT products.id, products.name, description, categories.name AS category,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
+                    products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm,
+                    price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
+                    main_image, specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
+                 ${productBaseFrom}
+                 ${where}
+                 ORDER BY products.id DESC
+                 LIMIT ? OFFSET ?`,
+                [...params, limit, offset],
+                (err: Error | null, rows: ProductEditorRow[]) => {
+                    if (err) return reject(err);
+                    resolve(rows || []);
+                },
+            );
+        });
+    }
+
+    getAdminProductsCount(filters: { search?: string; stock?: "all" | "low" | "out" }): Promise<number> {
+        const { where, params } = getAdminProductWhere(filters);
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT COUNT(*) AS total ${productIdentityFrom} ${where}`,
+                params,
+                (err: Error | null, rows: CountRow[]) => {
+                    if (err) return reject(err);
+                    resolve(Number(rows?.[0]?.total) || 0);
+                },
+            );
+        });
+    }
+
+    getAdminProductSummary(): Promise<{ total: number; lowStock: number; outOfStock: number }> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN stock > 0 AND stock <= ${LOW_STOCK_THRESHOLD} THEN 1 ELSE 0 END) AS low_stock,
+                    SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) AS out_of_stock
+                 FROM products WHERE stock >= 0`,
+                (err: Error | null, rows: Array<{ total: number; low_stock: number; out_of_stock: number }>) => {
+                    if (err) return reject(err);
+                    resolve({ total: Number(rows?.[0]?.total) || 0, lowStock: Number(rows?.[0]?.low_stock) || 0, outOfStock: Number(rows?.[0]?.out_of_stock) || 0 });
                 },
             );
         });

@@ -108,6 +108,22 @@ export async function addItemsToCustomerCart(
     );
 }
 
+export async function mergeGuestCartIntoCustomer(
+    uid: string,
+    operationId: string,
+    items: Array<{ productId: number; quantity: number }>,
+): Promise<{
+    accepted: Array<{ productId: number; quantity: number }>;
+    rejected: Array<{ productId: number; quantity: number; reason: string }>;
+}> {
+    const response = await http.post("/api/cart/merge", { uid, operationId, items });
+    const result = response.data.result;
+    if (!result || !Array.isArray(result.accepted) || !Array.isArray(result.rejected)) {
+        throw new Error("Invalid cart merge response");
+    }
+    return result;
+}
+
 export async function previewGuestCart(
     items: GuestCartItemInput[],
     discountCode?: string,
@@ -148,6 +164,7 @@ export async function createPayOSCheckoutSession(
         cart: CheckoutCartItem[];
         totalPrice: number;
         discount: number;
+        loyaltyPoints?: number;
         shippingAddress: string;
         shippingQuoteId: string;
         deliveryAddress: import("../shipping/types").DeliveryAddress;
@@ -186,6 +203,7 @@ export async function cancelGuestPaymentAttempt(attemptId: string): Promise<void
 }
 
 export async function confirmMockPayOSPayment(payload: {
+    paymentAttemptId: string;
     orderCode: number;
     paymentLinkId: string;
     amount: number;
@@ -199,6 +217,18 @@ export async function lookupGuestOrder(orderId: number, guestOrderToken: string)
     const order = response.data.order as GuestOrderDetail | undefined;
     if (!order) return response.data.order as unknown as GuestOrderDetail;
     return { ...order, items: (order.items || []).map((item) => ({ ...item, orderItemId: Number(item.orderItemId || 0) })) };
+}
+
+export async function requestGuestOrderAccessRecovery(orderId: number, email: string): Promise<void> {
+    await http.post("/api/orders/guest/access-recovery/request", { orderId, email });
+}
+
+export async function verifyGuestOrderAccessRecovery(orderId: number, email: string, code: string): Promise<{ guestOrderToken: string }> {
+    const response = await http.post("/api/orders/guest/access-recovery/verify", { orderId, email, code });
+    if (response.data.verified !== true || typeof response.data.guestOrderToken !== "string") {
+        throw new Error("The guest order access code could not be verified.");
+    }
+    return { guestOrderToken: response.data.guestOrderToken };
 }
 
 export async function fetchGuestOrderByPayOSOrderCode(

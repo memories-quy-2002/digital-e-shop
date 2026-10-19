@@ -151,6 +151,11 @@ const mapCharts = (rows: AnalyticsSummaryRows, rangeDays: number) => {
                 share: totalCategoryRevenue > 0 ? roundTo((revenue / totalCategoryRevenue) * 100, 1) : 0,
             };
         }),
+        topProducts: rows.topProductRows.map((row) => ({
+            name: String(row.name || "Unknown product"),
+            sales: toNumber(row.sales),
+            revenue: toNumber(row.revenue),
+        })),
         customerSegments: rows.customerSegmentRows.map((row) => ({
             name: String(row.name || 'Unknown'),
             value: toNumber(row.value),

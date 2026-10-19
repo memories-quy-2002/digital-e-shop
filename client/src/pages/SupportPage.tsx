@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import supportImage from "../assets/images/support.jpg";
+import { supportHeroImage } from "../assets/images/editorialHeroImages";
 import Layout from "../components/layout/Layout";
 import { useT } from "../hooks/useT";
 import { CUSTOMER_ROUTES } from "../routes/customerRoutes";
@@ -14,7 +14,7 @@ type SupportResource = { title: string; text: string; action: string; href: stri
 const SupportPage: React.FC = () => {
     const t = useT();
     const [faqOpen, setFaqOpen] = useState<number | null>(0);
-    const heroImageSource = getResponsiveImageSource(supportImage, {
+    const heroImageSource = getResponsiveImageSource(supportHeroImage, {
         widths: HERO_IMAGE_WIDTHS,
         sizes: "100vw",
         fit: "fill",
@@ -53,24 +53,10 @@ const SupportPage: React.FC = () => {
                             <Link to="/contact-us" className="ghost">{t("support.contactUs")}</Link>
                         </div>
                     </div>
+                    <div className="support__hero__rail info-page__hero__rail" aria-label={t("support.resourcesHeading")}>
+                        {resources.map((resource) => <span key={resource.title}>{resource.title}</span>)}
+                    </div>
                 </header>
-
-                <section className="support__channels" aria-labelledby="support-contact-heading">
-                    <div className="support__section-heading info-page__section-heading">
-                        <span>{t("support.contactLabel")}</span>
-                        <h2 id="support-contact-heading">{t("support.contactHeading")}</h2>
-                    </div>
-                    <div className="support__channels__grid">
-                        {channels.map((channel) => (
-                            <article className="support__channels__card" key={channel.title}>
-                                <h3>{channel.title}</h3>
-                                <p>{channel.text}</p>
-                                <span>{channel.detail}</span>
-                                {channel.href.startsWith("/") ? <Link to={channel.href}>{channel.action}</Link> : <a href={channel.href}>{channel.action}</a>}
-                            </article>
-                        ))}
-                    </div>
-                </section>
 
                 <section className="support__resources" aria-labelledby="support-resources-heading">
                     <div className="support__section-heading info-page__section-heading">
@@ -110,6 +96,23 @@ const SupportPage: React.FC = () => {
                                 </React.Fragment>
                             );
                         })}
+                    </div>
+                </section>
+
+                <section className="support__channels" aria-labelledby="support-contact-heading">
+                    <div className="support__section-heading info-page__section-heading">
+                        <span>{t("support.contactLabel")}</span>
+                        <h2 id="support-contact-heading">{t("support.contactHeading")}</h2>
+                    </div>
+                    <div className="support__channels__grid">
+                        {channels.map((channel) => (
+                            <article className="support__channels__card" key={channel.title}>
+                                <h3>{channel.title}</h3>
+                                <p>{channel.text}</p>
+                                <span>{channel.detail}</span>
+                                {channel.href.startsWith("/") ? <Link to={channel.href}>{channel.action}</Link> : <a href={channel.href}>{channel.action}</a>}
+                            </article>
+                        ))}
                     </div>
                 </section>
             </main>

@@ -587,7 +587,7 @@
     border-top-color: var(--de-color-on-accent);
     border-radius: 50%;
     content: '';
-    animation: auth-shell-spin 700ms linear infinite;
+    animation: auth-shell-spin var(--de-duration-spinner) linear infinite;
 }
 
 .auth-form__switch {
@@ -763,7 +763,8 @@
 
     .auth-shell__legal {
         margin-top: 0.8rem;
-        font-size: 0.6rem;
+        font-size: 0.8rem;
+        line-height: 1.5;
     }
 }
 

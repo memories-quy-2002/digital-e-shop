@@ -9,6 +9,10 @@ export type PromotionRow = {
     starts_at?: string | null;
     expires_at?: string | null;
     usage_limit?: number | null;
+    usage_count?: number | string;
+    remaining_uses?: number | string | null;
+    loyalty_points_cost?: number | string | null;
+    voucher_id?: number | string | null;
 };
 
 export type PromotionRedemptionUserId = string | null;

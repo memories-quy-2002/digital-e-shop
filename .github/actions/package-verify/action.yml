@@ -87,7 +87,7 @@ runs:
         node <<'NODE'
         const fs = require('node:fs');
         const mysql = require('mysql2/promise');
-        const files = ['src/database/migrations/defaultdb_2026-06-01_142319.sql','src/database/migrations/2026-07-07-add-stripe-payment-support.sql'];
+        const files = ['src/database/migrations/defaultdb_2026-06-01_142319.sql','src/database/migrations/2026-07-07-legacy-checkout-schema.sql'];
         (async()=>{const c=await mysql.createConnection({host:'127.0.0.1',port:3306,user:'root',password:'root',database:process.env.DB_NAME,multipleStatements:true});try{for(const file of files){const sql=fs.readFileSync(file,'utf8').replace(/SET @@GLOBAL\.GTID_PURGED=.*?;\s*/s,'');await c.query(sql);}}finally{await c.end();}})().catch(e=>{console.error(e);process.exit(1);});
         NODE
         pnpm prisma:migrate:resolve --applied 0_init

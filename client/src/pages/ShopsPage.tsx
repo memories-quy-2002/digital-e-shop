@@ -556,23 +556,6 @@ const ShopsPage = () => {
               <h2 id={resultsHeadingId} className="shops__sr-only">
                 {t("shops.resultsHeading")}
               </h2>
-              <div className="shops__content__header app-card">
-                <div>
-                  <small>{t("shops.catalogResults")}</small>
-                  <strong>
-                    {isLoading
-                      ? t("shops.loading")
-                      : productLoadError
-                        ? t("shops.loadErrorTitle")
-                        : t("shops.resultsCount", pagination.total)}
-                  </strong>
-                </div>
-                {!productLoadError ? (
-                  <span>
-                    {pagination.page} / {Math.max(1, pagination.totalPages)}
-                  </span>
-                ) : null}
-              </div>
               {isLoading ? (
                 <div className="shops__loading" aria-live="polite">
                   <ProductGridSkeleton
@@ -610,6 +593,7 @@ const ShopsPage = () => {
           </div>
           <SheetContent
             side="bottom"
+            motion
             className="shops__filter-sheet"
             closeLabel={t("shops.closeFilters")}
           >

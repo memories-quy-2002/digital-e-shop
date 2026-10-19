@@ -1,6 +1,6 @@
 import type { CartCheckoutItem, GuestCartItemInput } from "../cart/cart.dto";
-import type { DeliveryAddress } from "../shipping/shipping.types";
-export type DeliveryCheckoutInput = { shippingQuoteId: string; deliveryAddress: DeliveryAddress; locale?: "en" | "vi" };
+import type { InternalDeliveryAddress } from "../shipping/shipping.types";
+export type DeliveryCheckoutInput = { shippingQuoteId: string; deliveryAddress: InternalDeliveryAddress; locale?: "en" | "vi" };
 
 export type GuestContactDto = {
     email: string;
@@ -40,6 +40,7 @@ export type GuestPayOSOrderLookupPayload = {
 };
 
 export type MockPayOSConfirmPayload = {
+    paymentAttemptId: string;
     orderCode: number;
     paymentLinkId: string;
     amount: number;
@@ -50,6 +51,7 @@ export type PurchasePayload = DeliveryCheckoutInput & {
     cart: CartCheckoutItem[];
     discount: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
     paymentMethod: PaymentProviderName;
 };

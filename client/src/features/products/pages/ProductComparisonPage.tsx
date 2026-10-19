@@ -136,6 +136,10 @@ const ProductSummary = ({
                     </button>
                 </div>
                 <p className="comparison-product__sku">{product.sku}</p>
+                <div className="comparison-product__pricing" aria-label={t("comparison.pageTitle")}>
+                    <strong>{formatCurrency(activePrice)}</strong>
+                    {hasSale ? <span>{formatCurrency(product.price)}</span> : null}
+                </div>
                 <p className="comparison-product__reviews">
                     <span role="img" aria-label={`${product.rating.toFixed(1)} ${t("product.ratingLabel")}`}>
                         {product.rating.toFixed(1)}
@@ -143,10 +147,6 @@ const ProductSummary = ({
                     <span aria-hidden="true"> · </span>
                     {t("product.reviewsCount", product.reviews)}
                 </p>
-                <div className="comparison-product__pricing" aria-label={t("comparison.pageTitle")}>
-                    <strong>{formatCurrency(activePrice)}</strong>
-                    {hasSale ? <span>{formatCurrency(product.price)}</span> : null}
-                </div>
                 <dl className="comparison-product__facts">
                     <div>
                         <dt>{t("comparison.warranty")}</dt>

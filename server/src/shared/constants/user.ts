@@ -1,6 +1,7 @@
 export const USER_ROLE = {
     CUSTOMER: "Customer",
     ADMIN: "Admin",
+    DELIVERY_STAFF: "DeliveryStaff",
 } as const;
 
 export const USER_ACCOUNT_STATUS = {

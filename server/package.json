@@ -41,6 +41,7 @@
         "prisma:studio": "prisma studio --config prisma.config.ts",
         "demo:reset": "node src/database/seeders/reset-demo-database.js",
         "demo:verify": "node src/database/seeders/verify-demo.js",
+        "seed:delivery:local": "node src/database/seeders/seed-local-delivery-settings.js",
         "firebase:emulator": "pnpm dlx --allow-build=protobufjs --allow-build=re2 --package=firebase-tools firebase emulators:start --only auth --project demo-digital-e-local --config=../firebase.json --import=../.firebase/emulator-data --export-on-exit",
         "firebase:seed:emulator": "node src/database/seeders/seed-firebase-emulator-users.js",
         "seed:mock": "node src/database/seeders/seed-mock-orders-reviews.js",
@@ -71,7 +72,6 @@
     "license": "ISC",
     "dependencies": {
         "@nestjs/common": "^11.2.3",
-        "@nestjs/config": "^4.0.4",
         "@nestjs/core": "^11.2.3",
         "@nestjs/platform-express": "^11.2.3",
         "@opentelemetry/api": "^1.9.1",
@@ -101,7 +101,6 @@
         "jsonwebtoken": "^9.0.3",
         "multer": "2.4.0",
         "mysql2": "^3.24.5",
-        "p-limit": "^7.3.2",
         "pino": "^10.4.0",
         "reflect-metadata": "^0.2.2",
         "resend": "6.32.1",

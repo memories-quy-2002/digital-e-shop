@@ -1,20 +1,24 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, Req, Res, UseGuards, UsePipes } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpException, Optional, Param, Post, Put, Req, Res, UseGuards, UsePipes } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestCartService } from "./cart.service";
 
-import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema, guestCartClearSchema, guestCartPreviewSchema, guestCartSyncSchema } from "./cart.validator";
-import type { GuestCartPreviewInput, GuestCartSyncInput } from "./cart.types";
+import { cartAddItemSchema, cartDeleteItemSchema, cartMergeSchema, cartUpdateQuantitySchema, guestCartClearSchema, guestCartPreviewSchema, guestCartSyncSchema } from "./cart.validator";
+import type { CartMergeRequest, GuestCartPreviewInput, GuestCartSyncInput } from "./cart.types";
 import { createGuestCartId, GUEST_CART_COOKIE, GUEST_CART_TTL_DAYS, isGuestCartId } from "./guest-cart";
 import { isProduction } from "#src/config/env.config";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
+import { CartMergeService } from "./cart-merge.service";
 
 @Controller("cart")
 export class CartController {
-    constructor(private readonly cartService: NestCartService) {}
+    constructor(
+        private readonly cartService: NestCartService,
+        @Optional() private readonly cartMergeService?: CartMergeService,
+    ) {}
 
     private setGuestCartCookie(response: Response, guestCartId: string) {
         response.cookie(GUEST_CART_COOKIE, guestCartId, {
@@ -101,6 +105,21 @@ export class CartController {
             };
         } catch (err) {
             throw mapToHttpException(err, "Error previewing guest cart");
+        }
+    }
+
+    @Post("merge")
+    @HttpCode(HTTP_STATUS.OK)
+    @UseGuards(AuthGuard, RolesGuard)
+    @OwnerParam("uid")
+    @UsePipes(new ZodValidationPipe(cartMergeSchema))
+    async mergeCustomerCart(@Body() body: CartMergeRequest) {
+        if (!this.cartMergeService) throw new HttpException({ msg: "Cart merge is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        try {
+            const result = await this.cartMergeService.merge(body.uid, body);
+            return { result, msg: "Guest cart merge processed" };
+        } catch (err) {
+            throw mapToHttpException(err, "Error merging guest cart");
         }
     }
 

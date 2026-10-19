@@ -12,7 +12,12 @@ const {
     DESTRUCTIVE_DEMO_SEED_MODE,
 } = require("../../config/database-target");
 const { resolveDemoDatabaseSsl } = require("./database-ssl.js");
-const { DEMO_PASSWORD, DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demo-seed-data");
+const {
+    DEMO_PASSWORD,
+    DEMO_SEED_PLAN,
+    DEMO_SEED_MIN_PRICE_VND,
+    validateDemoSeedPlan,
+} = require("./demo-seed-data");
 const { USER_ACCOUNT_STATUS } = require("./constants.js");
 
 const LOOKUP_TABLES = new Set(["categories", "brands"]);
@@ -20,6 +25,7 @@ const DEMO_ORDER_EVENT_NOTE_PREFIX = "Digital-E demo seed order%";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 const LEGACY_PRODUCT_NAME_PATTERNS = ["%e2e%", "%demo%"];
+const LEGACY_TEST_ACCOUNT_EMAIL_PATTERN = "test%@gmail.com";
 
 const assertDemoSeedTarget = () => {
     if (process.env.DEMO_SEED_MODE === DESTRUCTIVE_DEMO_SEED_MODE) {
@@ -251,28 +257,209 @@ const clearDemoRows = async (connection, plan, userIds, productIds) => {
     await connection.query("DELETE FROM discounts WHERE discount_code IN (?)", [demoDiscountCodes]);
 };
 
-const clearLegacyCatalogProducts = async (connection) => {
-    const rows = await query(
-        connection,
-        "SELECT id FROM products WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?",
-        LEGACY_PRODUCT_NAME_PATTERNS,
-    );
-    const productIds = rows.map((row) => Number(row.id));
+const clearOrdersContainingProducts = async (connection, productIds, managedProductIds, currency) => {
+    const [invalidProductOrders, protectedProductOrders, legacyCurrencyOrders] = await Promise.all([
+        productIds.length > 0
+            ? query(
+                connection,
+                `SELECT DISTINCT o.id
+                 FROM orders o
+                 JOIN order_items oi ON oi.order_id = o.id
+                 LEFT JOIN users u ON u.id = o.user_id
+                 WHERE oi.product_id IN (?) AND u.email LIKE ?`,
+                [productIds, LEGACY_TEST_ACCOUNT_EMAIL_PATTERN],
+            )
+            : Promise.resolve([]),
+        productIds.length > 0
+            ? query(
+                connection,
+                `SELECT DISTINCT o.id
+                 FROM orders o
+                 JOIN order_items oi ON oi.order_id = o.id
+                 LEFT JOIN users u ON u.id = o.user_id
+                 WHERE oi.product_id IN (?) AND (u.email IS NULL OR u.email NOT LIKE ?)`,
+                [productIds, LEGACY_TEST_ACCOUNT_EMAIL_PATTERN],
+            )
+            : Promise.resolve([]),
+        query(
+            connection,
+            `SELECT DISTINCT o.id
+             FROM orders o
+             JOIN order_items oi ON oi.order_id = o.id
+             JOIN users u ON u.id = o.user_id
+             WHERE oi.product_id IN (?) AND o.currency <> ? AND u.email LIKE ?`,
+            [managedProductIds, currency, LEGACY_TEST_ACCOUNT_EMAIL_PATTERN],
+        ),
+    ]);
 
+    if (protectedProductOrders.length > 0) {
+        throw new Error(
+            `Refusing to remove low-price catalog products referenced by ${protectedProductOrders.length} non-test order(s). Preserve customer order history first.`,
+        );
+    }
+
+    const orderIds = Array.from(new Set([...invalidProductOrders, ...legacyCurrencyOrders].map((row) => Number(row.id))));
+
+    if (orderIds.length === 0) {
+        return 0;
+    }
+
+    const [afterSaleRequests, codSettlements, deliveryAssignments, loyaltyVouchers, orderPayments, paymentAttempts, shipments] = await Promise.all([
+        query(connection, "SELECT id FROM after_sales_requests WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM cod_settlements WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM delivery_assignments WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM loyalty_vouchers WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM order_payments WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM payment_attempts WHERE order_id IN (?)", [orderIds]),
+        query(connection, "SELECT id FROM shipments WHERE order_id IN (?)", [orderIds]),
+    ]);
+    const afterSaleRequestIds = afterSaleRequests.map((row) => Number(row.id));
+    const codSettlementIds = codSettlements.map((row) => Number(row.id));
+    const deliveryAssignmentIds = deliveryAssignments.map((row) => Number(row.id));
+    const loyaltyVoucherIds = loyaltyVouchers.map((row) => Number(row.id));
+    const orderPaymentIds = orderPayments.map((row) => Number(row.id));
+    const paymentAttemptIds = paymentAttempts.map((row) => Number(row.id));
+    const shipmentIds = shipments.map((row) => Number(row.id));
+
+    const refundOperations = await query(
+        connection,
+        `SELECT id FROM manual_refund_operations
+         WHERE request_id IN (SELECT id FROM after_sales_requests WHERE order_id IN (?))
+            OR order_payment_id IN (SELECT id FROM order_payments WHERE order_id IN (?))`,
+        [orderIds, orderIds],
+    );
+    const refundOperationIds = refundOperations.map((row) => Number(row.id));
+    const notificationLinks = orderIds.map((orderId) => `/orders?order=${orderId}`);
+
+    await connection.query("DELETE FROM customer_notifications WHERE link IN (?)", [notificationLinks]);
+    await deleteByIds(connection, "after_sales_events", "request_id", afterSaleRequestIds);
+    await deleteByIds(connection, "after_sales_items", "request_id", afterSaleRequestIds);
+    await deleteByIds(connection, "manual_refund_units", "operation_id", refundOperationIds);
+    await deleteByIds(connection, "manual_refund_operations", "id", refundOperationIds);
+    await deleteByIds(connection, "after_sales_requests", "id", afterSaleRequestIds);
+    await deleteByIds(connection, "cod_settlement_events", "settlement_id", codSettlementIds);
+    await deleteByIds(connection, "cod_settlements", "id", codSettlementIds);
+    await deleteByIds(connection, "delivery_events", "assignment_id", deliveryAssignmentIds);
+    await deleteByIds(connection, "delivery_events", "order_id", orderIds);
+    await deleteByIds(connection, "delivery_assignments", "id", deliveryAssignmentIds);
+    await deleteByIds(connection, "discount_redemptions", "order_id", orderIds);
+    await deleteByIds(connection, "loyalty_ledger", "order_id", orderIds);
+    await deleteByIds(connection, "loyalty_ledger", "voucher_id", loyaltyVoucherIds);
+    await deleteByIds(connection, "loyalty_vouchers", "id", loyaltyVoucherIds);
+    await deleteByIds(connection, "order_status_events", "order_id", orderIds);
+    await deleteByIds(connection, "inventory_movements", "order_id", orderIds);
+    await deleteByIds(connection, "payment_reconciliation_attempts", "order_payment_id", orderPaymentIds);
+    await deleteByIds(connection, "payment_attempt_observations", "attempt_id", paymentAttemptIds);
+    await deleteByIds(connection, "payment_attempt_refunds", "attempt_id", paymentAttemptIds);
+    await deleteByIds(connection, "manual_refund_operations", "order_payment_id", orderPaymentIds);
+    await deleteByIds(connection, "payment_attempts", "id", paymentAttemptIds);
+    await deleteByIds(connection, "order_payments", "id", orderPaymentIds);
+    await deleteByIds(connection, "shipment_events", "shipment_id", shipmentIds);
+    await deleteByIds(connection, "shipments", "id", shipmentIds);
+    await deleteByIds(connection, "support_tickets", "order_id", orderIds);
+    await deleteByIds(connection, "order_items", "order_id", orderIds);
+    await deleteByIds(connection, "orders", "id", orderIds);
+
+    return orderIds.length;
+};
+
+const clearPendingCheckoutsContainingProducts = async (connection, productIds) => {
     if (productIds.length === 0) {
         return 0;
     }
 
+    const [testCheckoutRows, protectedCheckoutRows] = await Promise.all([
+        query(
+            connection,
+            `SELECT DISTINCT pc.id
+             FROM pending_checkouts pc
+             JOIN inventory_reservations ir ON ir.pending_checkout_id = pc.id
+             JOIN users u ON u.id = pc.user_id
+             WHERE ir.product_id IN (?) AND u.email LIKE ?`,
+            [productIds, LEGACY_TEST_ACCOUNT_EMAIL_PATTERN],
+        ),
+        query(
+            connection,
+            `SELECT DISTINCT pc.id
+             FROM pending_checkouts pc
+             JOIN inventory_reservations ir ON ir.pending_checkout_id = pc.id
+             LEFT JOIN users u ON u.id = pc.user_id
+             WHERE ir.product_id IN (?) AND (u.email IS NULL OR u.email NOT LIKE ?)`,
+            [productIds, LEGACY_TEST_ACCOUNT_EMAIL_PATTERN],
+        ),
+    ]);
+    if (protectedCheckoutRows.length > 0) {
+        throw new Error(
+            `Refusing to remove low-price catalog products referenced by ${protectedCheckoutRows.length} non-test pending checkout(s). Preserve customer checkout state first.`,
+        );
+    }
+
+    const pendingCheckoutIds = testCheckoutRows.map((row) => Number(row.id));
+    if (pendingCheckoutIds.length === 0) {
+        return 0;
+    }
+
+    const [loyaltyVouchers, paymentAttempts] = await Promise.all([
+        query(connection, "SELECT id FROM loyalty_vouchers WHERE pending_checkout_id IN (?)", [pendingCheckoutIds]),
+        query(connection, "SELECT id FROM payment_attempts WHERE pending_checkout_id IN (?)", [pendingCheckoutIds]),
+    ]);
+    const loyaltyVoucherIds = loyaltyVouchers.map((row) => Number(row.id));
+    const paymentAttemptIds = paymentAttempts.map((row) => Number(row.id));
+
+    await deleteByIds(connection, "payment_attempt_observations", "attempt_id", paymentAttemptIds);
+    await deleteByIds(connection, "payment_attempt_refunds", "attempt_id", paymentAttemptIds);
+    await deleteByIds(connection, "payment_attempts", "id", paymentAttemptIds);
+    await deleteByIds(connection, "payment_reconciliation_attempts", "pending_checkout_id", pendingCheckoutIds);
+    await deleteByIds(connection, "discount_redemptions", "pending_checkout_id", pendingCheckoutIds);
+    await deleteByIds(connection, "loyalty_ledger", "pending_checkout_id", pendingCheckoutIds);
+    await deleteByIds(connection, "loyalty_ledger", "voucher_id", loyaltyVoucherIds);
+    await deleteByIds(connection, "loyalty_vouchers", "id", loyaltyVoucherIds);
+    await deleteByIds(connection, "inventory_reservations", "pending_checkout_id", pendingCheckoutIds);
+    await deleteByIds(connection, "pending_checkouts", "id", pendingCheckoutIds);
+
+    return pendingCheckoutIds.length;
+};
+
+const clearLegacyCatalogProducts = async (connection, managedProductIds) => {
+    const rows = await query(
+        connection,
+        `SELECT id FROM products
+         WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?
+            OR price < ? OR (sale_price IS NOT NULL AND sale_price < ?)`,
+        [...LEGACY_PRODUCT_NAME_PATTERNS, DEMO_SEED_MIN_PRICE_VND, DEMO_SEED_MIN_PRICE_VND],
+    );
+    const productIds = rows.map((row) => Number(row.id));
+
+    const removedCheckouts = await clearPendingCheckoutsContainingProducts(connection, productIds);
+    const ordersRemoved = await clearOrdersContainingProducts(connection, productIds, managedProductIds, DEMO_SEED_PLAN.currency);
+    if (productIds.length === 0) {
+        return { products: 0, orders: ordersRemoved, checkouts: removedCheckouts };
+    }
+    const alertEvents = await query(connection, "SELECT id FROM product_alert_events WHERE product_id IN (?)", [productIds]);
+    const alertEventIds = alertEvents.map((row) => Number(row.id));
+    const receiptLines = await query(connection, "SELECT id FROM purchase_receipt_lines WHERE product_id IN (?)", [productIds]);
+    const receiptLineIds = receiptLines.map((row) => Number(row.id));
+    const stockCountItems = await query(connection, "SELECT id FROM stock_count_items WHERE product_id IN (?)", [productIds]);
+    const stockCountItemIds = stockCountItems.map((row) => Number(row.id));
+
+    await deleteByIds(connection, "customer_notifications", "alert_event_id", alertEventIds);
+    await deleteByIds(connection, "inventory_movements", "product_id", productIds);
+    await deleteByIds(connection, "inventory_movements", "purchase_receipt_line_id", receiptLineIds);
+    await deleteByIds(connection, "inventory_movements", "stock_count_item_id", stockCountItemIds);
     await deleteByIds(connection, "product_attributes", "product_id", productIds);
     await deleteByIds(connection, "inventory_reservations", "product_id", productIds);
     await deleteByIds(connection, "cart_items", "product_id", productIds);
-    await deleteByIds(connection, "order_items", "product_id", productIds);
+    await deleteByIds(connection, "guest_cart_items", "product_id", productIds);
+    await deleteByIds(connection, "product_alert_events", "id", alertEventIds);
+    await deleteByIds(connection, "product_alert_subscriptions", "product_id", productIds);
+    await deleteByIds(connection, "purchase_receipt_lines", "id", receiptLineIds);
+    await deleteByIds(connection, "purchase_order_items", "product_id", productIds);
+    await deleteByIds(connection, "stock_count_items", "id", stockCountItemIds);
     await deleteByIds(connection, "reviews", "product_id", productIds);
     await deleteByIds(connection, "wishlist", "product_id", productIds);
-    await deleteByIds(connection, "inventory_movements", "product_id", productIds);
     await deleteByIds(connection, "products", "id", productIds);
 
-    return productIds.length;
+    return { products: productIds.length, orders: ordersRemoved, checkouts: removedCheckouts };
 };
 
 const seedAddresses = async (connection, plan, userIds) => {
@@ -333,6 +520,8 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
     }
 
     for (const [index, order] of plan.orders.entries()) {
+        const placedDaysAgo = plan.orders.length + 2 - index;
+        const placedAt = dateDaysAgo(placedDaysAgo, 9 + (index % 6));
         const orderItems = order.items.map((item) => {
             const product = productDefinitions.find((definition) => definition.name === item.productName);
             const unitPrice = Number(product.salePrice ?? product.price);
@@ -356,7 +545,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
                 discount,
                 shippingAddressByUser.get(order.userKey),
                 order.paymentMethod,
-                dateDaysAgo(18 - index, 9 + (index % 6)),
+                placedAt,
                 order.status,
                 plan.currency,
             ],
@@ -375,7 +564,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
             `INSERT INTO order_status_events
                 (order_id, status, label, note, actor_id, created_at)
             VALUES (?, 0, 'Order placed', 'Digital-E demo seed order placed', ?, ?)`,
-            [orderId, adminId, dateDaysAgo(18 - index, 9 + (index % 6))],
+            [orderId, adminId, placedAt],
         );
 
         if (order.status === 1) {
@@ -383,7 +572,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
                 `INSERT INTO order_status_events
                     (order_id, status, label, note, actor_id, created_at)
                 VALUES (?, 1, 'Order completed', 'Digital-E demo seed order completed', ?, ?)`,
-                [orderId, adminId, dateDaysAgo(16 - index, 13 + (index % 4))],
+                [orderId, adminId, dateDaysAgo(Math.max(0, placedDaysAgo - 1), 13 + (index % 4))],
             );
 
             for (const item of orderItems) {
@@ -402,7 +591,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
                         stockAfter,
                         `${DEMO_MOVEMENT_PREFIX} ${order.key}`,
                         adminId,
-                        dateDaysAgo(16 - index, 13 + (index % 4)),
+                        dateDaysAgo(Math.max(0, placedDaysAgo - 1), 13 + (index % 4)),
                     ],
                 );
             }
@@ -413,7 +602,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
                 `INSERT INTO order_status_events
                     (order_id, status, label, note, actor_id, created_at)
                 VALUES (?, 2, 'Order canceled', 'Digital-E demo seed order canceled', ?, ?)`,
-                [orderId, adminId, dateDaysAgo(15 - index, 14 + (index % 4))],
+                [orderId, adminId, dateDaysAgo(Math.max(0, placedDaysAgo - 1), 14 + (index % 4))],
             );
         }
     }
@@ -529,7 +718,7 @@ const main = async () => {
         await connection.beginTransaction();
         const userIds = await upsertDemoUsers(connection, DEMO_SEED_PLAN, passwordHash);
         const { productIds } = await upsertDemoProducts(connection, DEMO_SEED_PLAN);
-        const legacyProductCount = await clearLegacyCatalogProducts(connection);
+        const removedCatalogData = await clearLegacyCatalogProducts(connection, Array.from(productIds.values()));
         await clearDemoRows(connection, DEMO_SEED_PLAN, userIds, productIds);
         await seedAddresses(connection, DEMO_SEED_PLAN, userIds);
         await seedCarts(connection, DEMO_SEED_PLAN, userIds, productIds);
@@ -542,7 +731,9 @@ const main = async () => {
         await connection.commit();
 
         process.stdout.write(`Digital-E demo seed complete: ${JSON.stringify(summary)}\n`);
-        process.stdout.write(`Removed ${legacyProductCount} legacy E2E/Demo catalog products.\n`);
+        process.stdout.write(
+            `Removed ${removedCatalogData.products} legacy or low-price catalog products, ${removedCatalogData.orders} linked test orders, and ${removedCatalogData.checkouts} related pending checkouts.\n`,
+        );
     } catch (error) {
         await connection.rollback();
         throw error;

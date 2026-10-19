@@ -2,24 +2,29 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver all three P0 capabilities with reproducible local sandbox acceptance: fulfillment/carrier integration, COD settlement/manual refunds, and durable transactional email.
+**Goal:** Deliver all three P0 capabilities with reproducible local sandbox acceptance: internal delivery, COD settlement/manual refunds, and durable transactional email.
 
-**Architecture:** Extend the existing Nest feature modules and MySQL transaction boundary. Durable tasks perform external calls after commit; narrow carrier/email interfaces support both real adapters and local sandbox adapters. Preserve legacy order/payment contracts and add separate fulfillment and settlement projections.
+**Architecture:** Extend the existing Nest feature modules and MySQL transaction boundary. Internal delivery quotes, shipments, assignments and events are persisted locally; durable tasks send transactional email after commit. Preserve legacy order/payment contracts and add separate fulfillment and settlement projections.
 
 **Tech Stack:** Node.js 24.20.0, pnpm 12.4.2, NestJS 11, mysql2, Prisma 7 migrations, Zod, React 19, Vitest, Testing Library; Resend SDK for maintained signature verification and Playwright Test for repeatable browser acceptance.
 
 **Spec:** [Approved design](../specs/2026-10-14-retail-p0-operations-design.md), approved by the owner on 2026-10-14.
 
-Status: implementation and local sandbox acceptance complete on
-`feature/retail-p0-operations`; live GHN/Resend/PayOS and external scheduler
-verification remain pending. Task 1 was committed separately; the remaining
-implementation and documentation changes are committed after final review.
+Scope update approved by the owner on 2026-10-16: use Digital-E's internal
+delivery workflow; GHN and other carrier integrations are out of scope. The
+[internal delivery design](../specs/2026-10-16-internal-delivery-design.md)
+and [implementation plan](2026-10-16-internal-delivery.md) are authoritative
+for detailed P0-01 behavior. Internal delivery is implemented; live
+routing/map configuration, Resend/PayOS and external scheduler checks remain
+separate operational gates. Historical GHN records are read-only.
 
 ## Global Constraints
 
 - All three P0 capabilities belong to this release; P1 remains deferred.
-- Initial operation uses one warehouse, one parcel per order, GHN as the carrier and Resend as the email provider.
-- Sandbox adapters are rejected in production.
+- Initial operation uses one warehouse, Digital-E delivery staff and Resend as the email provider; no external carrier account or integration is needed.
+- GHN shipment history remains readable but cannot trigger provider calls or new delivery work.
+- Internal delivery uses an operator-configured store pin, manually selected customer pin, allowlisted road route and fee bands; do not request or store GPS.
+- Email and payment sandbox modes are rejected in production.
 - MySQL feature repositories own writes; Prisma migrations/schema stay aligned.
 - `orders` retains numeric status `0 Pending`, `1 Done`, `2 Canceled`.
 - Shipping is not discounted by merchandise percentage promotions.
@@ -34,8 +39,8 @@ implementation and documentation changes are committed after final review.
 ## Review Focus
 
 1. Anonymous identity changes after sign-in must invalidate/replace a quote rather than transfer another cart's capability (Task 3).
-2. Reopening a legacy terminal order or applying an old callback must not restart warranty or stock restoration (Tasks 4-5).
-3. Missing parcel data, invalid address/service and unavailable configuration must fail explicitly instead of quoting zero shipping (Task 2).
+2. Reopening a legacy terminal order or applying a stale delivery update must not restart warranty or stock restoration (Tasks 4-5).
+3. Missing internal-delivery settings, invalid address pins or unavailable road routes must fail explicitly instead of quoting zero shipping (Task 2).
 4. A historical discounted multi-unit order must not over-refund through unit rounding or duplicate requests (Task 7).
 5. Crash after external email acceptance plus delayed retry beyond 24 hours must enter review rather than duplicate the message (Tasks 8-9).
 
@@ -60,18 +65,17 @@ Define feature-local types before their consumers; do not put feature validators
 in `shared`. `TransactionContext` remains the existing mysql2 context.
 
 - `OrderIdentity`: `{ kind: 'authenticated'; userId: string } | { kind: 'guest'; guestCartId: string }`; resolve server-side, never from a submitted user ID.
-- `DeliveryAddress`: recipient name/phone, address line, province/ward codes and names, optional legacy district, country fixed to `VN` for new quotes.
-- `Parcel`: integer grams and length/width/height in centimetres, each positive.
+- `DeliveryAddress`: recipient name/phone, address line and city, country fixed to `VN`, and manually selected latitude/longitude within valid bounds. GHN province/ward/service codes are not part of new quotes.
 - `PricingSnapshot`: `{ itemsSubtotal: number; merchandiseDiscount: number; shippingFee: number; payableTotal: number; currency: 'VND' }`.
-- `DeliveryQuote`: opaque ID, identity/cart/address fingerprints, provider/service, parcel and pricing snapshot, UTC expiry.
+- `DeliveryQuote`: opaque ID, identity/cart/address fingerprints, route distance/geometry, delivery-settings version, pricing snapshot and UTC expiry.
 - `FulfillmentState`: `UNFULFILLED | CONFIRMED | PICKING | PACKED | READY_TO_SHIP | SHIPPED | DELIVERY_FAILED | RETURNING | RETURNED | DELIVERED | CANCELED`.
-- `TaskKind`: `SHIPMENT_CREATE | SHIPMENT_SYNC | EMAIL_SEND`; `TaskState`: `READY | RUNNING | SUCCEEDED | FAILED | REVIEW_REQUIRED`.
-- `TaskLease`: task ID, random fencing token, attempt number and lease expiry; `TaskResult`: success/provider reference or retryable/permanent/ambiguous failure.
+- `TaskKind`: newly enqueued work uses `EMAIL_SEND`; legacy carrier shipment tasks are retired without network calls. `TaskState`: `READY | RUNNING | SUCCEEDED | FAILED | REVIEW_REQUIRED`.
+- `TaskLease`: task ID, random fencing token, attempt number and lease expiry; `TaskResult`: email provider reference or retryable/permanent/ambiguous failure.
 - `EmailMessage`: one recipient, locale, escaped subject/text/HTML and immutable business-event key; `EmailSendResult`: provider message ID and `accepted` or explicit `sandbox` outcome.
 - `SettlementInput`: reference, transfer time, remitted VND amount, fee breakdown and evidence ID; server supplies expected/collected amounts.
 - `ManualRefundInput`: existing idempotency/reference/currency fields plus transfer date, evidence ID and reviewed reason; no client-supplied refund amount.
-- `ShipmentSummary`: order ID, fulfillment state, provider/tracking code, expected/delivered timestamps, sandbox flag and guest-safe timeline; `ShipmentOperation`: task ID, business key, task state and optional provider reference.
-- `CodSettlement`: order ID, expected/collected/remitted/fee VND amounts, settlement state, transfer references and masked evidence summaries.
+- `ShipmentSummary`: order ID, internal fulfillment state, assigned employee and delivery window, delivered timestamp and guest-safe timeline; new internal shipments have no external tracking code.
+- `CodSettlement`: order ID, expected/collected/remitted/delivery-fee VND amounts, settlement state, transfer references and masked evidence summaries. Internal delivery has no third-party carrier fee.
 - `EmailBusinessEvent`: event key/type, order or after-sales ID, immutable contact/locale and pricing/status snapshot; types are placement, shipment update, cancellation, after-sales decision and refund confirmation.
 - `EventReceipt`: event ID and queued/duplicate/ignored kind; `RunSummary`: claimed/succeeded/retried/failed/review-required counts and elapsed milliseconds.
 - `EvidenceFile`: validated MIME, bounded bytes, hash, original safe filename and operator ID; `RefundableUnit`: orderItemId, unitIndex and netVnd.
@@ -99,17 +103,19 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 - [ ] Rerun the focused suite and isolated integration test; require actual passing assertions, not a mocked concurrency promise alone.
 - [ ] Review and commit only Task 1 changes as `feat(operations): persist leased tasks for external side effects`.
 
-### Task 2: Parcel/address validation and carrier adapters
+### Task 2: Internal delivery settings and road-distance quotes
 
-**Files:** create `server/src/shipping/shipping.types.ts`, `shipping.validator.ts`, `shipping.policy.ts`, `shipping-provider.ts`, `ghn.provider.ts`, `sandbox-shipping.provider.ts`, `shipping.module.ts`; tests `server/src/shipping/__tests__/shipping-provider.test.ts`. Modify `server/src/config/env.config.ts`, `nest-config.service.ts`, `server/.env.example`, products types/validator/repository/service and demo parcel metadata. Create migration `20261014110000_shipping_snapshots/migration.sql`; update Prisma schema.
+The owner selected internal delivery. The authoritative requirements and
+acceptance evidence are in [internal delivery design](../specs/2026-10-16-internal-delivery-design.md)
+and [internal delivery implementation plan](2026-10-16-internal-delivery.md).
+That work supplies the store pin/settings, allowlisted road route, quote,
+customer pin selection and fee bands. Do not add carrier adapters, parcel
+dimension requirements, province/ward/service lookups, GHN credentials, labels
+or carrier webhooks.
 
-**Interfaces:** `ShippingProvider.quote(address, parcel, service): Promise<{ feeVnd: number; expectedDeliveryAt: string | null }>`; `createShipment(input): Promise<CarrierShipment>`; `findByClientReference(reference): Promise<CarrierShipment | null>`; `lookup(orderCode): Promise<CarrierShipment>`; `getLabel(orderCode): Promise<CarrierLabel>`. `CarrierShipment` contains provider/order/client references, normalized state, provider timestamp, COD/fees and sandbox marker. `CarrierLabel` contains a short-lived label token and expiry, not an arbitrary client URL.
-
-- [ ] Write tests for both adapters: missing metadata, zero/negative/fractional dimensions, invalid service/ward, malformed provider money, timeout, unknown status, matching client reference, wrong shop, missing credentials and sandbox-in-production rejection.
-- [ ] Run `pnpm --dir server exec vitest run src/shipping/__tests__/shipping-provider.test.ts` and observe the new assertions failing.
-- [ ] Implement HTTPS allowlisted GHN staging/production URLs, 8-second timeout, configuration parsing and deterministic local fixtures. Select service by provider availability. Estimate one stacked parcel with summed quantity-weight, maximum product length/width and summed quantity-height; label this as an estimate, reject unavailable parcel/service combinations and record actual packing/carrier fee differences for review.
-- [ ] Implement province/ward/service lookup endpoints in `shipping.controller.ts`; protect admin parcel writes and reject quotes for products lacking dimensions. Retain old shipping-address reads.
-- [ ] Rerun tests, including config/product regressions; review and commit as `feat(shipping): add GHN and explicit local sandbox adapters`.
+- [x] Implement internal delivery settings and address-bound quotes; the current source and focused acceptance evidence are recorded in the linked internal-delivery plan.
+- [x] Keep missing settings or route failures explicit; do not fall back to a guessed fee.
+- [x] Preserve historical GHN records as read-only data.
 
 ### Task 3: Owner-bound quotes and authoritative checkout
 
@@ -119,44 +125,40 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 
 - [ ] Write tests: `9_000_000` merchandise, `900_000` discount and `99_000` shipping produce `8_199_000` payable; foreign/tampered/expired/repriced quotes fail; guest-to-auth identity changes cannot reuse old quotes; product stock and promotion remain server-authoritative.
 - [ ] Run `pnpm --dir server exec vitest run src/shipping/__tests__/shipping-quotes.test.ts`; confirm red.
-- [ ] Implement quote storage/fingerprint/TTL, lock and consume semantics, VND rounding and snapshots across all guest/signed-in COD/PayOS write aliases. Reject absent quotes explicitly; allow multiple legitimate provider retries without creating extra orders.
+- [ ] Implement internal quote storage/fingerprint/TTL, lock and consume semantics, VND rounding and snapshots across all guest/signed-in COD/PayOS write aliases. Reject absent quotes explicitly; allow payment-provider retries without creating extra orders.
 - [ ] Ensure `total_price` remains subtotal plus shipping before merchandise discount; historical shipping defaults zero; PayOS link and ledger receive payable total; incompatible historical currencies stay read-only for this path.
 - [ ] Run focused tests plus existing checkout/reservation/PayOS suites; review and commit as `feat(checkout): price delivery through owner-bound quotes`.
 
-### Task 4: Fulfillment lifecycle and safe shipment creation
+### Task 4: Internal fulfillment lifecycle and safe completion
 
 **Files:** create `shipping.repository.ts`, `fulfillment.policy.ts`, `fulfillment.service.ts`, `admin-shipping.controller.ts`, tests `fulfillment.test.ts`; modify orders repository/service/cancellation/module and app module. Create migration `20261014120000_shipping_operations/migration.sql`; update schema.
 
-**Interfaces:** `FulfillmentService.transition(orderId, next, actorId, note): Promise<ShipmentSummary>`; `requestShipment(orderId, actorId, key): Promise<ShipmentOperation>`; `confirmReturnedStock(orderId, actorId): Promise<ShipmentSummary>`; transaction-aware shared `completeDeliveredOrder(tx, orderId, deliveryAt, actor): Promise<boolean>`.
+**Interfaces:** Internal shipment creation is part of the checkout/order transaction; `completeDeliveredOrder(tx, orderId, deliveryAt, actor): Promise<boolean>` is called by an authorized assigned delivery employee after a valid `DELIVERED` update.
 
-- [ ] Write tests for allowed/rejected transitions; paid versus unpaid/simulated PayOS; COD; double shipment requests; timeout followed by lookup recovery; duplicate packing; historical Done order preservation; cancellation while in transit; exactly one stock restoration on physical return.
+- [ ] Verify allowed/rejected internal delivery transitions; paid versus unpaid/simulated PayOS; COD collection; duplicate assignments/status updates; historical Done order preservation; and exactly one stock restoration on eligible physical return.
 - [ ] Run `pnpm --dir server exec vitest run src/shipping/__tests__/fulfillment.test.ts`; confirm red.
-- [ ] Persist shipments/operations/events and enqueue creation through Task 1. Stable client reference is `digital-e-order-{id}`; use lookup before repeating ambiguous external creation. Shipment creation never decrements stock.
+- [x] Create internal shipment rows with the order transaction and use audited, non-overlapping delivery staff assignments; no external shipment job or carrier lookup is used.
 - [ ] Make legacy admin completion and cancellation enforce the same fulfillment policy. Keep `delivered_at` stable and reuse cancellation inventory guards; returned paid orders still require money resolution.
 - [ ] Rerun focused and existing lifecycle/cancellation suites; review and commit as `feat(fulfillment): persist shipment lifecycle and recovery`.
 
-### Task 5: Authenticated durable carrier callbacks
+### Task 5: Internal delivery status and authorization; no carrier callbacks
 
-**Files:** create `shipping-webhook.controller.ts`, `shipping-webhook.service.ts`, `shipping-webhook.validator.ts`, tests `shipping-webhook.test.ts`; modify `server/src/auth/auth.module.ts`, shipping module/repository and exact-route rate limiting.
-
-**Interfaces:** `ShippingWebhookService.accept(payload, headers): Promise<{ kind: 'queued' | 'duplicate' | 'ignored'; eventId?: number }>`; `processEvent(eventId): Promise<TaskResult>`. Endpoint: `POST /api/shipping/webhooks/ghn`, requiring `x-digital-e-webhook-secret` plus validated known ShopID/references.
-
-- [ ] Write tests for absent/wrong secret, wrong shop, unknown shipment, duplicate `(OrderCode, Type, Time)`, stale delivery updates, invalid COD amount, persistence outage and authenticated lookup inconsistency.
-- [ ] Run `pnpm --dir server exec vitest run src/shipping/__tests__/shipping-webhook.test.ts`; confirm red.
-- [ ] Persist receipt plus sync job before 2xx acknowledgment. Use constant-time shared-secret comparison, bounded payloads, authenticated lookup and explicit status mapping; retain financial discrepancy details privately.
-- [ ] Exclude only this exact machine route from CSRF; prove ordinary admin/customer routes remain protected and PayOS exceptions are unchanged.
-- [ ] Rerun callback/authorization regression tests; review and commit as `feat(shipping): verify and deduplicate carrier callbacks`.
+GHN callback handling is removed from P0. Internal delivery uses the guarded
+admin assignment and assigned-employee status routes described by the linked
+internal delivery plan. Preserve admin/employee role checks, owner/guest
+boundaries, schedule conflict protection, append-only events and idempotent
+completion; do not add a public carrier webhook or broad CSRF exception.
 
 ### Task 6: COD settlement and private evidence
 
-**Files:** create `server/src/payments/cod-settlement.types.ts`, `.validator.ts`, `.repository.ts`, `.service.ts`, `admin-cod-settlements.controller.ts`; create `server/src/operations/evidence.repository.ts`, `evidence.service.ts`, `admin-evidence.controller.ts`; tests `cod-settlement.test.ts`, `evidence.test.ts`. Modify payments/orders modules and carrier processor. Create migration `20261014130000_financial_operations/migration.sql`; update schema.
+**Files:** create `server/src/payments/cod-settlement.types.ts`, `.validator.ts`, `.repository.ts`, `.service.ts`, `admin-cod-settlements.controller.ts`; create `server/src/operations/evidence.repository.ts`, `evidence.service.ts`, `admin-evidence.controller.ts`; tests `cod-settlement.test.ts`, `evidence.test.ts`. Modify payments/orders modules and internal delivery completion. Create migration `20261014130000_financial_operations/migration.sql`; update schema.
 
 **Interfaces:** `CodSettlementService.recordCollection(tx, orderId, amount): Promise<void>`; `recordRemittance(orderId, actorId, input: SettlementInput): Promise<CodSettlement>`; `EvidenceService.store(actorId, file): Promise<{ id: number; sha256: string }>`; `readForAdmin(evidenceId): Promise<EvidenceFile>`.
 
-- [ ] Write tests: COD collection is not remittance; prepaid COD is zero; `8_199_000` collected minus `99_000` actual carrier fee expects `8_100_000` remitted; mismatches remain unresolved; duplicate transfer references cannot credit twice; conflicting retries fail.
+- [ ] Write tests: COD collection is not remittance; prepaid COD is zero; internal delivery has zero third-party carrier fee, so `8_199_000` collected expects `8_199_000` remitted; mismatches remain unresolved; duplicate transfer references cannot credit twice; conflicting retries fail.
 - [ ] Write private-file tests: customer denied; untrusted MIME/oversize content rejected; private reference cannot be an arbitrary external URL; no public storage URL; responses use attachment and `Cache-Control: no-store`.
 - [ ] Run `pnpm --dir server exec vitest run src/payments/__tests__/cod-settlement.test.ts src/operations/__tests__/evidence.test.ts`; confirm red.
-- [ ] Store bounded proof bytes privately in MySQL with MIME/hash/actor, using validated file signatures; no additional public Blob container. Lock balances and record append-only actor/event history; include carrier adjustments in expected-net arithmetic.
+- [ ] Store bounded proof bytes privately in MySQL with MIME/hash/actor, using validated file signatures; no additional public Blob container. Lock balances and record append-only actor/event history; do not subtract a hypothetical carrier charge from internal-delivery COD.
 - [ ] Rerun tests and integration constraints; review and commit as `feat(payments): reconcile COD with private remittance evidence`.
 
 ### Task 7: Discount-aware evidence-backed manual refunds
@@ -183,7 +185,7 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 - [ ] Add `resend` only after registry/runtime compatibility check; use maintained webhook verification from the SDK. Implement Task 1 leases, fixed retry policy and sandbox fixture outcomes. Reject sandbox in production and disabled configuration as successful delivery.
 - [ ] Rerun tests and check server lockfile diff; review and commit as `feat(email): send transactional messages through durable retries`.
 
-### Task 9: Transactional hooks, signed delivery events and bounded runner
+### Task 9: Transactional email hooks and bounded runner
 
 **Files:** create `email-webhook.controller.ts`, `email-webhook.service.ts`, `admin-email.controller.ts`; create `server/src/operations/task-runner.service.ts`, `task-runner.controller.ts`, `server/scripts/run-operations.mjs`; tests `email-events.test.ts`, `task-runner.test.ts`, `transactional-hooks.integration.test.ts`. Modify current order/reservation/payment-finalization/cancellation/fulfillment/after-sales transaction entry points, modules, main bootstrap, auth module and server package scripts.
 
@@ -196,17 +198,18 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 - [ ] Expose POST `/api/operations/run` using scheduler bearer secret and POST admin drain/retry routes; add a command that bootstraps then closes the Nest application context. Do not add a Vercel Hobby-incompatible schedule. Drain handlers stop at budgets and release/expire leases safely.
 - [ ] Rerun focused/unit integration tests; review and commit as `feat(operations): connect domain events and bounded recovery runner`.
 
-### Task 10: Checkout, customer timeline and admin fulfillment UI
+### Task 10: Internal-delivery customer, admin and employee UI
 
-**Files:** create `client/src/features/shipping/types.ts`, `api.ts`, `components/DeliveryQuoteForm.tsx`, `ShipmentTimeline.tsx`, `ParcelFields.tsx`, `pages/AdminFulfillmentPage.tsx`; corresponding component/API tests. Modify current checkout/cart/order history/guest success/lookup pages, order API/types/address helper, admin product forms, routes, admin navigation, EN/VI dictionaries and `styles/index.scss`; create `styles/features/shipping/_shipping.scss`.
+The current client implementation and acceptance criteria are recorded in
+[internal delivery implementation plan](2026-10-16-internal-delivery.md),
+Tasks 5-6. Use that plan as the source of truth for address pins, road-distance
+quotes, admin delivery settings/assignments, employee status updates, and
+customer-visible delivery timelines. Do not add parcel forms, carrier service
+selection, labels, or tracking-number UI.
 
-**Interfaces:** `createDeliveryQuote(input): Promise<DeliveryQuote>`; `DeliveryQuoteForm({ onQuote, cartFingerprint, identityKey })`; `ShipmentTimeline({ shipment: GuestSafeShipment })`; feature API wrappers map only documented new fields while retaining route keys.
-
-- [ ] Write Testing Library tests: selected province/ward/service produces a quote; editing cart/address invalidates it; expired quote requires refresh; labels/errors/focus and totals are accessible; guest lookup shows safe timeline without internal accounting.
-- [ ] Write admin tests: allowed next state only; parcel metadata writes are validated; creation/recovery/label actions show pending, failure and sandbox state; in-transit cancellation does not offer unsafe restock.
-- [ ] Run `pnpm --dir client exec vitest run src/features/shipping`; confirm new behavior fails before implementation.
-- [ ] Implement using existing HTTP client/auth guards, complete EN/VI copy and theme tokens; display merchandise/discount/shipping/payable breakdown. Synchronize client identity changes with Task 3 quote ownership.
-- [ ] Rerun focused and existing checkout/customer/admin suites; perform React/a11y review; commit as `feat(ui): expose delivery quotes and fulfillment timelines`.
+- [x] Implement internal-delivery UX with EN/VI copy, responsive layouts, theme support, keyboard access and explicit loading/error states.
+- [x] Bind customer quotes to cart/address/settings and preserve the current checkout and guest-lookup authorization boundaries.
+- [x] Keep staff views assignment-scoped and customer timelines free of private staff notes or location data.
 
 ### Task 11: Financial and email operator UI
 
@@ -222,15 +225,15 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 
 ### Task 12: MySQL sandbox journey and repeatable browser acceptance
 
-**Files:** create `server/src/operations/__tests__/retail-p0.integration.test.ts`, `server/scripts/retail-p0-sandbox.mjs`, `client/playwright.config.ts`, `client/e2e/retail-p0.spec.ts`, `client/e2e/fixtures/retail-p0.ts`; modify sandbox seed parcel fixtures, client/server package scripts, client Vitest excludes, package-local lockfiles and `.gitignore` for test artifacts.
+**Files:** create `server/src/operations/__tests__/retail-p0.integration.test.ts`, `server/scripts/retail-p0-sandbox.mjs`, `client/playwright.config.ts`, `client/e2e/retail-p0.spec.ts`, `client/e2e/fixtures/retail-p0.ts`; modify internal-delivery seed fixtures, client/server package scripts, client Vitest excludes, package-local lockfiles and `.gitignore` for test artifacts.
 
-**Interfaces:** server `retail:p0:sandbox` command validates localhost/disposable database and explicit sandbox modes; Playwright fixture uses seeded guest/customer/admin identities and localhost API only. E2E artifacts never contain real credentials/capabilities.
+**Interfaces:** server `retail:p0:sandbox` command validates localhost/disposable database and explicit sandbox modes; Playwright fixture uses seeded guest/customer/admin/delivery-staff identities and localhost API only. E2E artifacts never contain real credentials/capabilities.
 
-- [ ] Write integration tests with concurrent claims/refunds, rollback, quote repricing, ambiguous carrier lookup, stale callback, payment amount equality and baseline historical orders. Refuse remote database/browser targets before writes.
+- [ ] Write integration tests with concurrent claims/refunds/assignments, rollback, quote repricing, duplicate and stale internal delivery updates, payment amount equality and baseline historical orders. Refuse remote database/browser targets before writes.
 - [ ] Run `pnpm --dir server exec vitest run --config vitest.integration.config.ts src/operations/__tests__/retail-p0.integration.test.ts` against isolated MySQL; observe missing feature evidence before finishing integration.
 - [ ] Add compatible `@playwright/test` as a client dev dependency, narrowly scoped to `e2e/`; keep Vitest from collecting those tests. Configure Chromium desktop 1440x900/mobile 390x844, both locales and light/dark, deterministic local runner invocations.
-- [ ] Implement the local sandbox scenario: guest/customer COD checkout through delivery/remittance/refund; PayOS quote/reservation/checkout and simulated-payment delivery rejection; email outage/restart/retry/permanent failure. Use a separately identified seeded paid-PayOS ledger and signature-verified provider contract fixtures in isolated integration tests for the eligible delivery/refund path. Never clear the simulated flag on a checkout-created order or describe seeded/provider-mocked evidence as an actual external payment.
-- [ ] Run `pnpm --dir client exec playwright test e2e/retail-p0.spec.ts`; record keyboard operation, errors/empty/loading and absence of horizontal overflow, screenshots and actual results. State provider staging remains untested without accounts.
+- [ ] Implement the local sandbox scenario: guest/customer COD checkout through internal staff assignment, delivery, remittance and refund; PayOS quote/reservation/checkout and simulated-payment delivery rejection; email outage/restart/retry/permanent failure. Use a separately identified seeded paid-PayOS ledger for eligible delivery/refund integration tests. Never clear the simulated flag on a checkout-created order or describe seeded evidence as an actual external payment.
+- [ ] Run `pnpm --dir client exec playwright test e2e/retail-p0.spec.ts`; record keyboard operation, errors/empty/loading and absence of horizontal overflow, screenshots and actual results. GHN staging is out of scope; report routing/map, Resend and PayOS live checks only when actually exercised.
 - [ ] Review fixtures/data guards and commit as `test(retail): verify the complete P0 sandbox lifecycle`.
 
 ### Task 13: Regression, documentation and whole-change review
@@ -239,7 +242,7 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 
 - [ ] Run client `exec tsc -p tsconfig.json --noEmit`, `lint`, `test -- --run`, `build`; server `typecheck`, `lint`, `test -- --run`, `build`, isolated `test:integration`; use `pnpm --dir <package>` for every command.
 - [ ] Run both sandbox CLI and Playwright acceptance; map actual evidence to A01-A12. Any unavailable/failing relevant check stays explicitly open.
-- [ ] Update contracts, mode restrictions, placeholders, private evidence limits, job recovery, provider setup and scheduler invocation. Document hosted scheduling as a separate deployment gate and keep P1 deferred.
+- [ ] Update contracts, mode restrictions, internal-delivery routing/map settings, private evidence limits, email job recovery and scheduler invocation. Document hosted scheduling as a separate deployment gate and keep P1 deferred.
 - [ ] Review the full task diff for cross-module correctness, duplicate money/stock, privacy, authorization, API compatibility, migration constraints and minimal dependency churn. Request the permitted independent reviewer according to the chosen method and resolve findings.
 - [ ] Mark P0 tracker complete only after all sandbox acceptance requirements pass. Commit only task changes as `docs(retail): document verified P0 operations and remaining live gates`; no PR, push, merge or deployment unless requested.
 
@@ -247,9 +250,9 @@ Private evidence maximum 2 MiB; permitted validated JPEG/PNG/PDF content.
 
 | Spec | Tasks |
 | --- | --- |
-| A01-A02: quote ownership and complete VND totals | 2, 3, 10, 12 |
-| A03: stock and parcel idempotency | 1, 4, 12 |
-| A04: authenticated, ordered, durable callbacks | 5, 6, 9, 12 |
+| A01-A02: internal quote ownership and complete VND totals | 2, 3, 10, 12 |
+| A03: stock and internal-assignment idempotency | 1, 4, 12 |
+| A04: assigned-staff authorization, ordered delivery updates and durable email callbacks | 5, 6, 9, 12 |
 | A05: delivery/return lifecycle | 4, 5, 10, 12 |
 | A06: COD remittance and discrepancy | 6, 11, 12 |
 | A07: net refund allocation and evidence | 6, 7, 11, 12 |

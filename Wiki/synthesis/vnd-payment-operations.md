@@ -18,9 +18,9 @@ The runtime uses exact whole-number VND for new catalog, checkout, order, and
 payment-ledger amounts. PayOS receives the same VND amount without foreign
 exchange conversion.
 
-The active provider values are `payos` and `cash`. Legacy Stripe identifiers
-and historical USD rows remain readable for compatibility, but new checkout
-does not expose those choices.
+The active provider values are `payos` and `cash`. Historical USD order amounts
+remain readable, while retired checkout-provider identifiers are removed from
+the current schema by a forward migration.
 
 ## Finalization sequence
 

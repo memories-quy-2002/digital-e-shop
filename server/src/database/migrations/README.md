@@ -3,7 +3,7 @@
 This directory stores bootstrap history for the existing MySQL schema. It is not the location for new pending Prisma migrations.
 
 - `defaultdb_2026-06-01_142319.sql` is the legacy MySQL dump used by local Docker and CI bootstrap
-- `2026-07-07-add-stripe-payment-support.sql` is the historical Stripe schema change that predates Prisma Migrate
+- `2026-07-07-legacy-checkout-schema.sql` provides the legacy checkout schema needed to replay the bootstrap history
 
 New deployable changes belong under:
 

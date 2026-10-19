@@ -27,9 +27,12 @@ import {
 import type { CartValidationIssue, CheckoutCartItem, GuestCartPreview } from "../features/orders/types";
 import { getCartValidationMessage } from "../features/orders/types";
 import { getApiErrorMessage } from "../lib/api-contract";
+import { useGuestCartMerge } from "../features/orders/useGuestCartMerge";
+import type { CartMergeResult, CartSourceSnapshot, GuestCartMergeStatus } from "../features/orders/useGuestCartMerge";
+
+export type { GuestCartMergeStatus };
 
 export type CartStatus = "loading" | "ready" | "empty" | "validation-error" | "error";
-export type GuestCartMergeStatus = "idle" | "loading" | "complete" | "partial" | "error";
 
 type DiscountResult = {
     status: "idle" | "success" | "error";
@@ -37,21 +40,9 @@ type DiscountResult = {
     message?: string;
 };
 
-type CartMergeResult = {
-    accepted: GuestCartStorageItem[];
-    rejected: GuestCartStorageItem[];
-    complete: boolean;
-};
-
 type CartMutation =
     | { type: "remove"; cartItemId: number }
     | { type: "updateQuantity"; cartItemId: number; quantity: number };
-
-type CartSourceSnapshot = {
-    source: string;
-    uid: string | null;
-    generation: number;
-};
 
 interface CartContextValue {
     items: CheckoutCartItem[];
@@ -127,7 +118,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [pendingRemoveItem, setPendingRemoveItem] = useState<CheckoutCartItem | null>(null);
     const sourceRef = useRef<CartSourceSnapshot>({ source, uid, generation: 0 });
     const requestIdRef = useRef(0);
-    const mergePromiseRef = useRef<Promise<CartMergeResult> | null>(null);
 
     const isCurrentSource = useCallback((candidate: CartSourceSnapshot) => {
         const active = sourceRef.current;
@@ -455,72 +445,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [addToast, discountCode, isCurrentSource, refreshGuestCart, setReadyState]);
 
-    const mergeGuestCart = useCallback(async (): Promise<CartMergeResult> => {
-        if (mergePromiseRef.current) return mergePromiseRef.current;
-        const expectedSource = sourceRef.current;
-        const pendingItems = readGuestCart();
-        if (!expectedSource.uid || pendingItems.length === 0) {
-            return { accepted: [], rejected: pendingItems, complete: pendingItems.length === 0 };
-        }
-
-        const runMerge = async (): Promise<CartMergeResult> => {
-            const accepted: GuestCartStorageItem[] = [];
-            const rejected: GuestCartStorageItem[] = [];
-            try {
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected: pendingItems, complete: false };
-                setMergeStatus("loading");
-                for (const item of pendingItems) {
-                    if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                    try {
-                        await addItemsToCustomerCart(expectedSource.uid!, [{ ...item, stock: item.quantity }]);
-                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                        accepted.push(item);
-                    } catch {
-                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                        rejected.push(item);
-                    }
-                }
-
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                const currentItems = readGuestCart();
-                const remainingItems = currentItems.filter((currentItem) =>
-                    !accepted.some((acceptedItem) =>
-                        acceptedItem.productId === currentItem.productId && acceptedItem.quantity === currentItem.quantity,
-                    ),
-                );
-                replaceGuestCart(remainingItems);
-                setGuestItems(remainingItems);
-                try {
-                    await syncGuestCart(remainingItems);
-                } catch {
-                    // Keep the rejected items locally if persistence is temporarily unavailable.
-                }
-                if (rejected.length === 0) {
-                    setMergeStatus("complete");
-                    setError(null);
-                } else {
-                    setMergeStatus("partial");
-                }
-                await fetchCart();
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                if (rejected.length > 0) setError("Some guest cart items could not be merged. Retry to continue.");
-                return { accepted, rejected, complete: rejected.length === 0 };
-            } catch {
-                if (isCurrentSource(expectedSource)) {
-                    setMergeStatus("error");
-                    setError("Unable to merge guest cart right now.");
-                }
-                return { accepted, rejected, complete: false };
-            }
-        };
-
-        const mergePromise = runMerge();
-        mergePromiseRef.current = mergePromise;
-        void mergePromise.finally(() => {
-            if (mergePromiseRef.current === mergePromise) mergePromiseRef.current = null;
-        });
-        return mergePromise;
-    }, [fetchCart, isCurrentSource]);
+    const mergeGuestCart = useGuestCartMerge({
+        sourceRef,
+        isCurrentSource,
+        setMergeStatus,
+        setGuestItems,
+        setError,
+        fetchCart,
+    });
 
     const onValidationRefresh = useCallback((nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
         setReadyState(nextCart, issues);
@@ -534,7 +466,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         sourceRef.current = nextSource;
         requestIdRef.current += 1;
-        mergePromiseRef.current = null;
         setItems([]);
         setTotalPrice(0);
         setDiscount(0);

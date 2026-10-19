@@ -74,6 +74,7 @@ function buildService() {
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notifications = { notifyOrderPlaced: vi.fn() };
     const productAttributes = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
+    const shippingRepository = { initializeOrderShipment: vi.fn().mockResolvedValue({ provider: "INTERNAL" }) };
 
     tx.query.mockImplementation(async (sql: string) => {
         if (sql.startsWith("INSERT INTO orders")) return { insertId: 91 };
@@ -94,11 +95,14 @@ function buildService() {
         promotions as never,
         productAttributes as never,
         new NestOrdersCancellationService(ordersRepository, timeline as never, inventory as never),
+        shippingRepository as never,
         undefined,
         { validateQuote: async (_tx: unknown, _checkout: unknown, _cart: unknown, subtotal: number, discount: number) => ({ pricing: { itemsSubtotal: subtotal, merchandiseDiscount: Math.round(discount), shippingFee: 0, payableTotal: subtotal - Math.round(discount), currency: "VND" }, delivery: {} }) } as never,
+        undefined,
+        undefined,
     );
 
-    return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions };
+    return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions, shippingRepository };
 }
 
 describe("guest checkout contracts", () => {
@@ -112,6 +116,7 @@ describe("guest checkout contracts", () => {
             userId: "should-not-be-accepted",
         });
         expect(parsed.success).toBe(false);
+        expect(guestPurchaseSchema.safeParse({ ...guestPayload(), loyaltyPoints: 25 }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
             cart: [{ productId: 7, quantity: 1, price: 0.01 }],
@@ -123,7 +128,7 @@ describe("guest checkout contracts", () => {
         }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
-            paymentMethod: "stripe",
+            paymentMethod: "unsupported_provider",
         }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
@@ -193,7 +198,7 @@ describe("guest purchase transaction", () => {
     it.each(["cash", "payos"] as const)(
         "creates a nullable-identity %s order from authoritative cart data",
         async (paymentMethod) => {
-            const { service, tx, cartService, notifications, timeline, inventory } = buildService();
+            const { service, tx, cartService, notifications, timeline, inventory, shippingRepository } = buildService();
             vi.mocked(cartService.previewGuestCart).mockResolvedValue({
                 valid: true,
                 cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
@@ -220,6 +225,7 @@ describe("guest purchase transaction", () => {
             );
             expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledWith(tx, expect.objectContaining({ actorId: null }));
             expect(inventory.createMovementsInTransaction).toHaveBeenCalled();
+            expect(shippingRepository.initializeOrderShipment).toHaveBeenCalledWith(tx, 91);
             expect(notifications.notifyOrderPlaced).not.toHaveBeenCalled();
             if (paymentMethod === "payos") {
                 expect(tx.query).toHaveBeenCalledWith(
@@ -231,7 +237,7 @@ describe("guest purchase transaction", () => {
     );
 
     it("commits an authenticated order and records the in-app notification", async () => {
-        const { service, cartService, notifications } = buildService();
+        const { service, cartService, notifications, shippingRepository } = buildService();
         vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
             cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
             issues: [],
@@ -249,6 +255,7 @@ describe("guest purchase transaction", () => {
         });
 
         expect(notifications.notifyOrderPlaced).toHaveBeenCalledWith("user-1", 91, 16);
+        expect(shippingRepository.initializeOrderShipment).toHaveBeenCalledWith(expect.anything(), 91);
     });
 
     it("passes a server-derived coupon amount and null user ID into transactional redemption", async () => {
@@ -407,6 +414,8 @@ describe("guest purchase transaction", () => {
             guest_email: "buyer@example.com",
             guest_name: "Buyer Name",
             guest_phone: "+84123456789",
+            delivered_at: "2026-09-01T12:00:00.000Z",
+            return_eligible_until: "2026-09-08T23:59:59.999Z",
             status: 0,
             total_price: 16,
             discount: 0,
@@ -420,6 +429,8 @@ describe("guest purchase transaction", () => {
         await expect(service.lookupGuestOrder(91, "raw-token")).resolves.toEqual(expect.objectContaining({
             id: 91,
             guest_email: "buyer@example.com",
+            delivered_at: "2026-09-01T12:00:00.000Z",
+            return_eligible_until: "2026-09-08T23:59:59.999Z",
         }));
         const safe = await service.lookupGuestOrder(91, "raw-token");
         expect(safe).not.toHaveProperty("user_id");

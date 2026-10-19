@@ -77,6 +77,11 @@ describe("RequireAdmin", () => {
         expect(screen.getByTestId("location")).toHaveTextContent("/403");
     });
 
+    it("keeps DeliveryStaff out of admin tools", () => {
+        renderWithAuth({ loading: false, userData: buildUser({ role: Role.DeliveryStaff, status: "Active" }) });
+        expect(screen.getByTestId("location")).toHaveTextContent("/403");
+    });
+
     it("renders Admin children for an Admin user", () => {
         renderWithAuth({ loading: false, userData: buildUser({ role: Role.Admin }) });
         expect(screen.getByTestId("admin-child")).toBeInTheDocument();

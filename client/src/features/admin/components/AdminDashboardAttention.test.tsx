@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -6,7 +7,7 @@ import AdminDashboardAttention from "./AdminDashboardAttention";
 
 describe("AdminDashboardAttention", () => {
     it("renders an empty attention state after a successful empty response", () => {
-        render(
+        renderWithLocale(
             <MemoryRouter>
                 <AdminDashboardAttention status="success" groups={[]} onRetry={vi.fn()} onOpenAlerts={vi.fn()} />
             </MemoryRouter>,
@@ -17,7 +18,7 @@ describe("AdminDashboardAttention", () => {
 
     it("renders visible priority text and an action for grouped alerts", () => {
         const onOpenAlerts = vi.fn();
-        render(
+        renderWithLocale(
             <MemoryRouter>
                 <AdminDashboardAttention
                     status="success"

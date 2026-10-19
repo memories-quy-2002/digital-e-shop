@@ -1,4 +1,4 @@
-import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { JSX, Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
@@ -12,7 +12,6 @@ import { fetchCustomerNotifications, logoutCurrentCustomer } from "../../feature
 import type { CustomerNotification } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
-import { Sheet, SheetContent } from "../ui/sheet";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
@@ -23,6 +22,9 @@ import { formatCurrency } from "../../utils/currency";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
 import { searchProducts } from "../../features/products/api";
+
+const MiniCartDrawer = lazy(() => import("../common/MiniCartDrawer"));
+const HeaderMobileSheet = lazy(() => import("./HeaderMobileSheet"));
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -45,6 +47,7 @@ export const Header = (): JSX.Element => {
     const t = useT();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [hasOpenedMenu, setHasOpenedMenu] = useState(false);
     const [searchResults, setSearchResults] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -54,6 +57,8 @@ export const Header = (): JSX.Element => {
     const { items: cartItems } = useCart();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isCartPreviewOpen, setIsCartPreviewOpen] = useState(false);
+    const [hasOpenedCartPreview, setHasOpenedCartPreview] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
     const mobileSearchId = "header_mobile_search";
@@ -104,6 +109,7 @@ export const Header = (): JSX.Element => {
         "/",
         () => {
             if (window.matchMedia("(max-width: 780px)").matches) {
+                setHasOpenedMenu(true);
                 setIsMenuOpen(true);
                 window.setTimeout(() => mobileSearchInputRef.current?.focus(), 0);
                 return;
@@ -467,12 +473,23 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__action header__action--badge"
-                            onClick={handleCartNavigation}
-                            aria-label={t("common.cart")}
+                            onClick={() => {
+                                setHasOpenedCartPreview(true);
+                                setIsCartPreviewOpen(true);
+                            }}
+                            aria-label={t("cart.openPreview")}
+                            aria-haspopup="dialog"
+                            aria-expanded={isCartPreviewOpen}
+                            aria-controls="mini-cart-drawer"
                         >
                             <CartIcon size={20} />
                             {cartItems.length > 0 ? <span>{Math.min(cartItems.length, 99)}</span> : null}
                         </button>
+                        {hasOpenedCartPreview ? (
+                            <Suspense fallback={null}>
+                                <MiniCartDrawer open={isCartPreviewOpen} onOpenChange={setIsCartPreviewOpen} />
+                            </Suspense>
+                        ) : null}
                         <div className="header__notifications" ref={notificationMenuRef}>
                             <button
                                 type="button"
@@ -614,7 +631,10 @@ export const Header = (): JSX.Element => {
                         <button
                             className="header__burger"
                             type="button"
-                            onClick={() => setIsMenuOpen((prev) => !prev)}
+                            onClick={() => {
+                                setHasOpenedMenu(true);
+                                setIsMenuOpen((prev) => !prev);
+                            }}
                             aria-label={t("header.toggleMenu")}
                             aria-expanded={isMenuOpen}
                             aria-controls={mobileMenuId}
@@ -627,8 +647,9 @@ export const Header = (): JSX.Element => {
                 </div>
             </div>
 
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                <SheetContent side="right" className="header__mobile is-open" id={mobileMenuId} closeLabel={t("header.closeMenu")}>
+            {hasOpenedMenu ? (
+                <Suspense fallback={null}>
+                    <HeaderMobileSheet open={isMenuOpen} onOpenChange={setIsMenuOpen} id={mobileMenuId} closeLabel={t("header.closeMenu")}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
                         {t("common.search")}
@@ -732,8 +753,9 @@ export const Header = (): JSX.Element => {
                         </button>
                     ) : null}
                 </div>
-                </SheetContent>
-            </Sheet>
+                    </HeaderMobileSheet>
+                </Suspense>
+            ) : null}
         </header>
     );
 };

@@ -25,6 +25,18 @@ export const cartUpdateQuantitySchema = z.object({
     uid: requiredText("User id"),
 });
 
+export const cartMergeSchema = z.object({
+    uid: requiredText("User id"),
+    operationId: z.string().uuid(),
+    items: z.array(guestCartItemSchema).min(1).max(50),
+}).superRefine((data, context) => {
+    const ids = new Set<number>();
+    data.items.forEach((item, index) => {
+        if (ids.has(item.productId)) context.addIssue({ code: "custom", path: ["items", index, "productId"], message: "Each product may appear only once in a merge operation" });
+        ids.add(item.productId);
+    });
+});
+
 export const guestCartPreviewSchema = z.object({
     items: z.array(guestCartItemSchema).min(1, "Cart must contain at least one item").max(50, "Cart must not contain more than 50 items"),
     discountCode: z.string().trim().max(50, "Discount code must not exceed 50 characters")

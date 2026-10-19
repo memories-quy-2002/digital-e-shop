@@ -9,6 +9,9 @@ import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
+import { fetchDeliveryMapConfig } from "../../shipping/api";
+import type { RoadPoint } from "../../shipping/types";
+import DeliveryMapPicker from "../../shipping/components/DeliveryMapPicker";
 import {
     CustomerAddress,
     CustomerAddressPayload,
@@ -26,8 +29,12 @@ type AddressForm = {
     addressLine: string;
     city: string;
     country: string;
+    latitude: number | null;
+    longitude: number | null;
     isDefault: boolean;
 };
+
+const EMPTY_ROUTE: Array<[longitude: number, latitude: number]> = [];
 
 const createEmptyForm = (homeLabel: string): AddressForm => ({
     label: homeLabel,
@@ -35,7 +42,9 @@ const createEmptyForm = (homeLabel: string): AddressForm => ({
     phoneNumber: "",
     addressLine: "",
     city: "",
-    country: "",
+    country: "VN",
+    latitude: null,
+    longitude: null,
     isDefault: false,
 });
 const AddressBookPage = () => {
@@ -44,6 +53,9 @@ const AddressBookPage = () => {
     const { addToast } = useToast();
     const t = useT();
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+    const [mapConfig, setMapConfig] = useState<Awaited<ReturnType<typeof fetchDeliveryMapConfig>>>(null);
+    const [mapConfigLoading, setMapConfigLoading] = useState(true);
+    const [mapConfigError, setMapConfigError] = useState(false);
     const [form, setForm] = useState<AddressForm>(() => createEmptyForm(t("addresses.home")));
     const [showAddressError, setShowAddressError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +75,22 @@ const AddressBookPage = () => {
         void loadAddresses();
     }, [loadAddresses]);
 
+    const loadMapConfig = useCallback(async () => {
+        setMapConfigLoading(true);
+        try {
+            const config = await fetchDeliveryMapConfig();
+            setMapConfig(config);
+            setMapConfigError(!config);
+        } catch {
+            setMapConfig(null);
+            setMapConfigError(true);
+        } finally {
+            setMapConfigLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void loadMapConfig(); }, [loadMapConfig]);
+
     const handleEdit = (address: CustomerAddress) => {
         setShowAddressError(false);
         setForm({
@@ -73,6 +101,8 @@ const AddressBookPage = () => {
             addressLine: address.address_line || "",
             city: address.city || "",
             country: address.country || "",
+            latitude: address.latitude ?? null,
+            longitude: address.longitude ?? null,
             isDefault: address.is_default,
         });
     };
@@ -95,6 +125,8 @@ const AddressBookPage = () => {
                 addressLine: form.addressLine,
                 city: form.city,
                 country: form.country,
+                latitude: form.latitude,
+                longitude: form.longitude,
                 isDefault: form.isDefault,
             };
             if (form.id) {
@@ -140,6 +172,10 @@ const AddressBookPage = () => {
     const handleRequestDelete = (addressId: number) => {
         const address = addresses.find((item) => item.id === addressId) || null;
         setPendingDeleteAddress(address);
+    };
+
+    const handleDestinationChange = (point: RoadPoint | null) => {
+        setForm((current) => ({ ...current, latitude: point?.latitude ?? null, longitude: point?.longitude ?? null }));
     };
 
     return (
@@ -206,6 +242,7 @@ const AddressBookPage = () => {
                             <input
                                 id="address-line"
                                 value={form.addressLine}
+                                autoComplete="street-address"
                                 required
                                 aria-invalid={showAddressError}
                                 aria-describedby={showAddressError ? "address-line-error" : undefined}
@@ -223,13 +260,30 @@ const AddressBookPage = () => {
                         <div className="address-book__form__grid">
                             <label>
                                 {t("addresses.city")}
-                                <input value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
+                                <input autoComplete="address-level2" value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
                             </label>
                             <label>
                                 {t("addresses.country")}
                                 <input value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
                             </label>
                         </div>
+                        {mapConfig ? (
+                            <DeliveryMapPicker
+                                store={mapConfig.origin}
+                                storeAddress={mapConfig.storeAddress}
+                                destination={form.latitude !== null && form.longitude !== null ? { latitude: form.latitude, longitude: form.longitude } : null}
+                                route={EMPTY_ROUTE}
+                                tileUrl={mapConfig.tileUrl}
+                                tileAttribution={mapConfig.tileAttribution}
+                                onDestinationChange={handleDestinationChange}
+                            />
+                        ) : (
+                            <div className="address-book__map-fallback">
+                                <p role={mapConfigError ? "alert" : "status"}>{t(mapConfigLoading ? "shipping.mapLoading" : "shipping.mapUnavailable")}</p>
+                                {mapConfigError ? <button type="button" onClick={() => void loadMapConfig()}>{t("shipping.retryMap")}</button> : null}
+                            </div>
+                        )}
+                        <p className="address-book__map-hint">{t("addresses.pinOptional")}</p>
                         </div>
                         <label className="address-book__check">
                             <input
@@ -258,7 +312,7 @@ const AddressBookPage = () => {
                                         {address.is_default ? <span>{t("addresses.default")}</span> : null}
                                     </div>
                                     <p>{address.address_line}</p>
-                                    <small>{[address.city, address.country].filter(Boolean).join(", ") || t("addresses.locationNotSpecified")}</small>
+                                    <small>{[address.ward_name, address.province_name || address.city, address.country].filter(Boolean).join(", ") || t("addresses.locationNotSpecified")}</small>
                                     <small>
                                         {[address.recipient_name, address.phone_number].filter(Boolean).join(" | ") ||
                                             t("addresses.noRecipientDetails")}

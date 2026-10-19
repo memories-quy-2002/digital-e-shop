@@ -5,11 +5,13 @@ import { NestInventoryService } from "./inventory.service";
 import { InventoryRepository } from "./inventory.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [InventoryController],
-    providers: [NestInventoryService, InventoryRepository],
+    providers: [AuthGuard, RolesGuard, NestInventoryService, InventoryRepository],
     exports: [NestInventoryService],
 })
 export class InventoryModule implements NestModule {

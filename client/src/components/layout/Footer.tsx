@@ -24,7 +24,12 @@ const Footer = () => {
                         <p className="footer__brand__text">{t("footer.brandTagline")}</p>
 
                         <div className="footer__contact">
-                            <Link to="/contact-us">{t("footer.contactUs")}</Link>
+                            <Link to="/contact-us">
+                                {t("footer.contactUs")}
+                                <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+                                    <path d="M5 11 11 5m-5 0h5v5" />
+                                </svg>
+                            </Link>
                         </div>
                     </div>
 
@@ -51,14 +56,6 @@ const Footer = () => {
                                 <Link to="/about-us">{t("footer.about")}</Link>
                                 <Link to="/news">{t("footer.latestNews")}</Link>
                                 <Link to="/support">{t("footer.buyingGuides")}</Link>
-                            </div>
-
-                            <div className="footer__col">
-                                <h2 className="footer__col__heading">{t("footer.payments")}</h2>
-                                <div className="footer__payments" aria-label={t("footer.payments")}>
-                                    <span>{t("cart.payos")}</span>
-                                    <span>{t("footer.cashOnDelivery")}</span>
-                                </div>
                             </div>
                         </div>
                     </section>

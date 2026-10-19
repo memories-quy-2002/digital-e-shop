@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { LOW_STOCK_THRESHOLD } from "../../products/constants";
+import React, { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -9,8 +8,10 @@ import AdminProductItem from "../../../components/common/admin/AdminProductItem"
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
+import { useLocale } from "../../../context/LocaleContext";
 import {
-    fetchAllProducts,
+    fetchAdminProductsPage,
     updateProduct,
     deleteProduct,
     updateProductInventory,
@@ -41,11 +42,10 @@ import ProductForm, {
     type ProductFormValues,
 } from "../components/ProductForm";
 import { validateProductEdit } from "../utils/validateProductEdit";
-import { saveProductParcel } from "../../shipping/api";
-import type { ShippingParcel } from "../../shipping/types";
-import { validateParcel } from "../../shipping/components/ParcelFields";
 
 const ITEMS_PER_PAGE = 8;
+const STOCK_FILTERS = ["all", "low", "out"] as const;
+type StockFilter = (typeof STOCK_FILTERS)[number];
 
 type ProductEditForm = Omit<ProductFormValues, "inventory" | "stock" | "price" | "salePrice"> & {
     price: string;
@@ -79,8 +79,11 @@ const normalizeProduct = (product: ProductWithAttributes): ProductWithAttributes
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
+    const tx = useAdminCopy();
+    const { locale } = useLocale();
     const [products, setProducts] = useState<ProductWithAttributes[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [stockFilter, setStockFilter] = useState<StockFilter>("all");
     const [show, setShow] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<ProductWithAttributes | null>(null);
     const [editForm, setEditForm] = useState<ProductEditForm>({
@@ -104,32 +107,48 @@ const AdminProductPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editValidationErrors, setEditValidationErrors] = useState<ProductFormErrors>({});
-    const [editParcel, setEditParcel] = useState<ShippingParcel>({ grams: 0, lengthCm: 0, widthCm: 0, heightCm: 0 });
     const [attributeError, setAttributeError] = useState<string | undefined>();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
+    const [restockReasons, setRestockReasons] = useState<Record<number, string>>({});
+    const [inventoryWatch, setInventoryWatch] = useState<ProductWithAttributes[]>([]);
+    const [productSummary, setProductSummary] = useState({ total: 0, lowStock: 0, outOfStock: 0 });
+    const [matchingProductTotal, setMatchingProductTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const [productsLoaded, setProductsLoaded] = useState(false);
     const [productsError, setProductsError] = useState<AdminRequestError | null>(null);
     const [movementsLoaded, setMovementsLoaded] = useState(false);
     const [inventoryMovementsError, setInventoryMovementsError] = useState<AdminRequestError | null>(null);
     const productsLoadedRef = useRef(false);
+    const requestSequence = useRef(0);
     const movementsLoadedRef = useRef(false);
     const { addToast } = useToast();
+    const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadProducts = React.useCallback(async () => {
+        const requestId = ++requestSequence.current;
         try {
             setProductsError(null);
-            const products = await fetchAllProducts();
-                setProducts(products.map(normalizeProduct).sort((a, b) => a.id - b.id));
+            const [page, inventoryPage] = await Promise.all([
+                fetchAdminProductsPage({ page: currentPage, limit: ITEMS_PER_PAGE, search: deferredSearchTerm, stock: stockFilter }),
+                fetchAdminProductsPage({ page: 1, limit: 8, stock: "low" }),
+            ]);
+            if (requestId !== requestSequence.current) return;
+            setProducts(page.items.map(normalizeProduct));
+            setProductSummary(page.summary);
+            setMatchingProductTotal(page.pagination.total);
+            setTotalPages(page.pagination.totalPages);
+            setInventoryWatch(inventoryPage.items.map(normalizeProduct));
             setProductsLoaded(true);
             productsLoadedRef.current = true;
         } catch (error) {
+            if (requestId !== requestSequence.current) return;
             setProductsError(getAdminRequestError(error));
-            if (productsLoadedRef.current) addToast("Products", "Refresh failed. Showing the latest saved products.");
+            if (productsLoadedRef.current) addToast(tx("Products"), tx("Refresh failed. Showing the latest saved products."));
         }
-    }, [addToast]);
+    }, [addToast, currentPage, deferredSearchTerm, stockFilter, tx]);
 
     const loadMovements = React.useCallback(async () => {
         try {
@@ -140,42 +159,18 @@ const AdminProductPage = () => {
             movementsLoadedRef.current = true;
         } catch (error) {
             setInventoryMovementsError(getAdminRequestError(error));
-            if (movementsLoadedRef.current) addToast("Inventory movements", "Refresh failed. Showing the latest saved movements.");
+            if (movementsLoadedRef.current) addToast(tx("Inventory"), tx("Refresh failed. Showing the latest saved movements."));
         }
-    }, [addToast]);
+    }, [addToast, tx]);
 
     useEffect(() => {
         loadProducts();
         loadMovements();
     }, [loadMovements, loadProducts]);
 
-    const filteredProducts = useMemo(() => {
-        const lowerSearchTerm = searchTerm.trim().toLowerCase();
-
-        if (!lowerSearchTerm) {
-            return products;
-        }
-
-        return products.filter((product) => {
-            return (
-                product.name.toLowerCase().includes(lowerSearchTerm) ||
-                product.category.toLowerCase().includes(lowerSearchTerm) ||
-                product.brand.toLowerCase().includes(lowerSearchTerm) ||
-                product.id.toString().includes(lowerSearchTerm)
-            );
-        });
-    }, [products, searchTerm]);
-
-    const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-    const currentProducts = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-    }, [currentPage, filteredProducts]);
-
-    const inventoryWatch = useMemo(
-        () => [...products].filter((product) => product.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock).slice(0, 8),
-        [products],
-    );
+    const filteredProducts = products;
+    const pageCount = totalPages;
+    const currentProducts = products;
 
     useEffect(() => {
         const safePageCount = Math.max(pageCount, 1);
@@ -188,7 +183,6 @@ const AdminProductPage = () => {
         const productWithAttributes = product as ProductWithAttributes;
         const details = parseProductDetails(product.specifications);
         setSelectedProduct(productWithAttributes);
-        setEditParcel({ grams: Number(productWithAttributes.parcel_grams) || 0, lengthCm: Number(productWithAttributes.parcel_length_cm) || 0, widthCm: Number(productWithAttributes.parcel_width_cm) || 0, heightCm: Number(productWithAttributes.parcel_height_cm) || 0 });
         setEditForm({
             name: product.name,
             sku: product.sku || "",
@@ -286,12 +280,6 @@ const AdminProductPage = () => {
         }
 
         setEditValidationErrors({});
-        const parcelIssues = Object.values(validateParcel(editParcel));
-        if (parcelIssues.length > 0) {
-            addToast("Update product", "Enter valid positive whole-number parcel dimensions.");
-            document.getElementById("manage-product-parcel-grams")?.focus();
-            return;
-        }
         const price = Number(editForm.price);
         const salePrice = editForm.salePrice.trim() === "" ? null : Number(editForm.salePrice);
         const warrantyMonths = editForm.warrantyMonths.trim() === "" ? null : Number(editForm.warrantyMonths);
@@ -301,7 +289,7 @@ const AdminProductPage = () => {
             attributes = productAttributeRowsToInputs(editForm.attributes);
         } catch (error) {
             setAttributeError(error instanceof Error ? error.message : "Product attributes are invalid.");
-            addToast("Update product", error instanceof Error ? error.message : "Product attributes are invalid.");
+            addToast(tx("Update product"), error instanceof Error ? error.message : tx("Product attributes are invalid."));
             return;
         }
 
@@ -326,17 +314,15 @@ const AdminProductPage = () => {
                     specifications: rowsFromText(editForm.specifications),
                 }),
             });
-            await saveProductParcel(selectedProduct.id, editParcel);
-
             const updatedProduct = normalizeProduct(updated);
             setProducts((currentProducts) =>
                 currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
             );
             await loadMovements();
-            addToast("Update product", `${updatedProduct.name} has been updated.`);
+            addToast(tx("Update product"), `${updatedProduct.name} ${tx("has been updated.")}`);
             handleClose();
         } catch (error: unknown) {
-            addToast("Update product", getApiErrorMessage(error, "Unable to update product."));
+            addToast(tx("Update product"), getApiErrorMessage(error, tx("Unable to update product.")));
         } finally {
             setIsSaving(false);
         }
@@ -351,11 +337,11 @@ const AdminProductPage = () => {
             setIsDeleting(true);
             await deleteProduct(selectedProduct.id);
             setProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
-            addToast("Hide product", `${selectedProduct.name} has been hidden from the catalog.`);
+            addToast(tx("Hide product"), `${selectedProduct.name} ${tx("has been hidden from the catalog.")}`);
             setShowDeleteConfirm(false);
             handleClose();
         } catch (error: unknown) {
-            addToast("Hide product", getApiErrorMessage(error, "Unable to hide product."));
+            addToast(tx("Hide product"), getApiErrorMessage(error, tx("Unable to hide product.")));
         } finally {
             setIsDeleting(false);
         }
@@ -367,22 +353,28 @@ const AdminProductPage = () => {
 
     const handleQuickRestock = async (product: Product) => {
         const stock = Number(restockValues[product.id] ?? product.stock);
+        const reason = restockReasons[product.id]?.trim() || "";
         if (!Number.isInteger(stock) || stock < 0) {
-            addToast("Inventory", "Stock must be a valid whole number.");
+            addToast(tx("Inventory"), tx("Stock must be a valid whole number."));
+            return;
+        }
+        if (reason.length < 8) {
+            addToast(tx("Inventory"), tx("Add a reason with at least 8 characters before updating stock."));
             return;
         }
 
         try {
-            const updated = await updateProductInventory(product.id, stock);
+            const updated = await updateProductInventory(product.id, stock, reason);
             const updatedProduct = normalizeProduct(updated);
             setProducts((currentProducts) =>
                 currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
             );
             setRestockValues((current) => ({ ...current, [product.id]: "" }));
-            await loadMovements();
-            addToast("Inventory", `${updatedProduct.name} stock updated.`);
+            setRestockReasons((current) => ({ ...current, [product.id]: "" }));
+            await Promise.all([loadMovements(), loadProducts()]);
+            addToast(tx("Inventory"), `${updatedProduct.name} ${tx("stock updated.")}`);
         } catch (error: unknown) {
-            addToast("Inventory", getApiErrorMessage(error, "Unable to update stock."));
+            addToast(tx("Inventory"), getApiErrorMessage(error, tx("Unable to update stock.")));
         }
     };
 
@@ -411,83 +403,83 @@ const AdminProductPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Products | Digital-E</title>
+                <title>{tx("Products")} | Digital-E</title>
                 <meta name="description" content="Manage products in the store." />
             </Helmet>
             <main className="admin__page admin__page--products">
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Catalog</span>
-                        <h1 className="admin__page__title">Products</h1>
+                        <span className="admin__page__eyebrow">{tx("Catalog")}</span>
+                        <h1 className="admin__page__title">{tx("Products")}</h1>
                         <p className="admin__page__subtitle">
-                            Track inventory, pricing, and product availability across your store.
+                            {tx("Track inventory, pricing, and product availability across your store.")}
                         </p>
                     </div>
                     <div className="admin__page__actions">
                         <button type="button" className="admin__button admin__button--ghost" onClick={exportProductsCsv}>
-                            Export products CSV
+                            {tx("Export loaded page CSV")}
                         </button>
                         <button type="button" className="admin__button admin__button--primary" onClick={() => navigate("/admin/add")}>
-                            + Add product
+                            + {tx("Add product")}
                         </button>
                     </div>
                 </header>
 
                 <section className="admin__summary">
                     <div className="admin__summary-card">
-                        <span>Total products</span>
-                        <strong>{products.length}</strong>
-                        <p>All listings</p>
+                        <span>{tx("Total products")}</span>
+                        <strong>{productSummary.total}</strong>
+                        <p>{tx("All listings")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Visible</span>
-                        <strong>{filteredProducts.length}</strong>
-                        <p>Filtered from all products</p>
+                        <span>{tx("Visible")}</span>
+                        <strong>{matchingProductTotal}</strong>
+                        <p>{tx("Matching current filters")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Low stock</span>
-                        <strong>{products.filter((product) => product.stock <= LOW_STOCK_THRESHOLD).length}</strong>
-                        <p>Need attention</p>
+                        <span>{tx("Needs replenishment")}</span>
+                        <strong>{productSummary.lowStock + productSummary.outOfStock}</strong>
+                        <p>{tx("Need attention")}</p>
                     </div>
                 </section>
 
                 <section className="admin__card admin__card--secondary admin__card--inventory-log">
                     <div className="admin__card__header">
                         <div>
-                            <h3>Recent inventory activity</h3>
-                            <span>{inventoryMovements.length} recent adjustments</span>
+                            <h3>{tx("Recent inventory activity")}</h3>
+                            <span>{inventoryMovements.length} {tx("recent adjustments")}</span>
                         </div>
                     </div>
                     <details className="admin__disclosure admin__card--inventory-log__disclosure">
-                        <summary>View activity</summary>
+                        <summary>{tx("View activity")}</summary>
                         <div className="admin__card__body admin__list-shell admin__card--inventory-log__body">
-                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movements unavailable" description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
-                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title="Loading inventory movements" description="Fetching recent stock adjustments." /> : null}
-                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movement refresh failed" description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel="Retry refresh" /> : null}
-                        {(!inventoryMovementsError || movementsLoaded) ? <AdminTableScrollHint label="Inventory movement log">
+                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movements unavailable")} description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
+                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading inventory movements")} description={tx("Fetching recent stock adjustments.")} /> : null}
+                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movement refresh failed")} description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel={tx("Retry refresh")} /> : null}
+                        {(!inventoryMovementsError || movementsLoaded) ? <AdminTableScrollHint label={tx("Inventory movement log")}>
                         <Table responsive={false} hover borderless className="admin__table admin__table--inventory-movements">
                             <thead>
                                 <tr>
-                                    <th>Time</th>
-                                    <th>Product</th>
-                                    <th>Type</th>
-                                    <th>Change</th>
-                                    <th>Stock</th>
-                                    <th>Note</th>
+                                    <th>{tx("Time")}</th>
+                                    <th>{tx("Product")}</th>
+                                    <th>{tx("Type")}</th>
+                                    <th>{tx("Change")}</th>
+                                    <th>{tx("Stock")}</th>
+                                    <th>{tx("Note")}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {inventoryMovements.length > 0 ? (
                                     inventoryMovements.map((movement) => (
                                         <tr key={movement.id}>
-                                            <td width="180px">{new Date(movement.created_at).toLocaleString()}</td>
+                                            <td width="180px">{new Date(movement.created_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB")}</td>
                                             <td width="260px">
                                                 <div className="admin__table__stack">
                                                     <strong>{movement.product_name || `Product #${movement.product_id}`}</strong>
-                                                    {movement.order_id ? <span>Order #{movement.order_id}</span> : null}
+                                                    {movement.order_id ? <span>{tx("Order")} #{movement.order_id}</span> : null}
                                                 </div>
                                             </td>
-                                            <td width="160px">{movement.movement_type.replace(/_/g, " ")}</td>
+                                            <td width="160px">{tx(movement.movement_type.replace(/_/g, " "))}</td>
                                             <td width="120px">
                                                 <span className={movement.quantity_change < 0 ? "admin__pill admin__pill--danger" : "admin__pill admin__pill--success"}>
                                                     {movement.quantity_change > 0 ? "+" : ""}{movement.quantity_change}
@@ -501,7 +493,7 @@ const AdminProductPage = () => {
                                     ))
                                 ) : !inventoryMovementsError && movementsLoaded ? (
                                     <tr>
-                                        <td colSpan={6}>No inventory movements recorded yet.</td>
+                                        <td colSpan={6}>{tx("No inventory movements recorded yet.")}</td>
                                     </tr>
                                 ) : null}
                             </tbody>
@@ -514,20 +506,21 @@ const AdminProductPage = () => {
                 {inventoryWatch.length > 0 ? <section className="admin__card">
                     <div className="admin__card__header">
                         <div>
-                            <h3>Inventory management</h3>
-                            <span>Restock the products that are closest to selling out.</span>
+                            <h3>{tx("Inventory management")}</h3>
+                            <span>{tx("Restock the products that are closest to selling out.")}</span>
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
-                        <AdminTableScrollHint label="Inventory restock table">
+                        <AdminTableScrollHint label={tx("Inventory restock table")}>
                         <Table responsive={false} hover borderless className="admin__table admin__table--inventory">
                             <thead>
                                 <tr>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    <th>Current stock</th>
-                                    <th>New stock</th>
-                                    <th>Action</th>
+                                    <th>{tx("Product")}</th>
+                                    <th>{tx("Category")}</th>
+                                    <th>{tx("Current stock")}</th>
+                                    <th>{tx("New stock")}</th>
+                                    <th>{tx("Reason")}</th>
+                                    <th>{tx("Action")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -548,7 +541,7 @@ const AdminProductPage = () => {
                                                             : "admin__pill admin__pill--warning"
                                                     }
                                                 >
-                                                    {product.stock <= 0 ? "Out of stock" : `${product.stock} left`}
+                                                    {product.stock <= 0 ? tx("Out of stock") : `${product.stock} ${tx("left")}`}
                                                 </span>
                                             </td>
                                             <td width="160px">
@@ -567,13 +560,25 @@ const AdminProductPage = () => {
                                                     placeholder={String(Math.max(product.stock, 0))}
                                                 />
                                             </td>
+                                            <td width="220px">
+                                                <label className="admin__sr-only" htmlFor={`restock-reason-${product.id}`}>{tx("Reason for stock change")}</label>
+                                                <input
+                                                    id={`restock-reason-${product.id}`}
+                                                    className="admin__table__input"
+                                                    type="text"
+                                                    maxLength={255}
+                                                    value={restockReasons[product.id] ?? ""}
+                                                    onChange={(event) => setRestockReasons((current) => ({ ...current, [product.id]: event.target.value }))}
+                                                    placeholder={tx("Count, delivery, correction…")}
+                                                />
+                                            </td>
                                             <td width="160px">
                                                 <button
                                                     type="button"
                                                     className="admin__button admin__button--primary"
                                                     onClick={() => handleQuickRestock(product)}
                                                 >
-                                                    Update stock
+                                                    {tx("Update stock")}
                                                 </button>
                                             </td>
                                         </tr>
@@ -587,25 +592,34 @@ const AdminProductPage = () => {
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>Product list</h3>
-                            <span>{filteredProducts.length} results</span>
+                            <h3>{tx("Product list")}</h3>
+                            <span>{matchingProductTotal} {tx("results")}</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
                                 <label className="admin__sr-only" htmlFor="product">
-                                    Search products
+                                    {tx("Search products")}
                                 </label>
                                 <input
                                     type="search"
                                     name="product"
                                     id="product"
-                                    placeholder="Search all products by name, category, brand, or ID…"
+                                    placeholder={tx("Search name, SKU, model, brand, category, or ID…")}
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
                                         setCurrentPage(1);
                                     }}
                                 />
+                                <label className="admin__sr-only" htmlFor="product-stock-filter">{tx("Filter by stock")}</label>
+                                <select
+                                    id="product-stock-filter"
+                                    aria-label={tx("Filter by stock")}
+                                    value={stockFilter}
+                                    onChange={(event) => { setStockFilter(event.target.value as StockFilter); setCurrentPage(1); }}
+                                >
+                                    {STOCK_FILTERS.map((filter) => <option key={filter} value={filter}>{tx(filter === "all" ? "All stock" : filter === "low" ? "Low stock" : "Out of stock")}</option>)}
+                                </select>
                                 <button
                                     type="button"
                                     className="admin__button admin__button--ghost"
@@ -614,29 +628,29 @@ const AdminProductPage = () => {
                                         setCurrentPage(1);
                                     }}
                                 >
-                                    Clear
+                                    {tx("Clear")}
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
                         {productsError && !productsLoaded ? <AdminStatusPanel variant="error" title={productsError.title} description={productsError.message} onRetry={loadProducts} /> : null}
-                        {!productsError && !productsLoaded ? <AdminStatusPanel variant="loading" title="Loading products" description="Fetching the latest catalog." /> : null}
-                        {productsError && productsLoaded ? <AdminStatusPanel variant="error" title="Product refresh failed" description={productsError.message} onRetry={loadProducts} retryLabel="Retry refresh" /> : null}
-                        {!productsError && productsLoaded && filteredProducts.length === 0 ? <AdminStatusPanel variant="empty" title="No products found" description="No products match the current search." /> : null}
+                        {!productsError && !productsLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading products")} description={tx("Fetching the latest catalog.")} /> : null}
+                        {productsError && productsLoaded ? <AdminStatusPanel variant="error" title={tx("Product refresh failed")} description={productsError.message} onRetry={loadProducts} retryLabel={tx("Retry refresh")} /> : null}
+                        {!productsError && productsLoaded && filteredProducts.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No products found")} description={tx("No products match the current search.")} /> : null}
                         {(!productsError || productsLoaded) && productsLoaded && filteredProducts.length > 0 ? <>
-                        <AdminTableScrollHint label="Product catalog table">
+                        <AdminTableScrollHint label={tx("Product catalog table")}>
                         <Table responsive={false} hover borderless className="admin__table admin__table--products">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th>Brand</th>
-                                    <th>Price</th>
-                                    <th>Sale</th>
-                                    <th>Quantity</th>
-                                    <th>Action</th>
+                                    <th>{tx("Name")}</th>
+                                    <th>{tx("Category")}</th>
+                                    <th>{tx("Brand")}</th>
+                                    <th>{tx("Price")}</th>
+                                    <th>{tx("Sale")}</th>
+                                    <th>{tx("Quantity")}</th>
+                                    <th>{tx("Action")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -662,11 +676,11 @@ const AdminProductPage = () => {
                                 activeClassName="selected"
                                 disabledClassName="disabled"
                                 breakLabel="…"
-                                nextLabel="Next"
+                                nextLabel={tx("Next")}
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
                                 pageCount={pageCount}
-                                previousLabel="Previous"
+                                previousLabel={tx("Previous")}
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
@@ -682,7 +696,7 @@ const AdminProductPage = () => {
                             contentClassName="admin__dialog__content"
                         >
                             <Modal.Header closeButton>
-                                <Modal.Title>Manage product</Modal.Title>
+                                <Modal.Title>{tx("Manage product")}</Modal.Title>
                             </Modal.Header>
                             <Modal.Body>
                                 <form
@@ -705,8 +719,6 @@ const AdminProductPage = () => {
                                         onRemoveAttribute={removeAttribute}
                                         attributeError={attributeError}
                                         currentStock={Number(editForm.stock) || 0}
-                                        parcel={editParcel}
-                                        onParcelChange={setEditParcel}
                                     />
                                 </form>
                             </Modal.Body>
@@ -717,11 +729,11 @@ const AdminProductPage = () => {
                                     onClick={() => setShowDeleteConfirm(true)}
                                     disabled={isDeleting || isSaving}
                                 >
-                                    {isDeleting ? "Hiding..." : "Hide product"}
+                                    {isDeleting ? tx("Hiding...") : tx("Hide product")}
                                 </Button>
                                 <div>
                                     <Button type="button" variant="secondary" onClick={handleClose} disabled={isDeleting || isSaving}>
-                                        Cancel
+                                        {tx("Cancel")}
                                     </Button>
                                     <Button
                                         type="submit"
@@ -729,16 +741,16 @@ const AdminProductPage = () => {
                                         variant="primary"
                                         disabled={isDeleting || isSaving}
                                     >
-                                        {isSaving ? "Saving..." : "Save changes"}
+                                        {isSaving ? tx("Saving...") : tx("Save changes")}
                                     </Button>
                                 </div>
                             </Modal.Footer>
                         </Modal>
                         <ConfirmActionModal
                             show={showDeleteConfirm && selectedProduct !== null}
-                            title="Hide product"
-                            message={`Hide "${selectedProduct?.name || "this product"}" from the catalog? Use this when the product should no longer appear in the storefront.`}
-                            confirmLabel="Hide product"
+                            title={tx("Hide product")}
+                            message={`${tx("Hide")} "${selectedProduct?.name || tx("this product")}" ${tx("from the catalog? Use this when the product should no longer appear in the storefront.")}`}
+                            confirmLabel={tx("Hide product")}
                             isConfirming={isDeleting}
                             onCancel={() => setShowDeleteConfirm(false)}
                             onConfirm={handleDelete}

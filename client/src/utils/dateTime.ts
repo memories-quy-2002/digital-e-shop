@@ -1,8 +1,8 @@
-export const formatUtcDate = (value?: string | Date | null) => {
+export const formatUtcDate = (value?: string | Date | null, locale = "en-GB") => {
     const date = value ? new Date(value) : new Date();
     if (Number.isNaN(date.getTime())) return "Invalid date";
 
-    return new Intl.DateTimeFormat("en-GB", {
+    return new Intl.DateTimeFormat(locale, {
         timeZone: "UTC",
         day: "2-digit",
         month: "short",
@@ -10,11 +10,11 @@ export const formatUtcDate = (value?: string | Date | null) => {
     }).format(date);
 };
 
-export const formatUtcDateTime = (value?: string | Date | null) => {
+export const formatUtcDateTime = (value?: string | Date | null, locale = "en-GB") => {
     const date = value ? new Date(value) : new Date();
     if (Number.isNaN(date.getTime())) return "Invalid date";
 
-    return `${new Intl.DateTimeFormat("en-GB", {
+    return `${new Intl.DateTimeFormat(locale, {
         timeZone: "UTC",
         day: "2-digit",
         month: "short",

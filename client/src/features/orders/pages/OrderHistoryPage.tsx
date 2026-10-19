@@ -31,7 +31,7 @@ const getPaymentLabel = (payment: CustomerOrder["payment_method"] | undefined, t
     if (payment === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return t("orders.paymentBankTransfer");
     if (payment === PAYMENT_METHOD.CASH) return t("orders.paymentCash");
     if (payment === PAYMENT_METHOD.PAYOS) return t("orders.paymentPayos");
-    if (payment === HISTORICAL_PAYMENT_METHOD.STRIPE || payment === HISTORICAL_PAYMENT_METHOD.CARD) return t("orders.paymentCard");
+    if (payment === HISTORICAL_PAYMENT_METHOD.CARD) return t("orders.paymentCard");
     return t("orders.paymentNotRecorded");
 };
 const formatPaymentAmount = (value: number | null | undefined, currency?: string | null) => {

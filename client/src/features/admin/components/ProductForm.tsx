@@ -3,8 +3,7 @@ import { Form } from "../../../components/ui/legacy";
 import LazyLoadingImage from "../../../utils/LazyLoadingImage";
 import { getResponsiveImageSource, THUMBNAIL_IMAGE_WIDTHS } from "../../../utils/images";
 import type { ProductAttributeRow } from "../../products/api";
-import ParcelFields from "../../shipping/components/ParcelFields";
-import type { ShippingParcel } from "../../shipping/types";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 
 export type ProductFormMode = "create" | "edit";
 
@@ -63,8 +62,6 @@ type ProductFormProps = {
     onUploadImage?: () => void;
     isUploading?: boolean;
     currentStock?: number;
-    parcel?: ShippingParcel;
-    onParcelChange?: (next: ShippingParcel) => void;
 };
 
 type FormFieldShellProps = {
@@ -122,38 +119,40 @@ const ProductForm = ({
     onUploadImage,
     isUploading = false,
     currentStock = 0,
-    parcel,
-    onParcelChange,
 }: ProductFormProps) => {
+    const tx = useAdminCopy();
     const id = (field: string) => `${idPrefix}-${field}`;
     const isCreate = mode === "create";
     const requiredIdentity = isCreate ? false : true;
+    const localizedErrors = Object.fromEntries(
+        Object.entries(errors).map(([field, error]) => [field, error ? tx(error) : error]),
+    ) as ProductFormErrors;
+    const localizedAttributeError = attributeError ? tx(attributeError) : undefined;
     const imagePreviewSource = imageUrl
         ? getResponsiveImageSource(imageUrl, { widths: THUMBNAIL_IMAGE_WIDTHS, sizes: "160px" })
         : null;
 
     return (
         <div className="admin__product-form">
-            {parcel && onParcelChange ? <ParcelFields value={parcel} onChange={onParcelChange} idPrefix={idPrefix} /> : null}
             <fieldset className="admin__product-form__fieldset">
-                <legend className="admin__product-form__legend">Product identity</legend>
+                <legend className="admin__product-form__legend">{tx("Product identity")}</legend>
                 <p className="admin__product-form__description">
-                    Keep catalog identity consistent so staff can find and update the right product quickly.
+                    {tx("Keep catalog identity consistent so staff can find and update the right product quickly.")}
                 </p>
                 <div className="admin__product-form__grid">
                     <FormFieldShell
                         id={id("name")}
-                        label="Product Name"
+                        label={tx("Product Name")}
                         required
                         className="admin__product-form__field--wide"
-                        error={errors.name}
+                        error={localizedErrors.name}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("name"), undefined, errors.name)}
+                                {...controlA11yProps(id("name"), undefined, localizedErrors.name)}
                                 type="text"
                                 name="name"
                                 value={toInputValue(values.name)}
-                                placeholder="e.g. RTX 4070 SUPER…"
+                                placeholder={tx("e.g. RTX 4070 SUPER…")}
                                 autoComplete="off"
                                 maxLength={255}
                                 required
@@ -163,13 +162,13 @@ const ProductForm = ({
                     />
                     <FormFieldShell
                         id={id("sku")}
-                        label="SKU"
+                        label={tx("SKU")}
                         required={requiredIdentity}
-                        helper={isCreate ? "Optional; use a unique stock keeping unit when available." : "Required and unique within the catalog."}
-                        error={errors.sku}
+                        helper={tx(isCreate ? "Optional; use a unique stock keeping unit when available." : "Required and unique within the catalog.")}
+                        error={localizedErrors.sku}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("sku"), isCreate ? "Optional; use a unique stock keeping unit when available." : "Required and unique within the catalog.", errors.sku)}
+                                {...controlA11yProps(id("sku"), tx(isCreate ? "Optional; use a unique stock keeping unit when available." : "Required and unique within the catalog."), localizedErrors.sku)}
                                 type="text"
                                 name="sku"
                                 value={toInputValue(values.sku)}
@@ -184,17 +183,17 @@ const ProductForm = ({
                     />
                     <FormFieldShell
                         id={id("category")}
-                        label="Category"
+                        label={tx("Category")}
                         required
-                        helper="Use an existing category name or enter a new one."
-                        error={errors.category}
+                        helper={tx("Use an existing category name or enter a new one.")}
+                        error={localizedErrors.category}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("category"), "Use an existing category name or enter a new one.", errors.category)}
+                                {...controlA11yProps(id("category"), tx("Use an existing category name or enter a new one."), localizedErrors.category)}
                                 type="text"
                                 name="category"
                                 value={toInputValue(values.category)}
-                                placeholder="e.g. Graphics cards…"
+                                placeholder={tx("e.g. Graphics cards…")}
                                 autoComplete="off"
                                 required
                                 onChange={(event) => onChange("category", event.target.value)}
@@ -203,16 +202,16 @@ const ProductForm = ({
                     />
                     <FormFieldShell
                         id={id("manufacturer-part-number")}
-                        label="Manufacturer part number"
-                        helper="Optional manufacturer reference."
-                        error={errors.manufacturerPartNumber}
+                        label={tx("Manufacturer part number")}
+                        helper={tx("Optional manufacturer reference.")}
+                        error={localizedErrors.manufacturerPartNumber}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("manufacturer-part-number"), "Optional manufacturer reference.", errors.manufacturerPartNumber)}
+                                {...controlA11yProps(id("manufacturer-part-number"), tx("Optional manufacturer reference."), localizedErrors.manufacturerPartNumber)}
                                 type="text"
                                 name="manufacturerPartNumber"
                                 value={toInputValue(values.manufacturerPartNumber)}
-                                placeholder="Manufacturer reference…"
+                                placeholder={tx("Manufacturer reference…")}
                                 autoComplete="off"
                                 maxLength={128}
                                 spellCheck={false}
@@ -222,17 +221,17 @@ const ProductForm = ({
                     />
                     <FormFieldShell
                         id={id("brand")}
-                        label="Brand"
+                        label={tx("Brand")}
                         required
-                        helper="Use the catalog brand name consistently."
-                        error={errors.brand}
+                        helper={tx("Use the catalog brand name consistently.")}
+                        error={localizedErrors.brand}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("brand"), "Use the catalog brand name consistently.", errors.brand)}
+                                {...controlA11yProps(id("brand"), tx("Use the catalog brand name consistently."), localizedErrors.brand)}
                                 type="text"
                                 name="brand"
                                 value={toInputValue(values.brand)}
-                                placeholder="e.g. ASUS…"
+                                placeholder={tx("e.g. ASUS…")}
                                 autoComplete="off"
                                 required
                                 onChange={(event) => onChange("brand", event.target.value)}
@@ -243,20 +242,20 @@ const ProductForm = ({
             </fieldset>
 
             <fieldset className="admin__product-form__fieldset">
-                <legend className="admin__product-form__legend">{isCreate ? "Pricing and inventory" : "Pricing"}</legend>
+                <legend className="admin__product-form__legend">{tx(isCreate ? "Pricing and inventory" : "Pricing")}</legend>
                 <p className="admin__product-form__description">
-                    {isCreate ? "Set the initial selling price and available quantity." : "Set the customer-facing base and promotional price."}
+                    {tx(isCreate ? "Set the initial selling price and available quantity." : "Set the customer-facing base and promotional price.")}
                 </p>
                 <div className="admin__product-form__grid admin__product-form__grid--compact">
                     <FormFieldShell
                         id={id("price")}
-                        label="Price ($)"
+                        label={tx("Price ($)")}
                         required
-                        helper="Use the regular catalog price before promotions."
-                        error={errors.price}
+                        helper={tx("Use the regular catalog price before promotions.")}
+                        error={localizedErrors.price}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("price"), "Use the regular catalog price before promotions.", errors.price)}
+                                {...controlA11yProps(id("price"), tx("Use the regular catalog price before promotions."), localizedErrors.price)}
                                 type="number"
                                 name="price"
                                 value={toInputValue(values.price)}
@@ -272,13 +271,13 @@ const ProductForm = ({
                     {isCreate ? (
                         <FormFieldShell
                             id={id("inventory")}
-                            label="Inventory Quantity"
+                            label={tx("Inventory Quantity")}
                             required
-                            helper="The opening quantity available for sale."
-                            error={errors.inventory}
+                            helper={tx("The opening quantity available for sale.")}
+                            error={localizedErrors.inventory}
                             control={(
                                 <Form.Control
-                                    {...controlA11yProps(id("inventory"), "The opening quantity available for sale.", errors.inventory)}
+                                    {...controlA11yProps(id("inventory"), tx("The opening quantity available for sale."), localizedErrors.inventory)}
                                     type="number"
                                     name="inventory"
                                     value={toInputValue(values.inventory)}
@@ -294,19 +293,19 @@ const ProductForm = ({
                     ) : (
                         <FormFieldShell
                             id={id("sale-price")}
-                            label="Sale price ($)"
-                            helper="Optional; leave empty when no promotion is active."
-                            error={errors.salePrice}
+                            label={tx("Sale price ($)")}
+                            helper={tx("Optional; leave empty when no promotion is active.")}
+                            error={localizedErrors.salePrice}
                             control={(
                                 <Form.Control
-                                    {...controlA11yProps(id("sale-price"), "Optional; leave empty when no promotion is active.", errors.salePrice)}
+                                    {...controlA11yProps(id("sale-price"), tx("Optional; leave empty when no promotion is active."), localizedErrors.salePrice)}
                                     type="number"
                                     name="salePrice"
                                     value={toInputValue(values.salePrice)}
                                     min="0"
                                     step="0.01"
                                     inputMode="decimal"
-                                    placeholder="Leave empty…"
+                                    placeholder={tx("Leave empty…")}
                                     onChange={(event) => onChange("salePrice", event.target.value)}
                                 />
                             )}
@@ -314,19 +313,19 @@ const ProductForm = ({
                     )}
                     <FormFieldShell
                         id={id("warranty-months")}
-                        label="Warranty period (months)"
-                        helper="Optional canonical warranty duration used by the catalog."
-                        error={errors.warrantyMonths}
+                        label={tx("Warranty period (months)")}
+                        helper={tx("Optional canonical warranty duration used by the catalog.")}
+                        error={localizedErrors.warrantyMonths}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("warranty-months"), "Optional canonical warranty duration used by the catalog.", errors.warrantyMonths)}
+                                {...controlA11yProps(id("warranty-months"), tx("Optional canonical warranty duration used by the catalog."), localizedErrors.warrantyMonths)}
                                 type="number"
                                 name="warrantyMonths"
                                 value={toInputValue(values.warrantyMonths)}
                                 min="0"
                                 step="1"
                                 inputMode="numeric"
-                                placeholder="e.g. 24…"
+                                placeholder={tx("e.g. 24…")}
                                 autoComplete="off"
                                 onChange={(event) => onChange("warrantyMonths", event.target.value)}
                             />
@@ -337,40 +336,40 @@ const ProductForm = ({
 
             {!isCreate ? (
                 <fieldset className="admin__product-form__fieldset admin__product-form__fieldset--read-only">
-                    <legend className="admin__product-form__legend">Inventory</legend>
+                    <legend className="admin__product-form__legend">{tx("Inventory")}</legend>
                     <p className="admin__product-form__description">
-                        Inventory changes are tracked separately so every adjustment has an auditable movement record.
+                        {tx("Inventory changes are tracked separately so every adjustment has an auditable movement record.")}
                     </p>
                     <div className="admin__product-form__read-only-value">
-                        <span className="admin__product-form__read-only-label">Current stock</span>
-                        <output id={id("current-stock")} className="admin__product-form__stock-value" aria-label="Current stock">
+                        <span className="admin__product-form__read-only-label">{tx("Current stock")}</span>
+                        <output id={id("current-stock")} className="admin__product-form__stock-value" aria-label={tx("Current stock")}>
                             {currentStock}
                         </output>
-                        <span className="admin__product-form__hint">Use the inventory adjustment control below the product list to change stock.</span>
+                        <span className="admin__product-form__hint">{tx("Use the inventory adjustment control below the product list to change stock.")}</span>
                     </div>
                 </fieldset>
             ) : null}
 
             <fieldset className="admin__product-form__fieldset">
-                <legend className="admin__product-form__legend">Storefront content</legend>
+                <legend className="admin__product-form__legend">{tx("Storefront content")}</legend>
                 <p className="admin__product-form__description">
-                    Write customer-facing copy and keep technical details in the structured format the storefront expects.
+                    {tx("Write customer-facing copy and keep technical details in the structured format the storefront expects.")}
                 </p>
                 <div className="admin__product-form__grid">
                     <FormFieldShell
                         id={id("description")}
-                        label="Description"
-                        helper="A concise overview shown near the product title."
-                        error={errors.description}
+                        label={tx("Description")}
+                        helper={tx("A concise overview shown near the product title.")}
+                        error={localizedErrors.description}
                         className="admin__product-form__field--wide"
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("description"), "A concise overview shown near the product title.", errors.description)}
+                                {...controlA11yProps(id("description"), tx("A concise overview shown near the product title."), localizedErrors.description)}
                                 as="textarea"
                                 rows={5}
                                 name="description"
                                 value={toInputValue(values.description)}
-                                placeholder="Describe the product in one or two clear paragraphs…"
+                                placeholder={tx("Describe the product in one or two clear paragraphs…")}
                                 maxLength={255}
                                 onChange={(event) => onChange("description", event.target.value)}
                             />
@@ -379,13 +378,13 @@ const ProductForm = ({
                     {isCreate ? (
                         <FormFieldShell
                             id={id("image")}
-                            label="Product Image"
-                            helper="Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving."
+                            label={tx("Product Image")}
+                            helper={tx("Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving.")}
                             className="admin__product-form__field--wide"
                             control={(
                                 <>
                                     <Form.Control
-                                        {...controlA11yProps(id("image"), "Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving.", undefined)}
+                                        {...controlA11yProps(id("image"), tx("Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving."), undefined)}
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp,image/avif"
                                         name="image"
@@ -398,9 +397,9 @@ const ProductForm = ({
                                             onClick={onUploadImage}
                                             disabled={!onUploadImage || isUploading || !image}
                                         >
-                                            {isUploading ? "Uploading…" : "Upload image"}
+                                            {isUploading ? tx("Uploading…") : tx("Upload image")}
                                         </button>
-                                        {imageUrl ? <span className="admin__form-upload__status" aria-live="polite">Uploaded</span> : null}
+                                {imageUrl ? <span className="admin__form-upload__status" aria-live="polite">{tx("Uploaded")}</span> : null}
                                     </div>
                                     {imageUrl ? (
                                         <div className="admin__form-upload__preview">
@@ -409,7 +408,7 @@ const ProductForm = ({
                                                 srcSet={imagePreviewSource?.srcSet}
                                                 avifSrcSet={imagePreviewSource?.avifSrcSet}
                                                 sizes={imagePreviewSource?.sizes}
-                                                alt="Uploaded product preview"
+                                                alt={tx("Uploaded product preview")}
                                                 width={160}
                                                 height={160}
                                                 eager
@@ -422,45 +421,45 @@ const ProductForm = ({
                     ) : null}
                     <FormFieldShell
                         id={id("model")}
-                        label="Model"
-                        helper="Optional model or series name."
-                        error={errors.model}
+                        label={tx("Model")}
+                        helper={tx("Optional model or series name.")}
+                        error={localizedErrors.model}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("model"), "Optional model or series name.", errors.model)}
+                                {...controlA11yProps(id("model"), tx("Optional model or series name."), localizedErrors.model)}
                                 type="text"
                                 name="model"
                                 value={toInputValue(values.model)}
-                                placeholder="e.g. ROG Strix…"
+                                placeholder={tx("e.g. ROG Strix…")}
                                 onChange={(event) => onChange("model", event.target.value)}
                             />
                         )}
                     />
                     <FormFieldShell
                         id={id("warranty")}
-                        label="Warranty terms"
-                        helper="Optional storefront copy; the numeric warranty period stays above."
-                        error={errors.warranty}
+                        label={tx("Warranty terms")}
+                        helper={tx("Optional storefront copy; the numeric warranty period stays above.")}
+                        error={localizedErrors.warranty}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("warranty"), "Optional storefront copy; the numeric warranty period stays above.", errors.warranty)}
+                                {...controlA11yProps(id("warranty"), tx("Optional storefront copy; the numeric warranty period stays above."), localizedErrors.warranty)}
                                 type="text"
                                 name="warranty"
                                 value={toInputValue(values.warranty)}
-                                placeholder="e.g. Local warranty coverage…"
+                                placeholder={tx("e.g. Local warranty coverage…")}
                                 onChange={(event) => onChange("warranty", event.target.value)}
                             />
                         )}
                     />
                     <FormFieldShell
                         id={id("datasheet")}
-                        label="Datasheet URL"
-                        helper="Optional public link to a technical datasheet or manual."
-                        error={errors.datasheet}
+                        label={tx("Datasheet URL")}
+                        helper={tx("Optional public link to a technical datasheet or manual.")}
+                        error={localizedErrors.datasheet}
                         className="admin__product-form__field--wide"
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("datasheet"), "Optional public link to a technical datasheet or manual.", errors.datasheet)}
+                                {...controlA11yProps(id("datasheet"), tx("Optional public link to a technical datasheet or manual."), localizedErrors.datasheet)}
                                 type="url"
                                 name="datasheet"
                                 value={toInputValue(values.datasheet)}
@@ -472,34 +471,34 @@ const ProductForm = ({
                     />
                     <FormFieldShell
                         id={id("highlights")}
-                        label="Customer highlights"
-                        helper="One benefit per line; these become storefront bullets."
-                        error={errors.highlights}
+                        label={tx("Customer highlights")}
+                        helper={tx("One benefit per line; these become storefront bullets.")}
+                        error={localizedErrors.highlights}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("highlights"), "One benefit per line; these become storefront bullets.", errors.highlights)}
+                                {...controlA11yProps(id("highlights"), tx("One benefit per line; these become storefront bullets."), localizedErrors.highlights)}
                                 as="textarea"
                                 rows={4}
                                 name="highlights"
                                 value={toInputValue(values.highlights)}
-                                placeholder={"Fast charging support\nEnergy efficient design\nQuiet operation\n…"}
+                                placeholder={tx("Fast charging support\nEnergy efficient design\nQuiet operation\n…")}
                                 onChange={(event) => onChange("highlights", event.target.value)}
                             />
                         )}
                     />
                     <FormFieldShell
                         id={id("specifications")}
-                        label="Product specifications"
-                        helper="One specification per line using Label: Value, for example Processor: Intel Core i7."
-                        error={errors.specifications}
+                        label={tx("Product specifications")}
+                        helper={tx("One specification per line using Label: Value, for example Processor: Intel Core i7.")}
+                        error={localizedErrors.specifications}
                         control={(
                             <Form.Control
-                                {...controlA11yProps(id("specifications"), "One specification per line using Label: Value, for example Processor: Intel Core i7.", errors.specifications)}
+                                {...controlA11yProps(id("specifications"), tx("One specification per line using Label: Value, for example Processor: Intel Core i7."), localizedErrors.specifications)}
                                 as="textarea"
                                 rows={6}
                                 name="specifications"
                                 value={toInputValue(values.specifications)}
-                                placeholder={"Processor: Intel Core i7\nMemory: 16GB\nStorage: 1TB SSD\n…"}
+                                placeholder={tx("Processor: Intel Core i7\nMemory: 16GB\nStorage: 1TB SSD\n…")}
                                 onChange={(event) => onChange("specifications", event.target.value)}
                             />
                         )}
@@ -508,18 +507,18 @@ const ProductForm = ({
             </fieldset>
 
             <fieldset className="admin__product-form__fieldset">
-                <legend className="admin__product-form__legend">Structured attributes</legend>
+                <legend className="admin__product-form__legend">{tx("Structured attributes")}</legend>
                 <div className="admin__product-form__fieldset-header">
                     <p className="admin__product-form__description">
-                        Add typed attributes for filters and comparison. The storage key uses lowercase snake_case.
+                        {tx("Add typed attributes for filters and comparison. The storage key uses lowercase snake_case.")}
                     </p>
                     <button type="button" className="admin__button admin__button--ghost" onClick={onAddAttribute}>
-                        Add attribute
+                        {tx("Add attribute")}
                     </button>
                 </div>
-                {attributeError ? <p className="admin__field-error" aria-live="polite">{attributeError}</p> : null}
+                {localizedAttributeError ? <p className="admin__field-error" aria-live="polite">{localizedAttributeError}</p> : null}
                 {values.attributes.length === 0 ? (
-                    <p className="admin__product-form__empty">No structured attributes yet. Add one when the product needs a filterable technical value.</p>
+                    <p className="admin__product-form__empty">{tx("No structured attributes yet. Add one when the product needs a filterable technical value.")}</p>
                 ) : (
                     <div className="admin__product-form__attributes">
                         {values.attributes.map((row, index) => {
@@ -535,15 +534,15 @@ const ProductForm = ({
                                 <div key={row.id} className="admin__product-form__attribute-row" data-testid="product-attribute-row">
                                     <FormFieldShell
                                         id={keyId}
-                                        label="Storage key"
+                                        label={tx("Storage key")}
                                         required
-                                        helper="lowercase_snake_case"
+                                        helper={tx("lowercase_snake_case")}
                                         control={(
                                             <Form.Control
-                                                {...controlA11yProps(keyId, "lowercase_snake_case", undefined)}
+                                                {...controlA11yProps(keyId, tx("lowercase_snake_case"), undefined)}
                                                 type="text"
                                                 value={row.key}
-                                                placeholder="vram_gb…"
+                                                placeholder={tx("e.g. vram_gb…")}
                                                 autoComplete="off"
                                                 spellCheck={false}
                                                 required
@@ -553,14 +552,14 @@ const ProductForm = ({
                                     />
                                     <FormFieldShell
                                         id={labelId}
-                                        label="Display label"
+                                        label={tx("Display label")}
                                         required
                                         control={(
                                             <Form.Control
                                                 {...controlA11yProps(labelId, undefined, undefined)}
                                                 type="text"
                                                 value={row.label}
-                                                placeholder="VRAM…"
+                                                placeholder={tx("e.g. VRAM…")}
                                                 required
                                                 onChange={(event) => onAttributeChange(row.id, { label: event.target.value })}
                                             />
@@ -568,7 +567,7 @@ const ProductForm = ({
                                     />
                                     <FormFieldShell
                                         id={typeId}
-                                        label="Value type"
+                                        label={tx("Value type")}
                                         control={(
                                             <Form.Control
                                                 {...controlA11yProps(typeId, undefined, undefined)}
@@ -576,14 +575,14 @@ const ProductForm = ({
                                                 value={row.type}
                                                 onChange={(event) => onAttributeChange(row.id, { type: event.target.value as ProductAttributeRow["type"] })}
                                             >
-                                                <option value="text">Text</option>
-                                                <option value="number">Number</option>
+                                                <option value="text">{tx("Text")}</option>
+                                                <option value="number">{tx("Number")}</option>
                                             </Form.Control>
                                         )}
                                     />
                                     <FormFieldShell
                                         id={valueId}
-                                        label="Value"
+                                        label={tx("Value")}
                                         required
                                         control={(
                                             <Form.Control
@@ -592,7 +591,7 @@ const ProductForm = ({
                                                 step={row.type === "number" ? "any" : undefined}
                                                 inputMode={row.type === "number" ? "decimal" : undefined}
                                                 value={row.value}
-                                                placeholder={row.type === "number" ? "12…" : "GDDR7…"}
+                                                placeholder={tx(row.type === "number" ? "e.g. 12…" : "e.g. GDDR7…")}
                                                 required
                                                 onChange={(event) => onAttributeChange(row.id, { value: event.target.value })}
                                             />
@@ -600,14 +599,14 @@ const ProductForm = ({
                                     />
                                     <FormFieldShell
                                         id={unitId}
-                                        label="Unit"
-                                        helper="Optional"
+                                        label={tx("Unit")}
+                                        helper={tx("Optional")}
                                         control={(
                                             <Form.Control
-                                                {...controlA11yProps(unitId, "Optional", undefined)}
+                                                {...controlA11yProps(unitId, tx("Optional"), undefined)}
                                                 type="text"
                                                 value={row.unit}
-                                                placeholder="GB…"
+                                                placeholder={tx("e.g. GB…")}
                                                 maxLength={32}
                                                 onChange={(event) => onAttributeChange(row.id, { unit: event.target.value })}
                                             />
@@ -617,17 +616,17 @@ const ProductForm = ({
                                         <Form.Check
                                             id={filterId}
                                             type="checkbox"
-                                            label="Use in storefront filters"
+                                        label={tx("Use in storefront filters")}
                                             checked={row.filterable}
                                             onChange={(event) => onAttributeChange(row.id, { filterable: event.target.checked })}
                                         />
                                         <button
                                             type="button"
                                             className="admin__button admin__button--danger"
-                                            aria-label={`Remove attribute ${index + 1}`}
+                                            aria-label={`${tx("Remove attribute")} ${index + 1}`}
                                             onClick={() => onRemoveAttribute(row.id)}
                                         >
-                                            Remove
+                                            {tx("Remove")}
                                         </button>
                                     </div>
                                 </div>

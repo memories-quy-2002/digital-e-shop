@@ -19,7 +19,7 @@
     color: var(--de-color-text);
     font-weight: 700;
     transform: translateY(calc(-100% - 1rem));
-    transition: transform 160ms ease;
+    transition: transform var(--de-transition-fast);
 
     &:focus-visible {
         outline: 3px solid var(--de-color-electric);
@@ -56,7 +56,7 @@
 .admin__page__eyebrow, .admin__dashboard__hero__eyebrow { color: var(--de-color-signal) !important; font-family: var(--de-font-family-mono); }
 .admin__page__title, .admin__dashboard__hero__title { font-family: var(--de-font-family-display); letter-spacing: -0.04em; }
 .admin__page__subtitle, .admin__summary-card span, .admin__summary-card p { color: var(--de-color-text-muted) !important; }
-.admin__summary-card, .admin__card, .admin__workflow__step, .admin__dashboard__summary div, .admin__dashboard__insight { border: 1px solid var(--de-color-border) !important; border-radius: var(--de-radius-sm) !important; background: var(--de-color-surface) !important; color: var(--de-color-text) !important; box-shadow: none !important; }
+.admin__summary-card, .admin__card, .admin__dashboard__summary div, .admin__dashboard__insight { border: 1px solid var(--de-color-border) !important; border-radius: var(--de-radius-sm) !important; background: var(--de-color-surface) !important; color: var(--de-color-text) !important; box-shadow: none !important; }
 .admin__summary-card strong, .admin__dashboard__summary strong, .admin__dashboard__insight strong { color: var(--de-color-text) !important; }
 .admin__dashboard__hero { border-radius: var(--de-radius-sm) !important; border-left: 3px solid var(--de-color-signal); background: var(--de-color-surface-inverse) !important; box-shadow: none !important; }
 .admin__dashboard__hero__subtitle { color: var(--de-color-text-muted) !important; }
@@ -228,40 +228,6 @@
 .admin__summary-card p {
     margin: 0;
     font-size: 0.82rem;
-}
-
-.admin__workflow {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-.admin__workflow__step {
-    min-width: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
-    padding: 0.85rem 1rem;
-}
-
-.admin__workflow__step > span {
-    display: inline-flex;
-    flex: 0 0 1.55rem;
-    width: 1.55rem;
-    height: 1.55rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--de-color-primary-soft);
-    color: var(--de-color-primary-strong);
-    font-family: var(--de-font-family-mono);
-    font-size: 0.75rem;
-    font-weight: 800;
-}
-
-.admin__workflow__step strong {
-    min-width: 0;
-    line-height: 1.35;
 }
 
 .admin__card {
@@ -775,11 +741,18 @@
     width: fit-content;
     max-width: 100%;
     border-radius: var(--de-radius-pill);
-    padding: 0.25rem 0.55rem;
-    font-size: 0.7rem;
+    min-height: 1.65rem;
+    border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
     font-weight: 800;
     line-height: 1.2;
     white-space: nowrap;
+}
+
+.admin__table td,
+.admin__table th {
+    font-variant-numeric: tabular-nums;
 }
 
 .admin__pill--muted {
@@ -863,7 +836,6 @@
         gap: 1rem;
     }
 
-    .admin__workflow,
     .admin__form-grid,
     .admin__form-grid--compact {
         grid-template-columns: 1fr;
@@ -897,9 +869,6 @@
         font-size: 1.4rem;
     }
 
-    .admin__workflow__step {
-        padding: 0.75rem;
-    }
 }
 
 .admin label,
@@ -1370,8 +1339,7 @@
 }
 
 .admin__summary-card,
-.admin__card,
-.admin__workflow__step {
+.admin__card {
     border-color: var(--de-color-border) !important;
     border-radius: var(--de-radius-md) !important;
     background: var(--de-color-surface) !important;
@@ -1986,6 +1954,74 @@ textarea:focus-visible {
     }
 }
 
+// Group the long admin route list by the operator's task.
+.admin__layout__sidebar__navigation {
+    gap: 1rem;
+}
+
+.admin__layout__sidebar__navigation__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.admin__layout__sidebar__navigation__group + .admin__layout__sidebar__navigation__group {
+    padding-top: 0.7rem;
+    border-top: 1px solid color-mix(in srgb, var(--de-color-on-inverse) 12%, transparent);
+}
+
+.admin__layout__sidebar__navigation__group .admin__layout__sidebar__navigation__caption {
+    padding: 0 0.75rem 0.2rem;
+    color: color-mix(in srgb, var(--de-color-on-inverse) 56%, transparent) !important;
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+}
+
+.admin__layout__sidebar.is-collapsed .admin__layout__sidebar__navigation__group {
+    align-items: center;
+}
+
+.admin__layout__sidebar.is-collapsed .admin__layout__sidebar__navigation__group .admin__layout__sidebar__navigation__caption {
+    overflow: hidden;
+    width: 1.5rem;
+    height: 1px;
+    padding: 0;
+    font-size: 0;
+}
+
+.admin__layout__main__body > .admin__route-content {
+    min-width: 0;
+    animation: admin-route-enter 190ms ease-out both;
+}
+
+@keyframes admin-route-enter {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.admin .admin__button,
+.admin__layout__main__header button,
+.admin__layout__sidebar__navigation__item {
+    transition-duration: 140ms;
+}
+
+@media (max-width: 720px) {
+    .admin__layout__sidebar__navigation__group {
+        display: contents;
+    }
+
+    .admin__layout__sidebar__navigation__group + .admin__layout__sidebar__navigation__group {
+        padding-top: 0;
+        border-top: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin__layout__main__body > .admin__route-content {
+        animation: none;
+    }
+}
+
 /* Desktop navigation can be compacted without changing the mobile drawer. */
 .admin__layout__sidebar {
     position: sticky;
@@ -2531,6 +2567,55 @@ textarea:focus-visible {
     box-shadow: var(--de-shadow-focus);
 }
 
+.admin__page--promotions .admin__promotion-preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, 15rem);
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 1rem;
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface-muted);
+}
+
+.admin__page--promotions .admin__promotion-preview h4 {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--de-color-text);
+    font-size: 0.95rem;
+}
+
+.admin__page--promotions .admin__promotion-preview label {
+    color: var(--de-color-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.admin__page--promotions .admin__promotion-preview input {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.65rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface-strong);
+    color: var(--de-color-text);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin__page--promotions .admin__promotion-preview input:focus-visible {
+    outline: 3px solid var(--de-color-electric);
+    outline-offset: 2px;
+}
+
+.admin__page--promotions .admin__promotion-preview p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--de-color-text-muted);
+    line-height: 1.5;
+}
+
 .admin__page--promotions .admin__promotion-form__footer {
     margin-top: 1.25rem;
     padding-top: 1rem;
@@ -2803,6 +2888,15 @@ textarea:focus-visible {
         grid-template-columns: 1fr;
     }
 
+    .admin__page--promotions .admin__promotion-preview {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin__page--promotions .admin__promotion-preview h4,
+    .admin__page--promotions .admin__promotion-preview p {
+        grid-column: auto;
+    }
+
     .admin__page--promotions .admin__promotion-form__footer {
         align-items: stretch;
         flex-direction: column;
@@ -3068,4 +3162,57 @@ textarea:focus-visible {
     .admin__layout__main__header {
         padding-inline: 0.75rem !important;
     }
+}
+
+// Active navigation should not change label geometry and trigger a second line.
+.admin__layout__sidebar__navigation__item,
+.admin__layout__sidebar__navigation__item.active {
+    font-weight: 600;
+}
+
+.admin__layout__sidebar__navigation__label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin__layout__main__header .de-dropdown__trigger {
+    height: auto;
+    min-height: 2.75rem;
+    justify-content: center;
+    padding: 0 0.65rem;
+    border-color: var(--de-color-chrome-border);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-chrome-surface);
+    color: var(--de-color-chrome-text);
+    font-size: 0.78rem;
+    box-shadow: none;
+}
+
+.admin__layout__main__header .de-dropdown__trigger:hover,
+.admin__layout__main__header .de-dropdown__trigger[aria-expanded="true"] {
+    border-color: var(--de-color-signal);
+    background: var(--de-color-surface-hover);
+    color: var(--de-color-signal);
+}
+
+.admin__layout__main__header .de-dropdown__item {
+    height: auto;
+    min-height: 2.75rem;
+    justify-content: flex-start;
+    padding: 0.6rem 0.7rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--de-color-text-soft);
+    font-size: 0.82rem;
+    box-shadow: none;
+}
+
+.admin__layout__main__header .de-dropdown__item:hover,
+.admin__layout__main__header .de-dropdown__item.is-active {
+    background: var(--de-color-surface-hover);
+    color: var(--de-color-text);
 }

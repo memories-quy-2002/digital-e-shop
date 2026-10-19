@@ -20,7 +20,9 @@ The order controller owns the public route surface:
   purchase, PayOS session creation, guest lookup, cancellation, discount
   validation, and local mock confirmation
 - `server/src/cart/cart.controller.ts` handles guest cart persistence and
-  authoritative preview
+  authoritative preview, plus the owner-guarded idempotent cart merge route
+- `server/src/orders/guest-order-access-recovery.controller.ts` exposes the
+  generic email-OTP request and one-use token-rotation verification routes
 - `server/src/payments/payos-webhook.controller.ts` receives the unauthenticated
   provider callback and delegates signature verification and finalization
 - `server/src/payments/admin-payments.controller.ts` exposes reconciliation,
@@ -76,6 +78,14 @@ The runtime currently enforces these guarantees:
 - Reconciliation runs clamp their candidate limit to 100
 - COD collection requires guarded admin confirmation
 - Refunds remain manual ledger operations
+- Guest PayOS tokens are cached only in the browser session before redirect;
+  email OTP recovery rotates the order and after-sales access hashes together
+- Return eligibility ends at the inclusive UTC end of day seven calendar days
+  after delivery, and order detail returns the exact deadline
+- Quote errors have stable codes so the client can invalidate stale pricing
+  without discarding the delivery address or destination pin
+- Guest-cart merge results and accepted increments commit atomically under a
+  user-scoped operation ID
 
 See [[payment]], [[vnd-payment-operations]], and the
 [API guide](../../docs/API.md) for the public contract.

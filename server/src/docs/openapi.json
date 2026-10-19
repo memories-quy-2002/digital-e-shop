@@ -35,11 +35,13 @@
         { "name": "Reviews", "description": "Product reviews" },
         { "name": "Wishlist", "description": "Customer wishlist" },
         { "name": "Promotions", "description": "Discount codes and promotions" },
+        { "name": "Loyalty", "description": "Customer point balances, earned activity, and owned promotion vouchers" },
         { "name": "Blob", "description": "Vercel Blob file storage" },
         { "name": "Analytics", "description": "Admin analytics summary" },
         { "name": "Payments", "description": "PayOS, COD, reconciliation, and payment webhooks" },
         { "name": "Support", "description": "Authenticated customer and admin support tickets" },
-        { "name": "After-sales", "description": "Returns, warranty requests, status events, and refunds" }
+        { "name": "After-sales", "description": "Returns, warranty requests, status events, and refunds" },
+        { "name": "Admin operations", "description": "Admin alerts, audit history, and operational queues" }
     ],
     "components": {
         "schemas": {
@@ -173,8 +175,12 @@
                     "status": { "type": "integer", "description": "0=Placed, 1=Completed, 2=Canceled" },
                     "total_price": { "type": "number" },
                     "discount": { "type": "number" },
+                    "loyalty_points_redeemed": { "type": "integer", "minimum": 0 },
+                    "loyalty_discount": { "type": "number", "minimum": 0 },
                     "shipping_address": { "type": "string" },
-                    "payment_method": { "type": "string", "enum": ["cash", "payos"] }
+                    "payment_method": { "type": "string", "enum": ["cash", "payos"] },
+                    "delivered_at": {"type":"string","format":"date-time","nullable":true},
+                    "return_eligible_until": {"type":"string","format":"date-time","nullable":true,"description":"Inclusive return-request deadline at 23:59:59.999 UTC on the seventh UTC calendar day after delivery."}
                 }
             },
             "OrderItem": {
@@ -247,7 +253,8 @@
                     "min_order_value": { "type": "number" },
                     "starts_at": { "type": "string", "format": "date-time", "nullable": true },
                     "expires_at": { "type": "string", "format": "date-time", "nullable": true },
-                    "usage_limit": { "type": "integer", "nullable": true }
+                    "usage_limit": { "type": "integer", "nullable": true },
+                    "loyalty_points_cost": { "type": "integer", "minimum": 1, "nullable": true, "description": "When set, customers can claim this promotion by spending this many loyalty points" }
                 }
             },
             "InventoryMovement": {
@@ -685,8 +692,11 @@
                 "summary": "List all users (admin)",
                 "security": [{ "cookieAuth": [] }],
                 "parameters": [
-                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 20 } }
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "role", "in": "query", "schema": { "type": "string", "enum": ["Customer", "Admin"] } },
+                    { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Active", "Suspended"] } }
                 ],
                 "responses": {
                     "200": {
@@ -1023,6 +1033,7 @@
                 "tags": ["Products"],
                 "summary": "Get personalized product recommendations for a user",
                 "description": "Recommendation engine based on purchase history, wishlist, cart activity, and brand affinity.",
+                "security": [{ "cookieAuth": [] }],
                 "responses": {
                     "200": {
                         "description": "Recommended products",
@@ -1037,6 +1048,8 @@
                             }
                         }
                     },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" },
                     "500": { "$ref": "#/components/responses/Error" }
                 }
             }
@@ -1264,6 +1277,24 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "/api/products/admin/list": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "List products for admin inventory management",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "stock", "in": "query", "schema": { "type": "string", "enum": ["all", "low", "out"] } }
+                ],
+                "responses": {
+                    "200": { "description": "Filtered products, inventory summary, and pagination metadata" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
                 }
             }
         },
@@ -1521,12 +1552,40 @@
                 "summary": "List all orders (admin)",
                 "security": [{ "cookieAuth": [] }],
                 "parameters": [
-                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "status", "in": "query", "schema": { "type": "integer", "enum": [0, 1, 2] } },
+                    { "name": "paymentMethod", "in": "query", "schema": { "type": "string" } },
+                    { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["newest", "oldest"], "default": "newest" } }
                 ],
                 "responses": {
                     "200": {
                         "description": "Order list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "orders": { "type": "array", "items": { "$ref": "#/components/schemas/Order" } },
+                                        "pagination": { "$ref": "#/components/schemas/Pagination" },
+                                        "summary": { "type": "object", "description": "Global order totals and revenue, independent of the current filters" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/admin/pending-queue": {
+            "get": {
+                "tags": ["Orders"],
+                "summary": "Read the dashboard pending-order queue (admin)",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "The five oldest pending orders with dashboard display fields",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1645,6 +1704,7 @@
                                     },
                                     "discount": { "type": "number", "minimum": 0, "default": 0 },
                                     "discountCode": { "type": "string", "maxLength": 50 },
+                                    "loyaltyPoints": { "type": "integer", "minimum": 0, "default": 0, "description": "Authenticated customer points to redeem; one point reduces merchandise by one VND" },
                                     "shippingAddress": { "type": "string" },
                                     "paymentMethod": { "type": "string", "enum": ["cash", "payos"] }
                                 }
@@ -1669,7 +1729,8 @@
                             }
                         }
                     },
-                    "400": { "$ref": "#/components/responses/Error" }
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "409": {"description":"The delivery quote could not be consumed. Stable codes: DELIVERY_QUOTE_EXPIRED, DELIVERY_QUOTE_CHANGED, DELIVERY_QUOTE_INVALID, DELIVERY_SETTINGS_CHANGED. Request a new quote before retrying.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}
                 }
             }
         },
@@ -1846,7 +1907,16 @@
                         }
                     },
                     "400": { "$ref": "#/components/responses/Error" },
-                    "409": { "$ref": "#/components/responses/Error" }
+                    "409":                     {
+                        "description": "The delivery quote could not be consumed. Stable codes: DELIVERY_QUOTE_EXPIRED, DELIVERY_QUOTE_CHANGED, DELIVERY_QUOTE_INVALID, DELIVERY_SETTINGS_CHANGED. Request a new quote before retrying.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1892,7 +1962,7 @@
             "post": {
                 "tags": ["Payments"],
                 "summary": "Create a guest PayOS checkout session",
-                "description": "Creates a VND PayOS payment link and a token-protected guest reservation.",
+                "description":                 "Creates a VND PayOS payment link and a token-protected guest reservation. The guest access token is stored in sessionStorage with the payment attempt before redirect and never placed in the URL.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -1960,7 +2030,8 @@
                         }
                     },
                     "400": { "$ref": "#/components/responses/Error" },
-                    "503": { "$ref": "#/components/responses/Error" }
+                    "503": { "$ref": "#/components/responses/Error" },
+                    "409": {"description":"The delivery quote could not be consumed. Stable codes: DELIVERY_QUOTE_EXPIRED, DELIVERY_QUOTE_CHANGED, DELIVERY_QUOTE_INVALID, DELIVERY_SETTINGS_CHANGED. Request a new quote before retrying.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}
                 }
             }
         },
@@ -2051,6 +2122,7 @@
                                     "cart": { "type": "array", "minItems": 1, "items": { "type": "object" } },
                                     "discount": { "type": "number", "minimum": 0 },
                                     "discountCode": { "type": "string", "maxLength": 50 },
+                                    "loyaltyPoints": { "type": "integer", "minimum": 0, "default": 0, "description": "Authenticated customer points to redeem; one point reduces merchandise by one VND" },
                                     "shippingAddress": { "type": "string", "minLength": 1 }
                                 }
                             }
@@ -2720,6 +2792,68 @@
             }
         },
 
+        "/api/loyalty/me": {
+            "get": {
+                "tags": ["Loyalty"],
+                "summary": "Read the current customer's loyalty account",
+                "description": "Returns a zero balance for accounts that have not earned or redeemed points, recent ledger activity, owned vouchers, and active reward promotions.",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Current loyalty balance and recent customer rewards",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "loyalty": {
+                                            "type": "object",
+                                            "properties": {
+                                                "balancePoints": { "type": "integer", "minimum": 0 },
+                                                "history": { "type": "array", "items": { "type": "object" } },
+                                                "vouchers": { "type": "array", "items": { "type": "object" } },
+                                                "rewards": { "type": "array", "items": { "type": "object" } }
+                                            }
+                                        },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/loyalty/rewards/{promotionId}/claim": {
+            "parameters": [{ "name": "promotionId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+            "post": {
+                "tags": ["Loyalty"],
+                "summary": "Claim a promotion voucher using loyalty points",
+                "description": "Atomically debits points and issues a one-use voucher bound to the authenticated customer.",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "201": {
+                        "description": "Points debited and customer-owned voucher created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "balancePoints": { "type": "integer", "minimum": 0 },
+                                        "voucher": { "type": "object", "properties": { "id": { "type": "integer" }, "code": { "type": "string" }, "pointsCost": { "type": "integer" }, "discountPercent": { "type": "number" } } },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
         "/api/promotions": {
             "get": {
                 "tags": ["Promotions"],
@@ -2760,6 +2894,7 @@
                                     "startsAt": { "type": "string", "format": "date-time" },
                                     "expiresAt": { "type": "string", "format": "date-time" },
                                     "usageLimit": { "type": "integer" },
+                                    "loyaltyPointsCost": { "type": "integer", "minimum": 1, "nullable": true },
                                     "active": { "type": "boolean" }
                                 }
                             }
@@ -2792,6 +2927,7 @@
                                     "startsAt": { "type": "string", "format": "date-time" },
                                     "expiresAt": { "type": "string", "format": "date-time" },
                                     "usageLimit": { "type": "integer" },
+                                    "loyaltyPointsCost": { "type": "integer", "minimum": 1, "nullable": true },
                                     "active": { "type": "boolean" }
                                 }
                             }
@@ -2866,20 +3002,36 @@
                 "responses": { "200": { "description": "CSRF token and cookie" } }
             }
         },
-        "/api/shipping/provinces": {
-            "get": { "tags": ["Shipping"], "summary": "List carrier provinces", "responses": { "200": { "description": "Province list" } } }
-        },
-        "/api/shipping/provinces/{code}/wards": {
-            "get": { "tags": ["Shipping"], "summary": "List province wards", "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Ward list" } } }
-        },
-        "/api/shipping/services": {
-            "get": { "tags": ["Shipping"], "summary": "List available delivery services", "responses": { "200": { "description": "Service list" } } }
+        "/api/shipping/delivery/map-config": {
+            "get": { "tags": ["Shipping"], "summary": "Get public map configuration", "responses": { "200": { "description": "Minimal delivery map configuration" } } }
         },
         "/api/shipping/quotes": {
             "post": { "tags": ["Shipping"], "summary": "Create an owner-bound delivery quote", "security": [{ "cookieAuth": [] }], "responses": { "201": { "description": "Expiring delivery quote" } } }
         },
         "/api/shipping/guest/quotes": {
             "post": { "tags": ["Shipping"], "summary": "Create a guest delivery quote", "responses": { "201": { "description": "Expiring guest delivery quote" } } }
+        },
+        "/api/admin/shipping": {
+            "get": { "tags": ["Shipping"], "summary": "List fulfillment orders", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Packing queue including read-only shipment history" } } }
+        },
+        "/api/admin/shipping/{id}": {
+            "get": { "tags": ["Shipping"], "summary": "Get shipment summary and history", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Shipment and historical events" } } }
+        },
+        "/api/admin/shipping/{id}/transition": {
+            "post": { "tags": ["Shipping"], "summary": "Advance an internal packing state", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Updated internal packing state" } } }
+        },
+        "/api/admin/delivery/settings": {
+            "get": { "tags": ["Shipping"], "summary": "Get internal delivery settings", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Delivery settings" } } },
+            "put": { "tags": ["Shipping"], "summary": "Update internal delivery settings", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Updated delivery settings" } } }
+        },
+        "/api/admin/delivery/assignable-orders": {
+            "get": { "tags": ["Shipping"], "summary": "List packed orders eligible for assignment", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Assignable order queue" } } }
+        },
+        "/api/admin/delivery/orders/{orderId}/assignments": {
+            "post": { "tags": ["Shipping"], "summary": "Assign or reschedule delivery staff", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Delivery assignment" } } }
+        },
+        "/api/delivery/staff/assignments": {
+            "get": { "tags": ["Shipping"], "summary": "List the authenticated employee's delivery assignments", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Employee-scoped assignment list" } } }
         },
         "/api/admin/payments/cod-settlements": {
             "get": { "tags": ["Payments"], "summary": "List COD settlements", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "COD settlement queue" } } }
@@ -2920,6 +3072,244 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/admin/audit": {
+            "get": {
+                "tags": ["Admin operations"],
+                "summary": "List administrator audit events",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "entityType", "in": "query", "schema": { "type": "string", "enum": ["product", "user", "promotion"] } }
+                ],
+                "responses": {
+                    "200": { "description": "Filtered audit events and pagination metadata" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts": {
+            "get": {
+                "tags": ["Admin operations"],
+                "summary": "List operational alerts and unread count",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": { "description": "Operational alerts with per-admin read state" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts/acknowledge": {
+            "put": {
+                "tags": ["Admin operations"],
+                "summary": "Acknowledge operational alerts for the current administrator",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": { "application/json": { "schema": { "type": "object", "required": ["alertIds"], "properties": { "alertIds": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "type": "string", "maxLength": 191 } } } } } }
+                },
+                "responses": {
+                    "200": { "$ref": "#/components/responses/Message" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts/triage": {
+            "put": {
+                "tags": ["Admin operations"],
+                "summary": "Update ownership or resolution state for an active alert",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": { "application/json": { "schema": { "type": "object", "required": ["alertId", "action"], "properties": { "alertId": { "type": "string", "maxLength": 191 }, "action": { "type": "string", "enum": ["claim", "release", "resolve", "reopen"] } } } } }
+                },
+                "responses": {
+                    "200": { "description": "Updated alert triage state" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+
+        "/api/cart/merge": {
+            "post": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Idempotently merge a guest cart into the authenticated customer cart",
+                "description": "The server commits accepted cart items and the operation result in one transaction. Replaying the same operationId with the same item snapshot returns the stored result without adding quantities again; reusing the ID with different items returns CART_MERGE_IDEMPOTENCY_CONFLICT.",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "uid",
+                                    "operationId",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "uid": {
+                                        "type": "string"
+                                    },
+                                    "operationId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "productId",
+                                                "quantity"
+                                            ],
+                                            "properties": {
+                                                "productId": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 99
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Accepted and rejected item results; safe to replay with the same operation ID and snapshot"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Error"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Error"
+                    },
+                    "409": {
+                        "description": "CART_MERGE_IDEMPOTENCY_CONFLICT when an operation ID is reused with different item data",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/api/orders/guest/access-recovery/request": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Request guest-order access recovery by email OTP",
+                "description": "Always returns the same response whether the order and email match. Matching requests enqueue a six-digit transactional email code that expires after ten minutes; resend and hourly limits are enforced on the server.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "orderId",
+                                    "email"
+                                ],
+                                "properties": {
+                                    "orderId": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "maxLength": 254
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Generic anti-enumeration response"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Error"
+                    }
+                }
+            }
+        },
+
+        "/api/orders/guest/access-recovery/verify": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Verify guest-order access recovery OTP and rotate the access token",
+                "description": "A valid, unexpired code can be used once and is limited to five failed attempts. The new token is returned once in the response body; the old token is replaced for order and guest after-sales access.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "orderId",
+                                    "email",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "orderId": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "maxLength": 254
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "pattern": "^\\d{6}$"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Generic verification result; includes guestOrderToken only when verified"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Error"
                     }
                 }
             }

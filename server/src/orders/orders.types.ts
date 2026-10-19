@@ -17,7 +17,7 @@ export type OrderPaymentLedgerWrite = {
 export type OrderLifecycleRow = {
     fulfillment_state?: string | null;
     returned_stock_received_at?: string | Date | null;
-    shipment_creation_state?: string | null;
+    active_delivery_assignment?: number | boolean | null;
     user_id: string | null;
     status: number;
     delivered_at?: string | Date | null;
@@ -96,6 +96,7 @@ export type OrderDetail = {
     id: number;
     date_added: string;
     delivered_at?: string | null;
+    return_eligible_until?: string | null;
     user_id: string | null;
     guest_email?: string | null;
     guest_name?: string | null;
@@ -167,6 +168,8 @@ export type PendingCheckoutRow = {
     cart_json: string;
     total_price: string;
     discount: string;
+    loyalty_points_redeemed?: number | string;
+    loyalty_discount?: number | string;
     shipping_address: string;
     status: CheckoutReservationStatus | string;
     expires_at: string | Date;
@@ -239,6 +242,7 @@ type CheckoutReservationInputBase = {
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
+    loyaltyPoints?: number;
     discountCode?: string;
     shippingAddress: string;
     databaseExpiresAt?: Date;
@@ -259,6 +263,8 @@ export type PendingCheckoutInsertInput = {
     cartJson: string;
     totalPrice: number;
     discount: number;
+    loyaltyPointsRedeemed?: number;
+    loyaltyDiscount?: number;
     shippingAddress: string;
     expiresAt: Date;
 };

@@ -37,6 +37,12 @@ describe("transactional email", () => {
         expect(message.text).toContain("<script>alert(1)</script>");
         expect(message.subject).toBeTruthy();
         expect(message.eventKey).toBe(event.eventKey);
+        expect(message.html).toContain("Digital-E");
+        expect(message.html).toContain(locale === "vi" ? "Tóm tắt đơn hàng" : "Order summary");
+        expect(message.html).toContain("× 2");
+        expect(message.html).toContain(locale === "vi" ? "Tạm tính" : "Subtotal");
+        expect(message.html).toContain(locale === "vi" ? "9.500 VND" : "9,500 VND");
+        expect(message.html).toContain(locale === "vi" ? "Để xem thông tin đơn hàng" : "For protected order details");
     });
 
     it("renders every approved business event type", () => {
@@ -59,6 +65,22 @@ describe("transactional email", () => {
             expect(renderEmail(item).html).toContain("<html");
             expect(renderEmail(item).to).toHaveLength(1);
         }
+    });
+
+    it("renders a localized guest order recovery email with the OTP escaped", () => {
+        const message = renderEmail({
+            eventKey: "guest-order-access-recovery:challenge-1",
+            type: "guest_order_access_recovery",
+            recipient: "buyer@example.test",
+            locale: "vi",
+            snapshot: { customerName: "Buyer", orderId: 42, code: "012345", expiresMinutes: 10 },
+        } as EmailBusinessEvent);
+
+        expect(message.subject).toContain("truy cập");
+        expect(message.text).toContain("012345");
+        expect(message.text).toContain("10");
+        expect(message.html).toContain("012345");
+        expect(message.to).toEqual(["buyer@example.test"]);
     });
 
     it("persists only the allowlisted snapshot fields", () => {

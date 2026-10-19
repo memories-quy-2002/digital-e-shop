@@ -7,8 +7,7 @@ import { closeIntegrationPools, integrationPool } from "../../database/__tests__
 describe("operations task database integration", () => {
     const repository = new TasksRepository();
     const prefix = `task-test-${randomUUID()}`;
-    const payload = { orderId: 42 };
-    const enqueue = (suffix: string) => withTransaction((tx) => repository.enqueue(tx, { kind: "SHIPMENT_CREATE", key: prefix + suffix, payload }));
+    const enqueue = (suffix: string) => withTransaction((tx) => repository.enqueue(tx, { kind: "EMAIL_SEND", key: prefix + suffix, payload: { emailId: 42 } }));
     beforeAll(() => {
         if (!['127.0.0.1', 'localhost'].includes(process.env.DB_HOST || '') || !/retail_p0_test/.test(process.env.DB_NAME || '')) {
             throw new Error("Task integration requires explicit local disposable retail_p0_test database");
@@ -20,7 +19,7 @@ describe("operations task database integration", () => {
     });
     it("integration rolls back enqueue with the business transaction", async () => {
         await expect(withTransaction(async (tx) => {
-            await repository.enqueue(tx, { kind: "SHIPMENT_CREATE", key: prefix + '-rollback', payload });
+            await repository.enqueue(tx, { kind: "EMAIL_SEND", key: prefix + '-rollback', payload: { emailId: 42 } });
             throw new Error("business rollback");
         })).rejects.toThrow("business rollback");
         const [rows] = await integrationPool.query("SELECT id FROM operations_tasks WHERE business_key = ?", [prefix + '-rollback']);
@@ -29,7 +28,7 @@ describe("operations task database integration", () => {
     it("integration deduplicates concurrent enqueue and rejects different facts", async () => {
         const ids = await Promise.all([enqueue('-same'), enqueue('-same')]);
         expect(ids[0]).toBe(ids[1]);
-        await expect(withTransaction((tx) => repository.enqueue(tx, { kind: "SHIPMENT_CREATE", key: prefix + '-same', payload: { orderId: 43 } }))).rejects.toThrow("different facts");
+        await expect(withTransaction((tx) => repository.enqueue(tx, { kind: "EMAIL_SEND", key: prefix + '-same', payload: { emailId: 43 } }))).rejects.toThrow("different facts");
         await integrationPool.execute("DELETE FROM operations_tasks WHERE id = ?", [ids[0]]);
     });
     it("integration gives one concurrent claimant each task and fences an expired worker", async () => {

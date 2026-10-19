@@ -12,6 +12,7 @@ import carousel1 from "../assets/images/carousel_1.jpg";
 import carousel2 from "../assets/images/carousel_2.jpg";
 import carousel3 from "../assets/images/carousel_3.jpg";
 import carousel4 from "../assets/images/carousel_4.jpg";
+import heroAtmosphere from "../assets/images/home-hero-atmosphere.webp";
 import productPlaceholder from "../assets/images/product_placeholder.jpg";
 import {
     ArrowLeftIcon,
@@ -53,7 +54,7 @@ import {
 } from "../utils/images";
 import { formatCurrency } from "../utils/currency";
 
-preload(carousel1, { as: "image", fetchPriority: "high" });
+preload(heroAtmosphere, { as: "image", fetchPriority: "high" });
 
 const DISPLAYED_NUMBER = 8;
 const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
@@ -69,42 +70,36 @@ const categoryLinks = [
     {
         key: "gaming",
         labelKey: "home.categoryGaming",
-        descriptionKey: "home.categoryGamingBody",
         categories: ["Console"],
         fallback: carousel2,
     },
     {
         key: "laptops",
         labelKey: "home.categoryLaptops",
-        descriptionKey: "home.categoryLaptopsBody",
         categories: ["Laptop"],
         fallback: carousel1,
     },
     {
         key: "audio",
         labelKey: "home.categoryAudio",
-        descriptionKey: "home.categoryAudioBody",
         categories: ["Headphone", "Speaker"],
         fallback: carousel3,
     },
     {
         key: "components",
         labelKey: "home.categoryComponents",
-        descriptionKey: "home.categoryComponentsBody",
         categories: ["Graphics Card", "PC"],
         fallback: carousel4,
     },
     {
         key: "smartHome",
         labelKey: "home.categorySmartHome",
-        descriptionKey: "home.categorySmartHomeBody",
         categories: ["Smart Home"],
         fallback: carousel2,
     },
     {
         key: "accessories",
         labelKey: "home.categoryAccessories",
-        descriptionKey: "home.categoryAccessoriesBody",
         categories: ["Accessory", "Phone"],
         fallback: carousel3,
     },
@@ -643,6 +638,17 @@ const HomePage = () => {
                     className="home__hero"
                     aria-labelledby="home-hero-title"
                 >
+                    <div className="home__hero__ambience" aria-hidden="true">
+                        <img
+                            src={heroAtmosphere}
+                            alt=""
+                            width={1600}
+                            height={900}
+                            loading="eager"
+                            fetchPriority="high"
+                            decoding="async"
+                        />
+                    </div>
                     <div className="home__hero__inner">
                         <div className="home__hero__copy">
                             <p className="home__hero__kicker">
@@ -716,37 +722,6 @@ const HomePage = () => {
                             onFocusCapture={() => setIsHeroPaused(true)}
                             onMouseEnter={() => setIsHeroPaused(true)}
                         >
-                            <div
-                                className="home__hero__board"
-                                aria-hidden="true"
-                            >
-                                <img
-                                    src={carousel1}
-                                    alt=""
-                                    width={1600}
-                                    height={900}
-                                    loading="eager"
-                                    fetchPriority="high"
-                                    decoding="async"
-                                />
-                                <span className="home__hero__board__trace home__hero__board__trace--one" />
-                                <span className="home__hero__board__trace home__hero__board__trace--two" />
-                                <span className="home__hero__board__node home__hero__board__node--one" />
-                                <span className="home__hero__board__node home__hero__board__node--two" />
-                            </div>
-                            <div
-                                className="home__hero__readout"
-                                aria-hidden="true"
-                            >
-                                <span>{t("home.heroAvailability")}</span>
-                                <strong>
-                                    {heroProduct
-                                        ? heroProduct.stock > 0
-                                            ? t("home.heroReady")
-                                            : t("home.heroOutOfStock")
-                                        : t("home.heroLoading")}
-                                </strong>
-                            </div>
                             {featuredProducts.length > 1 ? (
                                 <div
                                     className="home__hero__controls"
@@ -765,7 +740,37 @@ const HomePage = () => {
                                                 : t("home.heroPause")
                                         }
                                     >
-                                        {isHeroPaused ? "▶" : "Ⅱ"}
+                                        <svg
+                                            data-testid={
+                                                `hero-carousel-${isHeroPaused ? "play" : "pause"}-icon`
+                                            }
+                                            aria-hidden="true"
+                                            focusable="false"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            {isHeroPaused ? (
+                                                <path
+                                                    d="M8.25 5.5a1 1 0 0 1 1.5-.86l10.5 6.5a1 1 0 0 1 0 1.72l-10.5 6.5a1 1 0 0 1-1.5-.86z"
+                                                />
+                                            ) : (
+                                                <>
+                                                    <rect
+                                                        x="5"
+                                                        y="5"
+                                                        width="5"
+                                                        height="14"
+                                                        rx="1.5"
+                                                    />
+                                                    <rect
+                                                        x="14"
+                                                        y="5"
+                                                        width="5"
+                                                        height="14"
+                                                        rx="1.5"
+                                                    />
+                                                </>
+                                            )}
+                                        </svg>
                                     </button>
                                     <button
                                         type="button"
@@ -974,9 +979,6 @@ const HomePage = () => {
                                             <strong>
                                                 {t(category.labelKey)}
                                             </strong>
-                                            <span>
-                                                {t(category.descriptionKey)}
-                                            </span>
                                         </span>
                                         <ArrowRightIcon
                                             className="home__category__arrow"
@@ -1132,6 +1134,24 @@ const HomePage = () => {
                     </div>
                 </section>
 
+                <RecentlyViewedStrip
+                    items={isRecentlyViewedValidated ? recentlyViewed : []}
+                    onSelect={(productId) => {
+                        const candidate =
+                            displayedProducts.find(
+                                (product) => product.id === productId,
+                            ) ??
+                            products.find(
+                                (product) => product.id === productId,
+                            ) ??
+                            recentlyViewed.find(
+                                (product) => product.id === productId,
+                            );
+                        if (candidate) trackRecentlyViewed(candidate);
+                        navigate(`/product?id=${productId}`);
+                    }}
+                />
+
                 <section
                     className="home__value"
                     aria-labelledby="home-value-title"
@@ -1172,67 +1192,7 @@ const HomePage = () => {
                     </div>
                 </section>
 
-                <section
-                    className="home__bundle"
-                    aria-labelledby="home-bundle-title"
-                    data-reveal
-                >
-                    <div className="home__bundle__media" aria-hidden="true">
-                        <img
-                            src={carousel4}
-                            alt=""
-                            width={1600}
-                            height={620}
-                            loading="lazy"
-                            decoding="async"
-                        />
-                    </div>
-                    <div className="home__bundle__inner">
-                        <div className="home__bundle__copy">
-                            <p className="home__section-kicker">
-                                {t("home.bundleKicker")}
-                            </p>
-                            <h2 id="home-bundle-title">
-                                {t("home.bundleTitle")}
-                            </h2>
-                            <p>{t("home.bundleBody")}</p>
-                            <Link
-                                className="home__button home__button--primary"
-                                to="/shops"
-                            >
-                                {t("home.bundleCta")}{" "}
-                                <ArrowRightIcon size={18} />
-                            </Link>
-                        </div>
-                        <div className="home__bundle__deal">
-                            <span>{t("home.bundleDealLabel")}</span>
-                            <strong>{t("home.bundleDealTitle")}</strong>
-                            <b>{t("home.bundleDealPrice")}</b>
-                            <del>{t("home.bundleDealOriginal")}</del>
-                            <span className="home__bundle__deal__discount">
-                                {t("home.bundleDealDiscount")}
-                            </span>
-                        </div>
-                    </div>
-                </section>
 
-                <RecentlyViewedStrip
-                    items={isRecentlyViewedValidated ? recentlyViewed : []}
-                    onSelect={(productId) => {
-                        const candidate =
-                            displayedProducts.find(
-                                (product) => product.id === productId,
-                            ) ??
-                            products.find(
-                                (product) => product.id === productId,
-                            ) ??
-                            recentlyViewed.find(
-                                (product) => product.id === productId,
-                            );
-                        if (candidate) trackRecentlyViewed(candidate);
-                        navigate(`/product?id=${productId}`);
-                    }}
-                />
             </div>
         </Layout>
     );

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
+import { BellIcon, CartIcon, HouseIcon, PersonIcon, StarIcon } from "../../../components/common/Icons";
 import { useT } from "../../../hooks/useT";
 import { CUSTOMER_ROUTES } from "../../../routes/customerRoutes";
 import "../../../styles/features/users/_customer-account-shell.scss";
@@ -23,6 +23,7 @@ const CustomerAccountShell = ({
     const navItems = [
         { to: CUSTOMER_ROUTES.account, label: t("accountNav.account"), helper: t("accountNav.accountHelper"), icon: <PersonIcon size={16} /> },
         { to: CUSTOMER_ROUTES.orders, label: t("accountNav.orders"), helper: t("accountNav.ordersHelper"), icon: <CartIcon size={16} /> },
+        { to: CUSTOMER_ROUTES.loyalty, label: t("accountNav.loyalty"), helper: t("accountNav.loyaltyHelper"), icon: <StarIcon size={16} /> },
         { to: CUSTOMER_ROUTES.addresses, label: t("accountNav.addresses"), helper: t("accountNav.addressesHelper"), icon: <HouseIcon size={16} /> },
         { to: CUSTOMER_ROUTES.notifications, label: t("accountNav.notifications"), helper: t("accountNav.notificationsHelper"), icon: <BellIcon size={16} /> },
     ];

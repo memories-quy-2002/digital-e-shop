@@ -18,7 +18,7 @@
         color: var(--de-color-text);
         font-weight: 700;
         transform: translateY(calc(-100% - 1rem));
-        transition: transform 160ms ease;
+        transition: transform var(--de-transition-fast);
 
         &:focus-visible {
             outline: 3px solid var(--de-color-electric);
@@ -30,6 +30,7 @@
     &__content {
         flex: 1;
         width: 100%;
+        scroll-margin-top: 1rem;
     }
 }
 

@@ -6,7 +6,7 @@ import CheckoutPaymentPage from "./CheckoutPaymentPage";
 import { LocaleProvider } from "../../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
-    auth: { userData: null as { id: string } | null, loading: false },
+    auth: { userData: null as { id: string; email?: string } | null, loading: false },
     toast: { addToast: vi.fn() },
     guestPurchase: vi.fn(),
     clearGuestCartServer: vi.fn(),
@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     navigate: vi.fn(),
     fetchCustomerAddresses: vi.fn(),
     fetchCustomerOrders: vi.fn(),
+    fetchLoyaltyOverview: vi.fn(),
     onValidationRefresh: vi.fn(),
 }));
 
@@ -34,8 +35,9 @@ vi.mock("../api", () => ({
     fetchCustomerOrders: mocks.fetchCustomerOrders,
 }));
 vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.fetchCustomerAddresses }));
+vi.mock("../../loyalty/api", () => ({ fetchLoyaltyOverview: mocks.fetchLoyaltyOverview }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
-vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, parcel: { grams: 500, lengthCm: 10, widthCm: 10, heightCm: 10 }, serviceTypeId: 2, address: {}, expectedDeliveryAt: null, sandbox: true, parcelEstimated: true })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output></> }));
+vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill, invalidateQuoteKey }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown; invalidateQuoteKey?: number }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, address: { latitude: 10.78, longitude: 106.7 }, distanceMeters: 5000, origin: { latitude: 10.77, longitude: 106.7 }, destination: { latitude: 10.78, longitude: 106.7 }, routeGeometry: [[106.7, 10.77], [106.7, 10.78]], settingsVersion: 1, tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors" })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output><output data-testid="quote-invalidation-key">{invalidateQuoteKey}</output></> }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 const cart = [{
@@ -82,6 +84,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         mocks.auth.loading = false;
         mocks.fetchCustomerAddresses.mockResolvedValue([]);
         mocks.fetchCustomerOrders.mockResolvedValue([]);
+        mocks.fetchLoyaltyOverview.mockResolvedValue({ balancePoints: 120, history: [], vouchers: [], rewards: [] });
         mocks.guestPurchase.mockResolvedValue({
             orderId: 42,
             order: { id: 42, date_added: "2026-09-08T10:00:00.000Z", total_price: 160, discount: 0 },
@@ -97,7 +100,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(screen.getByRole("radio", { name: /PayOS/i })).toBeVisible();
         expect(screen.getByRole("radio", { name: /cash on delivery/i })).toBeVisible();
         expect(screen.queryByRole("radio", { name: /bank transfer/i })).not.toBeInTheDocument();
-        expect(screen.queryByRole("radio", { name: /card|stripe/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole("radio", { name: /card/i })).not.toBeInTheDocument();
+    });
+
+    it("shows authenticated account email as read-only and omits the inactive marketing option", () => {
+        mocks.auth.userData = { id: "user-1", email: "account@example.com" };
+        renderCheckout();
+
+        expect(screen.getByLabelText("Email address")).toHaveValue("account@example.com");
+        expect(screen.getByLabelText("Email address")).toHaveAttribute("readOnly");
+        expect(screen.getByText("Order updates will be sent to your account email.")).toBeInTheDocument();
+        expect(screen.queryByText("Send me updates about products and offers")).not.toBeInTheDocument();
     });
 
     it("submits the guest cash purchase contract", async () => {
@@ -114,11 +127,24 @@ describe("CheckoutPaymentPage guest checkout", () => {
             discountCode: undefined,
             paymentMethod,
             shippingQuoteId: "quote-1",
-            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" },
             locale: "en",
         }));
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("totalPrice");
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("cart[0].price");
+    });
+
+    it("invalidates an expired server quote and blocks checkout while preserving the delivery form", async () => {
+        const quoteError = { response: { status: 409, data: { code: "DELIVERY_QUOTE_EXPIRED" } } };
+        mocks.guestPurchase.mockRejectedValueOnce(quoteError);
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        fireEvent.click(screen.getByRole("button", { name: /^Place order/ }));
+
+        await waitFor(() => expect(screen.getByTestId("quote-invalidation-key")).toHaveTextContent("1"));
+        expect(screen.getByText("The delivery fee needs to be recalculated. Your delivery details are still saved.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Place order/ })).toBeDisabled();
     });
 
     it("redirects guest PayOS checkout through a server-created VND payment link", async () => {
@@ -142,7 +168,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             discountCode: undefined,
             paymentMethod: "payos",
             shippingQuoteId: "quote-1",
-            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" },
             locale: "en",
         }, expect.any(String)));
         expect(mocks.guestPurchase).not.toHaveBeenCalled();
@@ -153,6 +179,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
             cartSnapshot: [{ productId: 10, quantity: 2 }],
         });
         expect(mocks.navigate).toHaveBeenCalledWith("/checkout-success?payment_attempt_id=123e4567-e89b-42d3-a456-426614174000");
+    });
+
+    it("shows the server's actionable reason for a checkout conflict", async () => {
+        const conflictMessage = "The requested quantity is no longer available.";
+        mocks.guestPayOSSession.mockRejectedValue({ response: { status: 409, data: { msg: conflictMessage } } });
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByRole("button", { name: "Continue to PayOS" }));
+
+        expect(await screen.findByText(conflictMessage)).toBeVisible();
+        expect(screen.queryByText("Your checkout changed after this payment attempt began. Review your cart and submit again.")).not.toBeInTheDocument();
     });
 
     it("passes guest contact and shipping details through route state without persisting PII", async () => {
@@ -194,7 +231,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             attemptId: "123e4567-e89b-42d3-a456-426614174000",
             cartSnapshot: [{ productId: 10, quantity: 1 }],
         }));
-        mocks.auth.userData = { id: "user-1" };
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
         mocks.httpGet.mockResolvedValue({
             status: 200,
             data: { valid: true, cartItems: [{
@@ -225,14 +262,74 @@ describe("CheckoutPaymentPage guest checkout", () => {
         await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.objectContaining({
             shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
             shippingQuoteId: "quote-1",
-            deliveryAddress: expect.objectContaining({ provinceCode: "1", wardCode: "2" }),
+            deliveryAddress: expect.objectContaining({ city: "HCMC", latitude: 10.78, longitude: 106.7 }),
             locale: "en",
         })));
         expect(sessionStorage.getItem("checkoutPending")).toBeNull();
     });
 
-    it("prefills saved and recent addresses while requiring explicit province and ward confirmation", async () => {
-        mocks.auth.userData = { id: "user-1" };
+    it("applies authenticated loyalty points to COD checkout and displays the updated total", async () => {
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
+        mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{
+            cart_item_id: 7,
+            product_id: 10,
+            product_name: "Widget",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: 80,
+            main_image: "widget.jpg",
+            quantity: 2,
+            stock: 5,
+            available_stock: 5,
+        }] } });
+        mocks.httpPost.mockResolvedValue({ status: 201, data: { order: { id: 45, date_added: "2026-09-09T10:00:00.000Z", discount: 80 } } });
+
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.change(await screen.findByRole("spinbutton", { name: "Use loyalty points" }), { target: { value: "80" } });
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        expect(screen.getAllByText((content) => content.includes("20.080"))).toHaveLength(2);
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.objectContaining({ loyaltyPoints: 80 })));
+    });
+
+    it("sends authenticated loyalty points with the PayOS checkout session", async () => {
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
+        mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{
+            cart_item_id: 7,
+            product_id: 10,
+            product_name: "Widget",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: 80,
+            main_image: "widget.jpg",
+            quantity: 2,
+            stock: 5,
+            available_stock: 5,
+        }] } });
+        mocks.payosAuthSession.mockResolvedValue({
+            attemptId: "123e4567-e89b-42d3-a456-426614174002",
+            sessionState: "CREATING",
+            url: null,
+            orderCode: 123457,
+            amount: 20080,
+            currency: "VND",
+        });
+
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.change(await screen.findByRole("spinbutton", { name: "Use loyalty points" }), { target: { value: "80" } });
+        fireEvent.click(screen.getByDisplayValue("payos"));
+        fireEvent.click(screen.getByRole("button", { name: "Continue to PayOS" }));
+
+        await waitFor(() => expect(mocks.payosAuthSession).toHaveBeenCalledWith("user-1", expect.objectContaining({ loyaltyPoints: 80 }), expect.any(String)));
+    });
+
+    it("prefills saved address coordinates and still requires a manual pin for older addresses", async () => {
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
         mocks.fetchCustomerAddresses.mockResolvedValue([{
             id: 3,
             label: "Home",
@@ -241,6 +338,12 @@ describe("CheckoutPaymentPage guest checkout", () => {
             address_line: "9 Saved Road",
             city: "Old City",
             country: "VN",
+            province_code: "202",
+            province_name: "Ho Chi Minh City",
+            ward_code: "26734",
+            ward_name: "Ben Nghe Ward",
+            latitude: 10.7769,
+            longitude: 106.7009,
             is_default: true,
         }]);
         mocks.fetchCustomerOrders.mockResolvedValue([{
@@ -253,18 +356,24 @@ describe("CheckoutPaymentPage guest checkout", () => {
         }]);
         renderCheckout();
 
-        fireEvent.change(await screen.findByLabelText("Saved address"), { target: { value: "3" } });
+        const deliveryAddressSelect = await screen.findByLabelText("Delivery address");
+        expect(screen.getByRole("group", { name: "Saved address" })).toBeInTheDocument();
+        expect(screen.getByRole("group", { name: "Recent order address" })).toBeInTheDocument();
+        fireEvent.change(deliveryAddressSelect, { target: { value: "saved:3" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"recipientName":"Saved Buyer"'));
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"9 Saved Road"');
-        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("provinceCode");
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old City"');
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"latitude":10.7769');
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"longitude":106.7009');
 
-        fireEvent.change(screen.getByLabelText("Recent order address"), { target: { value: "22" } });
+        fireEvent.change(deliveryAddressSelect, { target: { value: "recent:22" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"4 Previous Street"'));
-        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("provinceCode");
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old District"');
+        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("latitude");
     });
 
     it("rejects checkout when the authoritative cart refresh changes quote pricing facts", async () => {
-        mocks.auth.userData = { id: "user-1" };
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
         mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{ ...cart[0], sale_price: 90 }] } });
         renderCheckout();
         fillRequiredFields();

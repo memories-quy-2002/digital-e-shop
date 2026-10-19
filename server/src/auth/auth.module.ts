@@ -36,7 +36,6 @@ export class AuthModule implements NestModule {
             "users/register",
             "users/refresh",
             "orders/webhooks/payos",
-            { path: "shipping/webhooks/ghn", method: RequestMethod.POST },
             { path: "email/webhooks/resend", method: RequestMethod.POST },
             { path: "operations/run", method: RequestMethod.POST },
         ).forRoutes("*");

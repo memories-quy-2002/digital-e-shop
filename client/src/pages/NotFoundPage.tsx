@@ -13,11 +13,12 @@ const NotFoundPage = () => {
         <Layout>
             <Helmet>
                 <title>{`${t("notFound.title")} | Digital-E`}</title>
-                <meta name="description" content="The page you are looking for does not exist." />
+                <meta name="description" content={t("notFound.description")} />
             </Helmet>
             <main className="not-found">
-                <section className="not-found__hero">
-                    <h1>{t("notFound.title")}</h1>
+                <section className="not-found__hero" aria-labelledby="not-found-title">
+                    <span className="not-found__eyebrow">404</span>
+                    <h1 id="not-found-title">{t("notFound.title")}</h1>
                     <p>{t("notFound.description")}</p>
                     <div className="not-found__actions">
                         <Link to="/">{t("notFound.backHome")}</Link>

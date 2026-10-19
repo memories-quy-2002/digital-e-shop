@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
         updateCustomerAddress: vi.fn(),
         deleteCustomerAddress: vi.fn(),
     },
+    shipping: { fetchDeliveryMapConfig: vi.fn() },
 }));
 
 vi.mock("../../../context/AuthContext", () => ({
@@ -37,6 +38,16 @@ vi.mock("../api", () => ({
     createCustomerAddress: mocks.addresses.createCustomerAddress,
     updateCustomerAddress: mocks.addresses.updateCustomerAddress,
     deleteCustomerAddress: mocks.addresses.deleteCustomerAddress,
+}));
+
+vi.mock("../../shipping/api", () => ({
+    fetchDeliveryMapConfig: mocks.shipping.fetchDeliveryMapConfig,
+}));
+
+vi.mock("../../shipping/components/DeliveryMapPicker", () => ({
+    default: ({ onDestinationChange }: { onDestinationChange: (point: { latitude: number; longitude: number }) => void }) => (
+        <button type="button" onClick={() => onDestinationChange({ latitude: 10.7769, longitude: 106.7009 })}>Select pin</button>
+    ),
 }));
 
 vi.mock("../../../components/common/Icons", () => ({
@@ -72,6 +83,12 @@ describe("AddressBookPage", () => {
         mocks.addresses.createCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.updateCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.deleteCustomerAddress.mockResolvedValue(undefined);
+        mocks.shipping.fetchDeliveryMapConfig.mockResolvedValue({
+            origin: { latitude: 10.78, longitude: 106.7 },
+            storeAddress: "Digital-E Store",
+            tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png",
+            tileAttribution: "Map contributors",
+        });
     });
 
     it("announces the required address field error and links it to the input", async () => {
@@ -96,5 +113,19 @@ describe("AddressBookPage", () => {
             "customer-1",
             expect.objectContaining({ addressLine: "123 Main Street" }),
         ));
+    });
+
+    it("saves manually selected map coordinates with an address", async () => {
+        renderPage();
+        fireEvent.change(await screen.findByLabelText("Address"), { target: { value: "12 Main Street" } });
+        fireEvent.change(await screen.findByLabelText("City"), { target: { value: "Ho Chi Minh City" } });
+        fireEvent.click(await screen.findByRole("button", { name: "Select pin" }));
+        fireEvent.submit(screen.getByLabelText("Address").closest("form")!);
+
+        await waitFor(() => expect(mocks.addresses.createCustomerAddress).toHaveBeenCalledWith("customer-1", expect.objectContaining({
+            city: "Ho Chi Minh City",
+            latitude: 10.7769,
+            longitude: 106.7009,
+        })));
     });
 });

@@ -24,6 +24,7 @@ type AuthenticatedPayOSCheckoutInput = DeliveryCheckoutInput & {
     cart: CartCheckoutItem[];
     discount?: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
 };
 
@@ -33,6 +34,7 @@ type AuthoritativePayOSCheckoutInput = {
     authoritativeTotalPrice: number;
     discount: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
 };
 
@@ -92,7 +94,7 @@ export class NestOrdersPayOSService {
             );
         }
 
-        const promotion = input.discountCode ? await this.ordersService.applyDiscount(input.discountCode) : null;
+        const promotion = input.discountCode ? await this.ordersService.applyDiscount(input.discountCode, uid) : null;
         if (input.discountCode && !promotion) {
             throw createCheckoutError("Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
@@ -104,6 +106,7 @@ export class NestOrdersPayOSService {
                 authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
                 discount: calculatePromotionDiscount(promotion, checkoutValidation.authoritativeTotalPrice),
                 discountCode: input.discountCode,
+                loyaltyPoints: input.loyaltyPoints ?? 0,
                 shippingAddress: input.shippingAddress,
                 deliveryCheckout: { shippingQuoteId: input.shippingQuoteId, deliveryAddress: input.deliveryAddress, locale: input.locale, quoteIdentity: { kind: "authenticated", userId: uid } },
             },
@@ -170,6 +173,7 @@ export class NestOrdersPayOSService {
             authoritativeTotalPrice: input.authoritativeTotalPrice,
             discount: input.discount,
             discountCode: input.discountCode,
+            loyaltyPoints: input.loyaltyPoints ?? 0,
             shippingAddress: input.shippingAddress,
             databaseExpiresAt: new Date(Date.now() + CHECKOUT_RESERVATION_WINDOW_MS),
         };
@@ -393,16 +397,31 @@ export class NestOrdersPayOSService {
         return expiresAt.getTime() > Date.now() && ["PENDING", "UNKNOWN"].includes(attempt.paymentState);
     }
 
-    async confirmMockPayment(orderCode: number, paymentLinkId: string, amount: number): Promise<{ id: number; date_added: string }> {
+    async confirmMockPayment(attemptId: string, orderCode: number, paymentLinkId: string, amount: number): Promise<{ id: number }> {
         if (env.nodeEnv === "production" || env.paymentProviderMode !== "mock") {
             throw createCheckoutError("The PayOS simulator is disabled in production and outside mock payment mode.", HTTP_STATUS.NOT_FOUND);
         }
 
-        const order = await this.ordersService.finalizePayOSCheckout(orderCode, paymentLinkId, amount);
-        if (!order) {
-            throw createCheckoutError("Mock PayOS checkout was not found.", HTTP_STATUS.NOT_FOUND);
+        await this.paymentAttemptService.recordObservation({
+            attemptId,
+            source: "SIMULATOR",
+            sourceKey: `mock-payos:${orderCode}`,
+            payload: { orderCode, paymentLinkId, amount, currency: "VND", status: "PAID" },
+            providerOrderCode: String(orderCode),
+            providerLinkId: paymentLinkId,
+            expectedAmountVnd: amount,
+            reportedAmountVnd: amount,
+            paidAmountVnd: amount,
+            currency: "VND",
+            normalizedStatus: "PAID",
+            verified: true,
+        });
+
+        const result = await this.ordersService.finalizePayOSCheckout(orderCode, paymentLinkId, amount, attemptId);
+        if ("reviewRequired" in result) {
+            throw createCheckoutError("Mock PayOS checkout requires review.", HTTP_STATUS.CONFLICT, { reason: result.reason });
         }
-        return order;
+        return { id: result.orderId };
     }
 
     async expirePayment(orderCode: number): Promise<number> {

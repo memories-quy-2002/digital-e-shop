@@ -259,7 +259,7 @@ const CustomerAccountPage = () => {
             })));
             setUnreadNotificationCount(0);
             addToast(
-                "Notifications",
+                t("account.notifications.title"),
                 t("account.notifications.markAllComplete", result.updated),
             );
         } catch {

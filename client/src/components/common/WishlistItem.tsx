@@ -6,6 +6,7 @@ import loadImage from "../../utils/loadImage";
 import { formatCurrency } from "../../utils/currency";
 import ProductAlertControls from "../../features/productAlerts/components/ProductAlertControls";
 import type { ProductAlertKey, ProductAlertPreference } from "../../features/productAlerts/types";
+import { useWishlistCopy } from "../../hooks/useWishlistCopy";
 
 interface Item {
     id: number;
@@ -42,6 +43,7 @@ const WishlistItem = ({
     onAlertToggle,
 }: WishlistItemProps) => {
     const { product } = item;
+    const copy = useWishlistCopy();
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
     const activePrice = product.sale_price ?? product.price;
@@ -60,7 +62,7 @@ const WishlistItem = ({
                     type="checkbox"
                     checked={selected}
                     onChange={(event) => onSelect(product.id, event.target.checked)}
-                    aria-label={`Select ${product.name}`}
+                    aria-label={copy.selectProduct(product.name)}
                 />
             </label>
             <div className="wishlist__row__product">
@@ -74,17 +76,17 @@ const WishlistItem = ({
                 <div className="wishlist__row__product__info">
                     <strong>{product.name}</strong>
                     <span>{product.brand} | {product.category}</span>
-                    <small>{availableStock > 0 ? `${availableStock} in stock` : "Out of stock"}</small>
+                    <small>{availableStock > 0 ? copy.stockCount(availableStock) : copy.outOfStock}</small>
                 </div>
             </div>
 
             <div className="wishlist__row__price">
                 <strong>{formatCurrency(activePrice)}</strong>
-                {hasSale ? <span>Sale from {formatCurrency(product.price)}</span> : <span>No sale change</span>}
+                {hasSale ? <span>{copy.priceFrom(formatCurrency(product.price))}</span> : <span>{copy.priceUnchanged}</span>}
             </div>
 
             <span className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
-                {availableStock > 0 ? "Available" : "Unavailable"}
+                {availableStock > 0 ? copy.availableStatus : copy.unavailableStatus}
             </span>
 
             <div className="wishlist__row__alerts">
@@ -103,13 +105,13 @@ const WishlistItem = ({
             <div className="wishlist__row__actions">
                 <button type="button" onClick={() => onMoveToCart(product)} disabled={availableStock <= 0}>
                     <CartIcon size={17} />
-                    Move to cart
+                    {copy.moveToCart}
                 </button>
                 <button
                     type="button"
                     className="danger"
                     data-testid="delete-btn"
-                    aria-label={`delete-btn-${item.id}`}
+                    aria-label={copy.removeProduct(product.name)}
                     onClick={() => onRemoveWishlist(product.id)}
                 >
                     <TrashIcon size={18} />

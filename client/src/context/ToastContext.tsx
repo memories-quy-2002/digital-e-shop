@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Toast, ToastContainer } from "../components/ui/legacy";
+import { useT } from "../hooks/useT";
 import "../styles/components/_toast.scss";
 
 interface ToastMessage {
@@ -16,7 +17,7 @@ type Action =
 
 interface ToastContextProps {
     toasts: ToastMessage[];
-    addToast: (title: string, body: string) => void;
+    addToast: (title: string, body: string, tone?: ToastMessage["tone"]) => void;
     removeToast: (id: number) => void;
 }
 
@@ -72,21 +73,16 @@ const toastMarkers: Record<ToastMessage["tone"], string> = {
     info: "i",
 };
 
-const toastToneLabels: Record<ToastMessage["tone"], string> = {
-    success: "Success",
-    error: "Action needed",
-    info: "Information",
-};
-
 const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, dispatch] = useReducer(toastReducer, []);
+    const t = useT();
 
-    const addToast = useCallback((title: string, body: string) => {
+    const addToast = useCallback((title: string, body: string, tone?: ToastMessage["tone"]) => {
         const newToast = {
             id: toastId++,
             title,
             body,
-            tone: inferToastTone(title, body),
+            tone: tone ?? inferToastTone(title, body),
         };
         dispatch({ type: "ADD_TOAST", toast: newToast });
     }, []);
@@ -109,7 +105,7 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                       <ToastContainer
                           className={`app-toast${toasts.length > 0 ? " app-toast--open" : ""}`}
                           role="region"
-                          aria-label="Notifications"
+                          aria-label={t("common.notifications")}
                           aria-live="polite"
                       >
                           {toasts.map((toast) => (
@@ -126,7 +122,7 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                                           {toastMarkers[toast.tone]}
                                       </span>
                                       <span className="app-toast__heading">
-                                          <span className="app-toast__tone">{toastToneLabels[toast.tone]}</span>
+                                          <span className="app-toast__tone">{t(`toastTone.${toast.tone}`)}</span>
                                           <strong>{toast.title}</strong>
                                       </span>
                                   </Toast.Header>

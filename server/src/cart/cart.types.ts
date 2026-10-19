@@ -93,4 +93,10 @@ export type GuestCartClearInput = {
     converted?: boolean;
 };
 
+export type CartMergeRequest = {
+    uid: string;
+    operationId: string;
+    items: GuestCartItemInput[];
+};
+
 export type { CartCheckoutItem, GuestCartItemInput, GuestCartPreviewInput };

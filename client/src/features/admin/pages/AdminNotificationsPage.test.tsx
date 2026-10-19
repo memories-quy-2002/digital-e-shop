@@ -1,76 +1,73 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithLocale } from "../../../test-utils/renderWithLocale";
+import { fetchAdminAlerts, type AdminAlert } from "../api";
 import AdminNotificationsPage from "./AdminNotificationsPage";
-import { fetchAdminAlerts } from "../api";
 
-vi.mock("../api", () => ({ fetchAdminAlerts: vi.fn() }));
+vi.mock("../api", () => ({
+    acknowledgeAdminAlerts: vi.fn(),
+    fetchAdminAlerts: vi.fn(),
+    updateAdminAlertTriage: vi.fn(),
+}));
+vi.mock("../../../context/ToastContext", () => ({ useToast: () => ({ addToast: vi.fn() }) }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
-const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
 
-vi.mock("../../../context/ToastContext", () => ({ useToast: () => ({ addToast }) }));
-vi.mock("react-router-dom", async () => ({
-    ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
-    useNavigate: () => vi.fn(),
+const alerts: AdminAlert[] = Array.from({ length: 12 }, (_, index) => ({
+    id: `order-${index + 1}`,
+    type: "order",
+    title: index === 11 ? "Target alert" : `Order alert ${index + 1}`,
+    description: "Pending order requires review.",
+    createdAt: "2026-10-18T08:00:00.000Z",
+    priority: "High",
+    actionLabel: "Open orders",
+    route: "/admin/orders",
+    unread: true,
 }));
 
-describe("AdminNotificationsPage request states", () => {
+const renderPage = () => renderWithLocale(<MemoryRouter><AdminNotificationsPage /></MemoryRouter>);
+
+describe("AdminNotificationsPage pagination", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        window.localStorage.clear();
+        window.localStorage.removeItem("digital-e:locale:v1");
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts, unread: alerts.length });
     });
 
-    it("shows a retryable error instead of the empty state when loading fails", async () => {
-        vi.mocked(fetchAdminAlerts).mockRejectedValue({ response: { status: 500 } });
-        render(<AdminNotificationsPage />);
+    it("shows ten alerts at a time and navigates between pages", async () => {
+        renderPage();
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load admin data");
-        expect(screen.queryByText("No matching notifications")).not.toBeInTheDocument();
+        expect(await screen.findByText("Order alert 1")).toBeInTheDocument();
+        expect(screen.getByText("Order alert 10")).toBeInTheDocument();
+        expect(screen.queryByText("Order alert 11")).not.toBeInTheDocument();
+        expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+        expect(await screen.findByText("Target alert")).toBeInTheDocument();
+        expect(screen.getByText("Order alert 11")).toBeInTheDocument();
+        expect(screen.queryByText("Order alert 1")).not.toBeInTheDocument();
+        expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     });
 
-    it("keeps the fulfilled empty state", async () => {
-        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
-        render(<AdminNotificationsPage />);
+    it("returns to the first page when a search narrows the queue", async () => {
+        renderPage();
+        expect(await screen.findByText("Order alert 1")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Next" }));
+        expect(await screen.findByText("Target alert")).toBeInTheDocument();
 
-        await waitFor(() => expect(screen.getByText("No matching notifications")).toBeInTheDocument());
+        fireEvent.change(screen.getByRole("searchbox", { name: "Search notifications" }), { target: { value: "Order alert 1" } });
+
+        expect(await screen.findByText("Order alert 1")).toBeInTheDocument();
+        expect(screen.queryByText("Target alert")).not.toBeInTheDocument();
     });
 
-    it("marks one notification and then the remaining notifications as read", async () => {
-        vi.mocked(fetchAdminAlerts).mockResolvedValue({
-            alerts: [
-                {
-                    id: "order-1",
-                    type: "order",
-                    title: "Pending order",
-                    description: "Review the pending order",
-                    createdAt: "2026-09-09T00:00:00.000Z",
-                    priority: "High",
-                    actionLabel: "Open orders",
-                    route: "/admin/orders",
-                    unread: true,
-                },
-                {
-                    id: "inventory-1",
-                    type: "inventory",
-                    title: "Low stock",
-                    description: "Review inventory",
-                    createdAt: "2026-09-09T00:00:00.000Z",
-                    priority: "Medium",
-                    actionLabel: "Manage product",
-                    route: "/admin/products",
-                    unread: true,
-                },
-            ],
-            unread: 2,
-        });
-        render(<AdminNotificationsPage />);
+    it("localizes the pagination controls in Vietnamese", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        renderPage();
 
-        await waitFor(() => expect(screen.getByText("2 visible alerts · 2 unread")).toBeInTheDocument());
-        fireEvent.click(screen.getByRole("button", { name: "Mark Pending order as read" }));
-        expect(screen.getByText("2 visible alerts · 1 unread")).toBeInTheDocument();
-
-        fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
-        expect(screen.getByText("2 visible alerts · 0 unread")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Pending order is read" })).toBeDisabled();
-        expect(screen.getByRole("button", { name: "Low stock is read" })).toBeDisabled();
+        expect(await screen.findByRole("navigation", { name: "Phân trang hàng đợi thông báo" })).toBeInTheDocument();
+        expect(screen.getByText("Trang 1 trên 2")).toBeInTheDocument();
+        expect(screen.getByText("Đang hiển thị 1–10 trên tổng 12 cảnh báo")).toBeInTheDocument();
     });
 });

@@ -1,10 +1,10 @@
+import { renderWithLocale } from '../../test-utils/renderWithLocale';
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminHeader from "./AdminHeader";
-import { fetchAdminAlerts } from "../../features/admin/api";
-import { getAdminAlertReadIds } from "../../features/admin/utils/adminAlertState";
+import { acknowledgeAdminAlerts, fetchAdminAlerts } from "../../features/admin/api";
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
     logoutCurrentCustomer: vi.fn(),
 }));
 
-vi.mock("../../features/admin/api", () => ({ fetchAdminAlerts: vi.fn() }));
+vi.mock("../../features/admin/api", () => ({ fetchAdminAlerts: vi.fn(), acknowledgeAdminAlerts: vi.fn() }));
 vi.mock("../../context/AuthContext", () => ({
     useAuth: () => ({ userData: { username: "admin", role: "Admin" }, loading: false }),
 }));
@@ -24,7 +24,7 @@ vi.mock("react-router-dom", async () => ({
     useNavigate: () => mocks.navigate,
 }));
 
-const renderHeader = () => render(
+const renderHeader = () => renderWithLocale(
     <MemoryRouter>
         <AdminHeader />
     </MemoryRouter>,
@@ -45,8 +45,35 @@ const alert = {
 describe("AdminHeader activity feed request states", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(acknowledgeAdminAlerts).mockResolvedValue(undefined);
         mocks.logoutCurrentCustomer.mockResolvedValue({});
         window.localStorage.clear();
+        document.documentElement.removeAttribute("data-theme");
+        document.documentElement.style.colorScheme = "";
+    });
+
+    it("switches the admin interface between English and Vietnamese", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "English / Tiếng Việt" }));
+        fireEvent.click(screen.getByRole("option", { name: /Tiếng Việt/ }));
+
+        const search = await screen.findByRole("textbox", { name: "Đi đến một mục quản trị" });
+        expect(search).toHaveAttribute("placeholder", "Đi đến Sản phẩm, Đơn hàng hoặc Tài khoản…");
+        expect(document.documentElement).toHaveAttribute("lang", "vi");
+    });
+
+    it("switches the admin interface to dark theme", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "System theme" }));
+        fireEvent.click(screen.getByRole("option", { name: "Dark mode" }));
+
+        await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
+        expect(window.localStorage.getItem("digital-e:color-scheme:v1")).toBe(JSON.stringify("dark"));
+        expect(screen.getByRole("button", { name: "Dark mode" })).toBeInTheDocument();
     });
 
     it("shows a retryable error instead of the empty copy on initial failure", async () => {
@@ -113,9 +140,9 @@ describe("AdminHeader activity feed request states", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Mark all as read" }));
 
-        expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument());
         expect(screen.getByRole("button", { name: "Mark all as read" })).toBeDisabled();
-        expect(getAdminAlertReadIds()).toEqual(["alert-1", "inventory-1"]);
+        expect(acknowledgeAdminAlerts).toHaveBeenCalledWith(["alert-1", "inventory-1"]);
     });
 
     it("marks an activity as read when its internal link is opened", async () => {
@@ -126,7 +153,7 @@ describe("AdminHeader activity feed request states", () => {
         fireEvent.click(screen.getByRole("button", { name: "Notifications, 1 unread" }));
         fireEvent.click(screen.getByRole("link", { name: "Order requires review: Review" }));
 
-        expect(getAdminAlertReadIds()).toContain("alert-1");
+        await waitFor(() => expect(acknowledgeAdminAlerts).toHaveBeenCalledWith(["alert-1"]));
     });
 
     it("counts unread alerts beyond the eight items shown in the popover", async () => {

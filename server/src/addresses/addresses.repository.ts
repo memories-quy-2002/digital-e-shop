@@ -20,6 +20,7 @@ export class AddressesRepository {
         return new Promise((resolve, reject) => {
             this.query(
                 `SELECT id, user_id, label, recipient_name, phone_number, address_line, city, country,
+                    province_code, province_name, ward_code, ward_name, latitude, longitude,
                     is_default, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at,
                     DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updated_at
                 FROM customer_addresses
@@ -39,8 +40,9 @@ export class AddressesRepository {
             const insertAddress = () => {
                 this.query(
                     `INSERT INTO customer_addresses
-                        (user_id, label, recipient_name, phone_number, address_line, city, country, is_default)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        (user_id, label, recipient_name, phone_number, address_line, city, country,
+                         province_code, province_name, ward_code, ward_name, latitude, longitude, is_default)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         uid,
                         address.label,
@@ -49,6 +51,12 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
+                        null,
+                        null,
+                        null,
+                        null,
+                        address.latitude,
+                        address.longitude,
                         address.isDefault ? 1 : 0,
                     ],
                     (queryErr: Error | null, result: InsertResult) => {
@@ -75,7 +83,8 @@ export class AddressesRepository {
             const updateCurrentAddress = () => {
                 this.query(
                     `UPDATE customer_addresses
-                    SET label = ?, recipient_name = ?, phone_number = ?, address_line = ?, city = ?, country = ?, is_default = ?
+                    SET label = ?, recipient_name = ?, phone_number = ?, address_line = ?, city = ?, country = ?,
+                        latitude = ?, longitude = ?, is_default = ?
                     WHERE id = ? AND user_id = ?`,
                     [
                         address.label,
@@ -84,6 +93,8 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
+                        address.latitude,
+                        address.longitude,
                         address.isDefault ? 1 : 0,
                         addressId,
                         uid,
@@ -105,6 +116,27 @@ export class AddressesRepository {
 
             updateCurrentAddress();
         });
+    }
+
+    updateAddressLocation(uid: string, addressId: number, latitude: number, longitude: number): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            this.query("UPDATE customer_addresses SET latitude = ?, longitude = ? WHERE id = ? AND user_id = ?", [latitude, longitude, addressId, uid],
+                (queryErr: Error | null, result: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result);
+                });
+        });
+    }
+
+    async addressBelongsToUser(uid: string, addressId: number): Promise<boolean> {
+        const rows = await new Promise<Array<{ id: number }>>((resolve, reject) => {
+            this.query("SELECT id FROM customer_addresses WHERE id = ? AND user_id = ? LIMIT 1", [addressId, uid],
+                (queryErr: Error | null, result: Array<{ id: number }>) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result);
+                });
+        });
+        return rows.length > 0;
     }
 
     deleteAddress(uid: string, addressId: number): Promise<UpdateResult> {

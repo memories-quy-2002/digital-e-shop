@@ -7,33 +7,11 @@ Digital-E uses Prisma Migrate to track reviewed forward changes while legacy MyS
 The legacy bootstrap files live under `src/database/migrations/`:
 
 - `defaultdb_2026-06-01_142319.sql` is the historical MySQL dump
-- `2026-07-07-add-stripe-payment-support.sql` is the pre-Prisma Stripe schema change
+- `2026-07-07-legacy-checkout-schema.sql` provides the legacy checkout schema needed to replay the immutable bootstrap history
 
 New deployable migrations live under `src/database/prisma/migrations/`:
 
-```text
-0_init
-20260824053250_enforce_stripe_checkout_idempotency
-20260906080000_secure_auth_sessions
-20260906090000_checkout_inventory_reservations
-20260906095000_inventory_movements
-20260906100000_promotion_redemptions
-20260906110000_product_sku_order_snapshots
-20260906120000_product_attributes
-20260906130000_audit_schema_ownership
-20260907100000_order_payments_and_operations
-20260908100000_guest_checkout
-20260910100000_email_verification
-20260910140000_account_security_and_marketing
-20260910150000_provider_neutral_pending_checkout
-20260912100000_guest_carts
-20260916100000_vnd_payment_reconciliation
-20260920100000_after_sales_workflow
-20260920110000_after_sales_refund_ledger
-20260920120000_vnd_defaults
-```
-
-`0_init` is a metadata-only baseline marker. It must be recorded as applied after the existing legacy schema is loaded and inspected. It is not a create-schema migration.
+Applied migration names and SQL are immutable history. Keep new deployable changes in a later timestamped migration; do not rename or edit already-applied migrations. `0_init` is a metadata-only baseline marker that is recorded after the legacy schema is loaded and inspected.
 
 The forward migrations cover secure auth sessions, inventory reservations and movements, promotion redemptions, product identity and order snapshots, structured attributes, audit tables, order payments and operations, support tickets, guest checkout, Firebase-era account fields, provider-neutral pending checkouts, VND reconciliation, after-sales/refund state, and VND defaults for newly inserted order/payment rows.
 
@@ -81,7 +59,7 @@ database.
 
 Migration and runtime commands read `DATABASE_URL`. The MySQL pool also reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and optional `DB_SSL` and `DB_SSL_CA_PATH`.
 
-Authentication and checkout deployments may also require `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET`, Firebase Admin credentials, Stripe credentials, `CLIENT_URL`, `SERVER_URL`, and `PAYMENT_PROVIDER_MODE`. Use [`.env.example`](.env.example) as the placeholder template and never commit populated environment files.
+Authentication and checkout deployments may also require `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET`, Firebase Admin credentials, `CLIENT_URL`, `SERVER_URL`, and `PAYMENT_PROVIDER_MODE`. Use [`.env.example`](.env.example) as the placeholder template and never commit populated environment files.
 
 ## Commands
 
@@ -107,7 +85,7 @@ Copy-Item server/.env.docker.example server/.env.docker
 pnpm --dir server docker:setup
 ```
 
-The setup starts Docker MySQL, imports the legacy baseline and historical Stripe SQL, records `0_init`, deploys forward migrations, runs the deterministic demo seed, and verifies counts, images, totals, and orphan relationships.
+The setup starts Docker MySQL, imports the legacy baseline and historical checkout SQL, records `0_init`, deploys forward migrations, runs the deterministic demo seed, and verifies counts, images, totals, and orphan relationships. The final forward migration removes retired checkout-provider columns from the active schema.
 
 The normal demo seed is transactional and idempotent for its demo-owned rows. It rejects non-local database targets. Use `pnpm --dir server demo:verify` to check the graph again without reseeding.
 
@@ -126,7 +104,7 @@ The repository does not connect to production automatically from a code change. 
 
 1. Create and verify a recoverable backup
 2. Confirm the selected host and database
-3. Check for duplicate Stripe Checkout Session IDs and the existing unique key when relevant
+3. Review migration-specific schema changes and confirm the backup is recoverable before deploying cleanup migrations
 4. Record `0_init` as applied only after reconciling the legacy baseline
 5. Run `prisma:migrate:status`, `prisma:migrate:deploy`, and status again
 6. Verify the resulting schema, API health, and a normal checkout or webhook flow

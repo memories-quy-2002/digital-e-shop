@@ -67,6 +67,7 @@ function buildService() {
     const paymentAttemptService = {
         findExistingClaim: vi.fn().mockResolvedValue(null),
         getOwnedStatus: vi.fn(),
+        recordObservation: vi.fn().mockResolvedValue({ paymentState: "PAID", orderState: "NOT_CREATED" }),
         acquireCreateLease: vi.fn().mockResolvedValue(true),
         saveProviderLink: vi.fn().mockResolvedValue(true),
     };
@@ -420,6 +421,28 @@ describe("NestOrdersPayOSService", () => {
                 paymentCurrency: "VND",
             }),
         );
+    });
+
+    it("records a verified simulator observation and finalizes the matching payment attempt", async () => {
+        const { service, paymentAttemptService, ordersService } = buildService();
+        env.paymentProviderMode = "mock";
+        ordersService.finalizePayOSCheckout.mockResolvedValue({ orderId: 827, created: true });
+
+        await expect(service.confirmMockPayment(paymentAttempt.id, 123456789, "mock_link", 90))
+            .resolves.toEqual({ id: 827 });
+
+        expect(paymentAttemptService.recordObservation).toHaveBeenCalledWith(expect.objectContaining({
+            attemptId: paymentAttempt.id,
+            source: "SIMULATOR",
+            providerOrderCode: "123456789",
+            providerLinkId: "mock_link",
+            expectedAmountVnd: 90,
+            reportedAmountVnd: 90,
+            paidAmountVnd: 90,
+            normalizedStatus: "PAID",
+            verified: true,
+        }));
+        expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledWith(123456789, "mock_link", 90, paymentAttempt.id);
     });
 
     it("rejects a live checkout URL outside the configured PayOS origin allowlist", async () => {

@@ -32,7 +32,7 @@
         box-shadow: var(--de-shadow-md);
         background: var(--de-color-surface-strong);
         color: var(--de-color-text);
-        animation: app-toast-enter 180ms ease both;
+        animation: app-toast-enter var(--de-transition-enter) both;
 
         &::before {
             content: "";

@@ -43,23 +43,31 @@ payment, or order state.
 
 Authenticated customers use Firebase-backed sessions and ownership checks.
 Guests use an anonymous cart cookie and a one-time token for order lookup.
-Guest orders keep a contact snapshot, but guest token hashes never appear in
-admin responses or public URLs.
+PayOS tokens are kept in `sessionStorage` with the attempt before redirect.
+If that browser session is lost, email OTP recovery issues a replacement
+token, invalidates the old token, and rotates matching after-sales hashes in
+one transaction. Guest token hashes never appear in admin responses or public
+URLs.
 
 Payment callbacks do not use customer authentication. The PayOS webhook uses
 signature verification, exact amount and reference checks, durable event
 storage, and idempotent claiming instead.
 
-## After-sales gap
+## Journey recovery points
 
-The support ticket is the current entry point for return, warranty, and refund
-questions. It requires an authenticated customer and accepts a free-form
-category plus an optional order reference.
+Return requests use the exact inclusive UTC deadline returned with order
+details: 23:59:59.999 on the seventh UTC calendar day after delivery. The UI
+shows that timestamp in the selected language and labels UTC.
 
-The agreed return window is 7 calendar days after successful delivery. The
-current runtime does not enforce that window or expose a dedicated guest
-after-sales endpoint. See [[support-ticket]] and
-[[support-and-after-sales-runtime]] before planning that feature.
+Single-use delivery quotes can become expired, invalid, or stale when cart,
+route, or settings change. The API returns stable error codes; the client
+discards the old quote while retaining the typed address and map pin, then
+blocks checkout until a replacement quote is confirmed.
+
+Cart merge uses an owner-scoped operation ID and immutable snapshot. The API
+commits item increments and the stored result together, so a retry after a
+lost response does not add quantities twice. Partial results retain rejected
+guest items for a new operation.
 
 ## Related knowledge
 

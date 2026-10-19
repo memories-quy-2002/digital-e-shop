@@ -1,8 +1,6 @@
 import React, { memo, useEffect, useId, useState } from "react";
-import ReactSlider from "react-slider";
 import { useT } from "../../hooks/useT";
 import { Product } from "../../utils/interface";
-import { formatCurrency, formatCurrencyNumber } from "../../utils/currency";
 
 type Filters = {
   term: string;
@@ -45,21 +43,8 @@ export const getShopCategoryLabel = (
   return translationKey ? translate(`shops.${translationKey}`) : category;
 };
 
-const BRAND_PREVIEW_COUNT = 6;
-const PRICE_PRESET_LIMITS = [
-  { key: "presetUnderMillion", lower: 0, upper: 1_000_000 },
-  { key: "presetOneToFiveMillion", lower: 1_000_000, upper: 5_000_000 },
-  { key: "presetFiveToTenMillion", lower: 5_000_000, upper: 10_000_000 },
-  {
-    key: "presetOverTenMillion",
-    lower: 10_000_000,
-    upper: Number.POSITIVE_INFINITY,
-  },
-] as const;
-
+const FILTER_PREVIEW_COUNT = 6;
 const AsideShops = ({
-  products,
-  filteredCount,
   categories,
   brands,
   filters,
@@ -72,41 +57,39 @@ const AsideShops = ({
   const [priceRange, setPriceRange] = useState<[number, number]>(
     filters.priceRange,
   );
-  const [priceDraft, setPriceDraft] = useState<[string, string]>([
-    String(filters.priceRange[0]),
-    String(filters.priceRange[1]),
-  ]);
-  const [brandSearch, setBrandSearch] = useState("");
+  const [priceDraft, setPriceDraft] = useState<[string, string]>(["", ""]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
   const panelId = useId().replace(/:/g, "");
-  const visibleProductCount = filteredCount ?? products.length;
   const minimumPrice = 0;
-  const sliderMax = Math.max(
+  const maximumPrice = Math.max(
     priceBounds[1],
     filters.priceRange[1],
     100_000_000,
   );
-  const maximumPrice = sliderMax;
   const t = useT();
 
   useEffect(() => {
     setPriceRange(filters.priceRange);
-    setPriceDraft([
-      String(filters.priceRange[0]),
-      String(filters.priceRange[1]),
-    ]);
+    setPriceDraft(["", ""]);
   }, [filters.priceRange]);
 
-  const matchingBrands = brands.filter((brand) =>
-    brand.toLocaleLowerCase().includes(brandSearch.trim().toLocaleLowerCase()),
-  );
-  const visibleBrands = brandSearch.trim()
-    ? matchingBrands
-    : showAllBrands
-      ? brands
-      : Array.from(
-          new Set([...brands.slice(0, BRAND_PREVIEW_COUNT), ...filters.brands]),
-        );
+  const visibleCategories = showAllCategories
+    ? categories
+    : Array.from(
+        new Set([
+          ...categories.slice(0, FILTER_PREVIEW_COUNT),
+          ...filters.categories,
+        ]),
+      );
+  const hiddenCategoryCount = categories.filter(
+    (category) => !visibleCategories.includes(category),
+  ).length;
+  const visibleBrands = showAllBrands
+    ? brands
+    : Array.from(
+        new Set([...brands.slice(0, FILTER_PREVIEW_COUNT), ...filters.brands]),
+      );
   const hiddenBrandCount = brands.filter(
     (brand) => !visibleBrands.includes(brand),
   ).length;
@@ -122,7 +105,11 @@ const AsideShops = ({
   const commitPriceDraft = (index: 0 | 1) => {
     const rawValue = priceDraft[index];
     if (rawValue.trim() === "" || !Number.isFinite(Number(rawValue))) {
-      setPriceDraft([String(priceRange[0]), String(priceRange[1])]);
+      setPriceDraft((current) => {
+        const next = [...current] as [string, string];
+        next[index] = "";
+        return next;
+      });
       return;
     }
 
@@ -138,26 +125,13 @@ const AsideShops = ({
     }
 
     setPriceRange(nextRange);
-    setPriceDraft([String(nextRange[0]), String(nextRange[1])]);
+    setPriceDraft((current) => {
+      const next = [...current] as [string, string];
+      next[index] = "";
+      return next;
+    });
     onPriceRangeChange(nextRange);
   };
-
-  const applyPricePreset = (lower: number, upper: number) => {
-    const nextRange: [number, number] = [lower, upper];
-    setPriceRange(nextRange);
-    setPriceDraft([String(lower), String(upper)]);
-    onPriceRangeChange(nextRange);
-  };
-
-  const pricePresets = PRICE_PRESET_LIMITS.map((preset) => {
-    const lower = Math.max(minimumPrice, preset.lower);
-    const upper = Math.min(maximumPrice, preset.upper);
-    return {
-      ...preset,
-      range: [lower, upper] as [number, number],
-      disabled: lower > upper,
-    };
-  });
 
   const filterSections = (
     <>
@@ -170,7 +144,7 @@ const AsideShops = ({
           <span>{categories.length}</span>
         </div>
         <div className="shops__filter-options">
-          {categories.map((category) => {
+          {visibleCategories.map((category) => {
             const checkboxId = `${panelId}-category-${category.replace(/\s+/g, "-").toLowerCase()}`;
             return (
               <div key={category}>
@@ -190,6 +164,17 @@ const AsideShops = ({
             );
           })}
         </div>
+        {hiddenCategoryCount > 0 || showAllCategories ? (
+          <button
+            type="button"
+            className="shops__brands-toggle"
+            onClick={() => setShowAllCategories((current) => !current)}
+          >
+            {showAllCategories
+              ? t("shops.showLess")
+              : t("shops.showMore", hiddenCategoryCount)}
+          </button>
+        ) : null}
       </section>
       <section
         className="shops__filter-section shops__filter-section--brands"
@@ -200,18 +185,6 @@ const AsideShops = ({
           <h2 id={`${panelId}-brands`}>{t("shops.brands")}</h2>
           <span>{brands.length}</span>
         </div>
-        {brands.length > BRAND_PREVIEW_COUNT ? (
-          <label className="shops__brand-search">
-            <span className="shops__sr-only">{t("shops.searchBrands")}</span>
-            <input
-              type="search"
-              value={brandSearch}
-              onChange={(event) => setBrandSearch(event.target.value)}
-              placeholder={t("shops.searchBrands")}
-              aria-label={t("shops.searchBrands")}
-            />
-          </label>
-        ) : null}
         <div className="shops__filter-options">
           {visibleBrands.map((brand) => {
             const checkboxId = `${panelId}-brand-${brand.replace(/\s+/g, "-").toLowerCase()}`;
@@ -230,11 +203,8 @@ const AsideShops = ({
               </div>
             );
           })}
-          {brandSearch.trim() && matchingBrands.length === 0 ? (
-            <p className="shops__brand-empty">{t("shops.noBrandsFound")}</p>
-          ) : null}
         </div>
-        {!brandSearch.trim() && hiddenBrandCount > 0 ? (
+        {hiddenBrandCount > 0 || showAllBrands ? (
           <button
             type="button"
             className="shops__brands-toggle"
@@ -252,13 +222,13 @@ const AsideShops = ({
       >
         <div className="shops__price-header">
           <h2 id={`${panelId}-price`}>{t("shops.priceRange")}</h2>
-          <p>{t("shops.priceHelp")}</p>
         </div>
         <div className="shops__price-inputs">
           <label className="shops__price-input">
             <span>{t("shops.minPrice")}</span>
             <input
               type="number"
+              placeholder="0"
               inputMode="numeric"
               min={minimumPrice}
               max={priceRange[1]}
@@ -275,9 +245,10 @@ const AsideShops = ({
             <span>{t("shops.maxPrice")}</span>
             <input
               type="number"
+              placeholder="Max"
               inputMode="numeric"
               min={priceRange[0]}
-              max={sliderMax}
+              max={maximumPrice}
               step="1"
               value={priceDraft[1]}
               aria-label={t("shops.maximumPrice")}
@@ -287,64 +258,6 @@ const AsideShops = ({
               onBlur={() => commitPriceDraft(1)}
             />
           </label>
-        </div>
-        <div
-          className="shops__price-presets"
-          aria-label={t("shops.pricePresets")}
-        >
-          {pricePresets.map((preset) => (
-            <button
-              key={preset.key}
-              type="button"
-              disabled={preset.disabled}
-              aria-pressed={
-                priceRange[0] === preset.range[0] &&
-                priceRange[1] === preset.range[1]
-              }
-              onClick={() => applyPricePreset(...preset.range)}
-            >
-              {t(`shops.${preset.key}`)}
-            </button>
-          ))}
-        </div>
-        <div className="shops__price-slider">
-          <ReactSlider
-            className="horizontal-slider"
-            thumbClassName="example-thumb"
-            trackClassName="example-track"
-            value={priceRange}
-            min={minimumPrice}
-            max={sliderMax}
-            pearling
-            minDistance={150}
-            renderThumb={(props, state) => {
-              // react-slider includes an internal key in its props object; pass it explicitly.
-              // eslint-disable-next-line react/prop-types
-              const { key, ...thumbProps } = props;
-              return (
-                <div
-                  key={key}
-                  {...thumbProps}
-                  aria-label={t(
-                    state.index === 0
-                      ? "shops.minimumPrice"
-                      : "shops.maximumPrice",
-                  )}
-                  aria-valuetext={formatCurrency(state.valueNow)}
-                >
-                  <span>{formatCurrencyNumber(state.valueNow)} ₫</span>
-                </div>
-              );
-            }}
-            onChange={(newValue) => {
-              const nextRange = newValue as [number, number];
-              setPriceRange(nextRange);
-              setPriceDraft([String(nextRange[0]), String(nextRange[1])]);
-            }}
-            onAfterChange={(newValue) =>
-              onPriceRangeChange(newValue as [number, number])
-            }
-          />
         </div>
       </section>
     </>
@@ -360,13 +273,6 @@ const AsideShops = ({
 
   return (
     <aside className="shops__filters" aria-label={t("shops.filtersTitle")}>
-      <div className="shops__filters-header">
-        <div>
-          <span>{t("shops.filtersKicker")}</span>
-          <h2>{t("shops.filtersTitle")}</h2>
-        </div>
-        <strong>{visibleProductCount}</strong>
-      </div>
       <div className="shops__filters-content">{filterSections}</div>
       <button
         type="button"

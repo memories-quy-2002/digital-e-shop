@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppRouter from "./router";
 import { Role, type UserData } from "../types/user";
+import { LocaleProvider } from "../context/LocaleContext";
 
 const authState = vi.hoisted(() => ({
     value: { loading: false, userData: null as UserData },
@@ -41,6 +42,10 @@ vi.mock("../features/users/pages/AddressBookPage", () => ({
     default: () => <div data-testid="address-book-page">Address book page</div>,
 }));
 
+vi.mock("../features/loyalty/pages/CustomerLoyaltyPage", () => ({
+    default: () => <div data-testid="loyalty-page">Loyalty page</div>,
+}));
+
 vi.mock("../features/orders/pages/OrderHistoryPage", () => ({
     default: () => <div data-testid="order-history-page">Order history page</div>,
 }));
@@ -60,6 +65,10 @@ vi.mock("../features/admin/pages/AdminPaymentReconciliationPage", () => ({ defau
 vi.mock("../features/admin/pages/AdminAccountPage", () => ({ default: () => <div>Admin accounts</div> }));
 vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <div>Admin promotions</div> }));
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
+vi.mock("../features/admin/pages/AdminAuditPage", () => ({ default: () => <div>Admin audit log</div> }));
+vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div data-testid="admin-notifications-page">Admin notifications</div> }));
+vi.mock("../features/shipping/pages/AdminDeliverySettingsPage", () => ({ default: () => <div data-testid="delivery-settings-page">Delivery settings</div> }));
+vi.mock("../features/shipping/pages/DeliveryStaffAssignmentsPage", () => ({ default: () => <div data-testid="delivery-staff-page">My deliveries</div> }));
 
 vi.mock("../features/auth/pages/LoginPage", () => ({
     default: function MockLoginPage() {
@@ -82,7 +91,9 @@ const adminPaths = [
     "/admin/payments/reconciliation",
     "/admin/accounts",
     "/admin/promotions",
+    "/admin/audit",
     "/admin/add",
+    "/admin/delivery/settings",
 ] as const;
 
 const buildUser = (role: Role): NonNullable<UserData> => ({
@@ -142,6 +153,17 @@ describe("cart routing", () => {
         );
 
         expect(await screen.findByTestId("address-book-page")).toBeInTheDocument();
+    });
+
+    it("keeps the loyalty account route protected", async () => {
+        render(
+            <MemoryRouter initialEntries={["/account/loyalty"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("protected-route")).toBeInTheDocument();
+        expect(await screen.findByTestId("loyalty-page")).toBeInTheDocument();
     });
 
     it("redirects legacy customer routes to canonical account routes", async () => {
@@ -211,6 +233,29 @@ describe("cart routing", () => {
     });
 });
 
+describe("delivery staff routing", () => {
+    it("opens the staff workspace only for an active DeliveryStaff role", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.DeliveryStaff) };
+        authState.value.userData!.status = "Active";
+        render(<MemoryRouter initialEntries={["/delivery/assignments"]}><AppRouter /></MemoryRouter>);
+        expect(await screen.findByTestId("delivery-staff-page")).toBeInTheDocument();
+    });
+
+    it("denies DeliveryStaff from admin settings", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.DeliveryStaff) };
+        authState.value.userData!.status = "Active";
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/delivery/settings"]}>
+                    <AppRouter />
+                    <RouteLocationProbe />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+        expect(await screen.findByTestId("route-location")).toHaveTextContent("/403");
+    });
+});
+
 describe("admin routing", () => {
     it.each(adminPaths)("blocks anonymous access to %s", async (path) => {
         render(
@@ -227,15 +272,17 @@ describe("admin routing", () => {
     it("blocks a Customer from Admin pages", async () => {
         authState.value = { loading: false, userData: buildUser(Role.Customer) };
         render(
-            <MemoryRouter initialEntries={["/admin/orders"]}>
-                <AppRouter />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/orders"]}>
+                    <AppRouter />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     });
 
-    it("redirects the retired admin notifications route to the dashboard", async () => {
+    it("opens the admin notifications center", async () => {
         authState.value = { loading: false, userData: buildUser(Role.Admin) };
         render(
             <MemoryRouter initialEntries={["/admin/notifications"]}>
@@ -243,14 +290,16 @@ describe("admin routing", () => {
             </MemoryRouter>,
         );
 
-        expect(await screen.findByTestId("admin-dashboard-page")).toBeInTheDocument();
+        expect(await screen.findByTestId("admin-notifications-page")).toBeInTheDocument();
     });
 
     it("keeps the forbidden route public", async () => {
         render(
-            <MemoryRouter initialEntries={["/403"]}>
-                <AppRouter />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/403"]}>
+                    <AppRouter />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();

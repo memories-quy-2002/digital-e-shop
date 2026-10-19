@@ -11,6 +11,8 @@ import { EmailWebhookController } from "./email-webhook.controller";
 import { EmailWebhookService, RESEND_WEBHOOK_VERIFIER } from "./email-webhook.service";
 import { AdminEmailController } from "./admin-email.controller";
 import { verifyResendWebhook } from "./resend.provider";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 export function createEmailProvider(config: EmailConfig): EmailProvider {
     if (config.mode === "disabled") return new DisabledEmailProvider();
@@ -32,6 +34,8 @@ export class EmailModule {
             imports: [TasksModule],
             controllers: [EmailWebhookController, AdminEmailController],
             providers: [
+                AuthGuard,
+                RolesGuard,
                 { provide: EMAIL_CONFIG, useValue: config },
                 { provide: EMAIL_PROVIDER, useFactory: () => createEmailProvider(config) },
                 TransactionalEmailRepository,

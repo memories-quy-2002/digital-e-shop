@@ -1,4 +1,4 @@
-import React, { Activity, useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
+import React, { useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -121,9 +121,10 @@ const ProductPage = () => {
     });
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
-    const [toggle, setToggle] = useState<boolean>(false);
     const [quantity, setQuantity] = useState<number>(1);
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [activeImage, setActiveImage] = useState<string>("");
+    const [loadedImageUrl, setLoadedImageUrl] = useState("");
     const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
         wishlist,
         (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
@@ -406,14 +407,17 @@ const ProductPage = () => {
     };
 
     const handleAddingCart = async (_user_id: string, product: Product) => {
-        if (availableStock === 0) {
-            addToast("Out of stock", "The product is out of stock.");
+        if (availableStock === 0 || isAddingToCart) {
+            if (availableStock === 0) {
+                addToast("Out of stock", "The product is out of stock.");
+            }
             return;
         } else if (quantity === 0) {
             addToast("Invalid action", "The quantity should be non-zero to complete the action.");
             return;
         }
         try {
+            setIsAddingToCart(true);
             if (await addItem(product.id, quantity)) {
                 addToast("Add cart item", "Product added to cart successfully.");
             } else {
@@ -421,6 +425,8 @@ const ProductPage = () => {
             }
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
+        } finally {
+            setIsAddingToCart(false);
         }
     };
 
@@ -600,23 +606,10 @@ const ProductPage = () => {
         productDetail.sale_price < productDetail.price
             ? productDetail.sale_price
             : productDetail.price;
-    const heroStats = [
-        {
-            label: t("product.ratingLabel"),
-            value: `${formatProductRating(displayedRating)} / 5`,
-        },
-        {
-            label: t("product.priceLabel"),
-            value: formatCurrency(activePrice),
-        },
-        {
-            label: t("product.stockLabel"),
-            value:
-                availableStock > 0
-                    ? t("product.stockValueIn", availableStock)
-                    : t("product.stockValueOut"),
-        },
-    ];
+    const hasDiscount = activePrice < productDetail.price;
+    const discountPercentage = hasDiscount
+        ? Math.round(((productDetail.price - activePrice) / productDetail.price) * 100)
+        : 0;
 
     return (
         <Layout>
@@ -658,7 +651,8 @@ const ProductPage = () => {
                             {activeImageUrl ? (
                                 <button
                                     type="button"
-                                    className="product-page__gallery-main__zoom"
+                                    key={activeImageUrl}
+                                    className={`product-page__gallery-main__zoom${loadedImageUrl === activeImageUrl ? " is-image-loaded" : ""}`}
                                     onClick={() => setIsLightboxOpen(true)}
                                     aria-label={`Open ${productDetail.name} image in full size`}
                                 >
@@ -670,6 +664,7 @@ const ProductPage = () => {
                                         alt={productDetail.name}
                                         eager
                                         fetchPriority="high"
+                                        onLoad={() => setLoadedImageUrl(activeImageUrl)}
                                         onError={(e) => {
                                             setImageFallback(e.currentTarget, placeholderImageSource.src);
                                         }}
@@ -734,14 +729,35 @@ const ProductPage = () => {
                                 </h1>
                             </div>
 
-                            <div className="product-page__hero-stats" aria-label="Product highlights">
-                                {heroStats.map((item) => (
-                                    <article key={item.label}>
-                                        <span>{item.label}</span>
-                                        <strong>{item.value}</strong>
-                                    </article>
-                                ))}
+                            <div className="product-page__summary-price" aria-label={t("product.priceLabel")}>
+                                <div className="product-page__summary-price-copy">
+                                    <span>{t("product.priceLabel")}</span>
+                                    <strong>{formatCurrency(activePrice)}</strong>
+                                    {hasDiscount ? <del>{formatCurrency(productDetail.price)}</del> : null}
+                                </div>
+                                {hasDiscount ? (
+                                    <span className="product-page__summary-discount">
+                                        {t("product.discountBadge", discountPercentage)}
+                                    </span>
+                                ) : null}
                             </div>
+
+                            <div className="product-page__summary-facts">
+                                <div className="product-page__summary-rating" aria-label={t("product.ratingLabel")}>
+                                    <span aria-hidden="true">★</span>
+                                    <strong>{formatProductRating(displayedRating)} / 5</strong>
+                                    <small>{t("product.reviewsCount", displayedReviewCount)}</small>
+                                </div>
+                                <div className={`product-page__summary-stock${availableStock > 0 ? " is-available" : " is-unavailable"}`}>
+                                    <span>{t("product.stockLabel")}</span>
+                                    <strong>
+                                        {availableStock > 0
+                                            ? t("product.stockValueIn", availableStock)
+                                            : t("product.stockValueOut")}
+                                    </strong>
+                                </div>
+                            </div>
+
                         </div>
 
                         <div className="product-page__purchase-card">
@@ -751,7 +767,12 @@ const ProductPage = () => {
                                         {t("product.quantity")}
                                     </label>
                                     <div className="product-page__quantity">
-                                        <button type="button" onClick={handleDecrease} disabled={availableStock <= 0}>
+                                        <button
+                                            type="button"
+                                            onClick={handleDecrease}
+                                            disabled={availableStock <= 0}
+                                            aria-label={t("cart.decreaseQty")}
+                                        >
                                             -
                                         </button>
                                         <input
@@ -771,7 +792,12 @@ const ProductPage = () => {
                                             }
                                             disabled={availableStock <= 0}
                                         />
-                                        <button type="button" onClick={handleIncrease} disabled={availableStock <= 0}>
+                                        <button
+                                            type="button"
+                                            onClick={handleIncrease}
+                                            disabled={availableStock <= 0}
+                                            aria-label={t("cart.increaseQty")}
+                                        >
                                             +
                                         </button>
                                     </div>
@@ -782,7 +808,17 @@ const ProductPage = () => {
                                     </span>
                                 </div>
                                 <button
-                                    className={`product-page__button product-page__button--secondary${
+                                    className="product-page__button product-page__button--primary product-page__button--purchase"
+                                    type="button"
+                                    onClick={() => handleAddingCart(uid, productDetail)}
+                                    disabled={availableStock <= 0 || isAddingToCart}
+                                    aria-busy={isAddingToCart}
+                                    data-testid="product-purchase-button"
+                                >
+                                    {t("product.addToCart")}
+                                </button>
+                                <button
+                                        className={`product-page__button product-page__button--secondary product-page__button--compare${
                                         isComparisonSelected ? " product-page__button--active" : ""
                                     }`}
                                     type="button"
@@ -793,15 +829,7 @@ const ProductPage = () => {
                                     {isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare")}
                                 </button>
                                 <button
-                                    className="product-page__button product-page__button--primary"
-                                    type="button"
-                                    onClick={() => handleAddingCart(uid, productDetail)}
-                                    disabled={availableStock <= 0}
-                                >
-                                    {t("product.addToCart")}
-                                </button>
-                                <button
-                                    className={`product-page__button product-page__button--secondary${
+                                        className={`product-page__button product-page__button--secondary product-page__button--wishlist${
                                         isWishlisted ? " product-page__button--active" : ""
                                     }`}
                                     type="button"
@@ -832,28 +860,11 @@ const ProductPage = () => {
                     </div>
                 </section>
 
-                <div className="product-page__tabs" data-testid="product-tabs">
-                    <div className="product-page__tabs-nav">
-                        <button
-                            type="button"
-                            className={`product-page__tab${!toggle ? " product-page__tab--active" : ""}`}
-                            onClick={() => setToggle(false)}
-                        >
-                            {t("product.tabsDescription")}
-                        </button>
-                        <button
-                            type="button"
-                            className={`product-page__tab${toggle ? " product-page__tab--active" : ""}`}
-                            onClick={() => setToggle(true)}
-                        >
-                            {t("product.tabsReviews", optimisticReviews.length)}
-                        </button>
-                        <div className="product-page__tabs-line"></div>
-                    </div>
-                </div>
-
-                <div className="product-page__tab-panels">
-                    <Activity mode={toggle ? "hidden" : "visible"}>
+                <section
+                    className="product-page__details-section"
+                    aria-label={t("product.tabsDescription")}
+                    data-testid="product-details-section"
+                >
                         <div className="product-page__description">
                             <div className="product-page__description-card">
                                 <h2>{t("product.description")}</h2>
@@ -906,9 +917,16 @@ const ProductPage = () => {
                                 )}
                             </div>
                         </div>
-                    </Activity>
+                </section>
 
-                    <Activity mode={toggle ? "visible" : "hidden"}>
+                <section
+                    className="product-page__reviews-section"
+                    aria-labelledby="product-reviews-heading"
+                    data-testid="product-reviews-section"
+                >
+                    <h2 className="product-page__reviews-heading" id="product-reviews-heading">
+                        {t("product.tabsReviews", optimisticReviews.length)}
+                    </h2>
                         <div className="product-page__reviews">
                             <div className="product-page__reviews-card" data-testid="product-reviews-card">
                                 <section className="product-page__reviews-summary" data-testid="product-reviews-summary">
@@ -1021,8 +1039,7 @@ const ProductPage = () => {
                                 </section>
                             </div>
                         </div>
-                    </Activity>
-                </div>
+                </section>
 
                 <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
                     <div className="product-page__recommendations-head">

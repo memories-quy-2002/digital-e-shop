@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -6,20 +6,24 @@ import {
     verifyFirebasePasswordResetCode,
 } from "../../../services/firebase";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
+import { useT } from "../../../hooks/useT";
+import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import "../../../styles/features/auth/_login.scss";
 
 type ResetState = "loading" | "ready" | "success" | "error";
 
 const ResetPasswordPage = () => {
+    const t = useT();
+    const copy = useCustomerJourneyCopy();
+    const copyRef = useRef(copy);
+    copyRef.current = copy;
     const [searchParams] = useSearchParams();
     const firebaseCode = searchParams.get("oobCode")?.trim() || "";
     const [state, setState] = useState<ResetState>(firebaseCode ? "loading" : "error");
     const [password, setPassword] = useState("");
     const [confirmation, setConfirmation] = useState("");
-    const [message, setMessage] = useState(
-        firebaseCode
-            ? "Validating your password reset link..."
-            : "This password reset link is missing its Firebase action code.",
+    const [message, setMessage] = useState<string>(
+        firebaseCode ? copy.auth.resetValidatingLink : copy.auth.resetMissingCode,
     );
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,10 +35,10 @@ const ResetPasswordPage = () => {
             try {
                 const verifiedEmail = await verifyFirebasePasswordResetCode(firebaseCode);
                 setState("ready");
-                setMessage(`Resetting password for ${verifiedEmail}.`);
+                setMessage(copyRef.current.auth.resettingFor(verifiedEmail));
             } catch {
                 setState("error");
-                setMessage("This password reset link is invalid or expired.");
+                setMessage(copyRef.current.auth.resetInvalidLink);
             }
         };
 
@@ -45,11 +49,11 @@ const ResetPasswordPage = () => {
         event.preventDefault();
         setError("");
         if (password.length < 8) {
-            setError("Password must be at least 8 characters.");
+            setError(copy.auth.resetPasswordTooShort);
             return;
         }
         if (password !== confirmation) {
-            setError("Passwords do not match.");
+            setError(copy.auth.resetPasswordsDoNotMatch);
             return;
         }
 
@@ -57,11 +61,11 @@ const ResetPasswordPage = () => {
             setIsSubmitting(true);
             await confirmFirebasePasswordReset(firebaseCode, password);
             setState("success");
-            setMessage("Your password has been reset successfully.");
+            setMessage(copy.auth.resetPasswordSuccess);
         } catch (error: unknown) {
             const message = getFirebaseAuthErrorMessage(
                 error,
-                "Unable to reset your password. Request a new Firebase link and try again.",
+                copy.auth.resetPasswordFallback,
             );
             setState("error");
             setMessage(message);
@@ -74,17 +78,17 @@ const ResetPasswordPage = () => {
     return (
         <main className="auth-page">
             <Helmet>
-                <title>Reset password | Digital-E</title>
-                <meta name="description" content="Set a new Digital-E account password." />
+                <title>{t("auth.resetTitle")} | Digital-E</title>
+                <meta name="description" content={copy.auth.resetMetaDescription} />
             </Helmet>
             <section className="login__form" aria-labelledby="reset-password-title">
                 <h1 id="reset-password-title" className="login__form__title">
-                    {state === "success" ? "Password reset" : "Choose a new password"}
+                    {state === "success" ? copy.auth.resetPageSuccessTitle : copy.auth.resetPageChooseTitle}
                 </h1>
                 <p className="login__form__subtitle" role={state === "error" ? "alert" : "status"}>{message}</p>
                 {state === "ready" ? (
                     <form className="login__form__container" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
-                        <label htmlFor="reset-password-new">New password</label>
+                        <label htmlFor="reset-password-new">{copy.auth.resetNewPasswordLabel}</label>
                         <input
                             id="reset-password-new"
                             type="password"
@@ -95,7 +99,7 @@ const ResetPasswordPage = () => {
                             aria-invalid={Boolean(error)}
                             aria-describedby={error ? "reset-password-error" : undefined}
                         />
-                        <label htmlFor="reset-password-confirm">Confirm new password</label>
+                        <label htmlFor="reset-password-confirm">{copy.auth.resetConfirmPasswordLabel}</label>
                         <input
                             id="reset-password-confirm"
                             type="password"
@@ -108,12 +112,12 @@ const ResetPasswordPage = () => {
                         />
                         {error ? <div id="reset-password-error" className="login__form__errors" role="alert"><div>{error}</div></div> : null}
                         <button className="login__form__submit" type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Resetting..." : "Reset password"}
+                            {isSubmitting ? copy.auth.resettingPassword : copy.auth.submitResetPassword}
                         </button>
                     </form>
                 ) : null}
                 {state === "success" || state === "error" ? (
-                    <div className="login__form__switch"><Link to="/login">Back to login</Link></div>
+                    <div className="login__form__switch"><Link to="/login">{t("auth.backToLogin")}</Link></div>
                 ) : null}
             </section>
         </main>
