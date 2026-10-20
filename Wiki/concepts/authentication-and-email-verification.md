@@ -23,6 +23,10 @@ When a verified Firebase identity matches a legacy local MySQL row by email, the
 
 When an already Firebase-linked row is paired with a recreated Firebase account (for example, after local emulator data is reset), the server may rebind only the provider UID when the email, database user ID, provider type, and previous provider UID all match. This keeps existing cart and order ownership intact. It does not broaden legacy linking: an unverified identity still cannot bind a local row that has no Firebase identity.
 
+## Demo account seeding
+
+The local Auth Emulator fixtures use deterministic UIDs, and the local MySQL seed uses those same values for `users.id` and `provider_user_id`. The production demo-reset workflow first verifies the existing email/password Firebase accounts using read-only Admin SDK calls, then seeds MySQL with their current UIDs and Firebase `emailVerified` state. An unverified Firebase account can still be seeded and sign in; Firebase verification continues to gate checkout and review actions. The workflow does not create accounts, set passwords, or change Firebase users. The preflight runs before the destructive database reset so missing accounts or Admin credentials stop the workflow before MySQL is changed.
+
 ## Access policy
 
 AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, PayOS checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
