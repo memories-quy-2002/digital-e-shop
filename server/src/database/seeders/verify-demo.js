@@ -13,6 +13,7 @@ const {
 } = require("../../config/database-target");
 const { resolveDemoDatabaseSsl } = require("./database-ssl.js");
 const { DEMO_SEED_PLAN, DEMO_SEED_MIN_PRICE_VND, validateDemoSeedPlan } = require("./demo-seed-data");
+const { resolveDemoSeedPlan } = require("./demo-firebase-identities");
 
 const DEMO_ORDER_EVENT_NOTE_PREFIX = "Digital-E demo seed order%";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
@@ -49,18 +50,19 @@ const assertDemoSeedTarget = () => {
 const query = (connection, sql, params = []) => connection.query(sql, params).then(([rows]) => rows);
 const firstCount = (rows) => Number(rows[0]?.count || 0);
 
-const verify = async (connection) => {
-    validateDemoSeedPlan(DEMO_SEED_PLAN);
+const verify = async (connection, plan) => {
+    validateDemoSeedPlan(plan);
 
-    const userIds = DEMO_SEED_PLAN.users.map((user) => user.id);
-    const customerIds = DEMO_SEED_PLAN.users.filter((user) => user.role === USER_ROLE.CUSTOMER).map((user) => user.id);
-    const productNames = DEMO_SEED_PLAN.products.map((product) => product.name);
+    const userIds = plan.users.map((user) => user.id);
+    const customerIds = plan.users.filter((user) => user.role === USER_ROLE.CUSTOMER).map((user) => user.id);
+    const productNames = plan.products.map((product) => product.name);
     const productIds = (await query(connection, "SELECT id FROM products WHERE name IN (?)", [productNames])).map((row) => Number(row.id));
-    const [users, verifiedUsers, categories, brands, products, productImages, invalidCatalogProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents, customerOrderCounts] = await Promise.all([
+    const [users, firebaseLinkedUsers, verifiedUsers, categories, brands, products, productImages, invalidCatalogProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents, customerOrderCounts] = await Promise.all([
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?)", [userIds]),
+        query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?) AND auth_provider = 'firebase' AND provider_user_id = id", [userIds]),
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?) AND email_verified_at IS NOT NULL", [userIds]),
-        query(connection, "SELECT COUNT(DISTINCT c.name) AS count FROM categories c WHERE c.name IN (?)", [DEMO_SEED_PLAN.categories]),
-        query(connection, "SELECT COUNT(DISTINCT b.name) AS count FROM brands b WHERE b.name IN (?)", [DEMO_SEED_PLAN.brands]),
+        query(connection, "SELECT COUNT(DISTINCT c.name) AS count FROM categories c WHERE c.name IN (?)", [plan.categories]),
+        query(connection, "SELECT COUNT(DISTINCT b.name) AS count FROM brands b WHERE b.name IN (?)", [plan.brands]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?)", [productNames]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?) AND main_image IS NOT NULL AND main_image <> ''", [productNames]),
         query(
@@ -89,7 +91,7 @@ const verify = async (connection) => {
         query(connection, "SELECT COUNT(*) AS count FROM customer_addresses WHERE user_id IN (?)", [userIds]),
         query(connection, "SELECT COUNT(*) AS count FROM customer_notifications WHERE user_id IN (?) AND title LIKE ?", [userIds, `${DEMO_NOTIFICATION_PREFIX}%`]),
         query(connection, "SELECT COUNT(*) AS count FROM customer_sessions WHERE user_id IN (?)", [userIds]),
-        query(connection, "SELECT COUNT(*) AS count FROM discounts WHERE discount_code IN (?)", [DEMO_SEED_PLAN.discounts.map((discount) => discount.code)]),
+        query(connection, "SELECT COUNT(*) AS count FROM discounts WHERE discount_code IN (?)", [plan.discounts.map((discount) => discount.code)]),
         query(connection, "SELECT COUNT(*) AS count FROM inventory_movements WHERE note LIKE ?", [`${DEMO_MOVEMENT_PREFIX}%`]),
         query(
             connection,
@@ -258,6 +260,7 @@ const verify = async (connection) => {
 
     const actual = {
         users: firstCount(users),
+        firebaseLinkedUsers: firstCount(firebaseLinkedUsers),
         verifiedUsers: firstCount(verifiedUsers),
         categories: firstCount(categories),
         brands: firstCount(brands),
@@ -293,31 +296,32 @@ const verify = async (connection) => {
         ).length,
     };
 
-    const summary = validateDemoSeedPlan(DEMO_SEED_PLAN);
-    const accountCount = DEMO_SEED_PLAN.users.length;
+    const summary = validateDemoSeedPlan(plan);
+    const accountCount = plan.users.length;
     const itemCount = (ordersToCount) => ordersToCount.reduce((total, order) => total + order.items.length, 0);
     const expected = {
         users: summary.users,
-        verifiedUsers: summary.users,
+        firebaseLinkedUsers: summary.users,
+        verifiedUsers: plan.users.filter((user) => user.emailVerified).length,
         categories: summary.categories,
         brands: summary.brands,
         products: summary.products,
         productImages: summary.products,
         invalidCatalogProducts: 0,
         carts: summary.carts,
-        cartItems: DEMO_SEED_PLAN.carts.reduce((total, cart) => total + cart.items.length, 0),
+        cartItems: plan.carts.reduce((total, cart) => total + cart.items.length, 0),
         orders: summary.orders,
-        orderItems: itemCount(DEMO_SEED_PLAN.orders),
+        orderItems: itemCount(plan.orders),
         reviews: summary.reviews,
         wishlists: summary.wishlists,
         addresses: summary.addresses,
         notifications: summary.notifications,
         sessions: summary.sessions,
         discounts: summary.discounts,
-        inventoryMovements: DEMO_SEED_PLAN.orders
+        inventoryMovements: plan.orders
             .filter((order) => order.status === ORDER_STATUS.DONE)
             .reduce((total, order) => total + order.items.length, 0),
-        statusEvents: DEMO_SEED_PLAN.orders.reduce((total, order) => total + (order.status === ORDER_STATUS.PENDING ? 1 : 2), 0),
+        statusEvents: plan.orders.reduce((total, order) => total + (order.status === ORDER_STATUS.PENDING ? 1 : 2), 0),
         accountsMeetingOrderMinimum: accountCount,
         accountsWithCompletedAndCanceledOrders: accountCount,
         productOrphans: 0,
@@ -342,6 +346,7 @@ const verify = async (connection) => {
 
 const main = async () => {
     assertDemoSeedTarget();
+    const plan = await resolveDemoSeedPlan(DEMO_SEED_PLAN);
 
     const pool = mysql.createPool({
         host: process.env.DB_HOST,
@@ -357,7 +362,7 @@ const main = async () => {
 
     const connection = await pool.getConnection();
     try {
-        await verify(connection);
+        await verify(connection, plan);
     } finally {
         connection.release();
         await pool.end();
