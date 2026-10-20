@@ -34,6 +34,7 @@ jobs:
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_SSL: ${{ secrets.DB_SSL }}
       NODE_ENV: production
+      FIREBASE_PROJECT_ID: graduation-project-5bbfb
       DEMO_SEED_MODE: full-reset
       ALLOW_DESTRUCTIVE_DEMO_SEED: 'true'
       DEMO_SEED_CONFIRMATION: ${{ inputs.confirmation }}
@@ -71,6 +72,12 @@ jobs:
       - name: Install server dependencies
         working-directory: server
         run: pnpm install --frozen-lockfile
+      - name: Verify Firebase demo accounts before database reset
+        working-directory: server
+        env:
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+        run: pnpm demo:firebase:verify
       - name: Reset selected database from committed legacy baseline
         working-directory: server
         run: pnpm demo:reset
@@ -82,9 +89,15 @@ jobs:
         run: pnpm prisma:migrate:deploy
       - name: Run committed demo seed plan
         working-directory: server
+        env:
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: pnpm prisma:seed
       - name: Verify demo graph and counts
         working-directory: server
+        env:
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: pnpm demo:verify
       - name: Verify final Prisma migration status
         working-directory: server

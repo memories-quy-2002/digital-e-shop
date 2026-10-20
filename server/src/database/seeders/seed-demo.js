@@ -18,6 +18,7 @@ const {
     DEMO_SEED_MIN_PRICE_VND,
     validateDemoSeedPlan,
 } = require("./demo-seed-data");
+const { resolveDemoSeedPlan } = require("./demo-firebase-identities");
 const { USER_ACCOUNT_STATUS } = require("./constants.js");
 
 const LOOKUP_TABLES = new Set(["categories", "brands"]);
@@ -79,8 +80,8 @@ const upsertDemoUsers = async (connection, plan, passwordHash) => {
     for (const [index, user] of plan.users.entries()) {
         await connection.query(
             `INSERT INTO users
-                (id, username, email, password, role, token, first_name, last_name, status, email_verified_at, created_at, last_login)
-            VALUES (?, ?, ?, ?, ?, '', ?, ?, '${USER_ACCOUNT_STATUS.ACTIVE}', UTC_TIMESTAMP(), ?, ?)
+                (id, username, email, password, role, token, first_name, last_name, status, auth_provider, provider_user_id, email_verified_at, created_at, last_login)
+            VALUES (?, ?, ?, ?, ?, '', ?, ?, '${USER_ACCOUNT_STATUS.ACTIVE}', ?, ?, IF(?, UTC_TIMESTAMP(), NULL), ?, ?)
             ON DUPLICATE KEY UPDATE
                 username = VALUES(username),
                 email = VALUES(email),
@@ -90,7 +91,9 @@ const upsertDemoUsers = async (connection, plan, passwordHash) => {
                 first_name = VALUES(first_name),
                 last_name = VALUES(last_name),
                 status = '${USER_ACCOUNT_STATUS.ACTIVE}',
-                email_verified_at = UTC_TIMESTAMP()`,
+                auth_provider = VALUES(auth_provider),
+                provider_user_id = VALUES(provider_user_id),
+                email_verified_at = VALUES(email_verified_at)`,
             [
                 user.id,
                 user.username,
@@ -99,6 +102,9 @@ const upsertDemoUsers = async (connection, plan, passwordHash) => {
                 user.role,
                 user.firstName,
                 user.lastName,
+                user.authProvider,
+                user.providerUserId,
+                user.emailVerified,
                 dateDaysAgo(30 - index),
                 dateDaysAgo(1, 8 + index),
             ],
@@ -697,8 +703,9 @@ const seedDiscounts = async (connection, plan) => {
 };
 
 const main = async () => {
-    const summary = validateDemoSeedPlan(DEMO_SEED_PLAN);
     assertDemoSeedTarget();
+    const plan = await resolveDemoSeedPlan(DEMO_SEED_PLAN);
+    const summary = validateDemoSeedPlan(plan);
 
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
     const pool = mysql.createPool({
@@ -716,18 +723,18 @@ const main = async () => {
 
     try {
         await connection.beginTransaction();
-        const userIds = await upsertDemoUsers(connection, DEMO_SEED_PLAN, passwordHash);
-        const { productIds } = await upsertDemoProducts(connection, DEMO_SEED_PLAN);
+        const userIds = await upsertDemoUsers(connection, plan, passwordHash);
+        const { productIds } = await upsertDemoProducts(connection, plan);
         const removedCatalogData = await clearLegacyCatalogProducts(connection, Array.from(productIds.values()));
-        await clearDemoRows(connection, DEMO_SEED_PLAN, userIds, productIds);
-        await seedAddresses(connection, DEMO_SEED_PLAN, userIds);
-        await seedCarts(connection, DEMO_SEED_PLAN, userIds, productIds);
-        const orderIds = await seedOrders(connection, DEMO_SEED_PLAN, userIds, productIds, DEMO_SEED_PLAN.products);
-        await seedReviews(connection, DEMO_SEED_PLAN, userIds, productIds);
-        await seedWishlists(connection, DEMO_SEED_PLAN, userIds, productIds);
-        await seedNotifications(connection, DEMO_SEED_PLAN, userIds, orderIds);
-        await seedSessions(connection, DEMO_SEED_PLAN, userIds);
-        await seedDiscounts(connection, DEMO_SEED_PLAN);
+        await clearDemoRows(connection, plan, userIds, productIds);
+        await seedAddresses(connection, plan, userIds);
+        await seedCarts(connection, plan, userIds, productIds);
+        const orderIds = await seedOrders(connection, plan, userIds, productIds, plan.products);
+        await seedReviews(connection, plan, userIds, productIds);
+        await seedWishlists(connection, plan, userIds, productIds);
+        await seedNotifications(connection, plan, userIds, orderIds);
+        await seedSessions(connection, plan, userIds);
+        await seedDiscounts(connection, plan);
         await connection.commit();
 
         process.stdout.write(`Digital-E demo seed complete: ${JSON.stringify(summary)}\n`);

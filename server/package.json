@@ -40,6 +40,7 @@
         "seed:demo": "corepack pnpm@12.4.2 prisma:seed",
         "prisma:studio": "prisma studio --config prisma.config.ts",
         "demo:reset": "node src/database/seeders/reset-demo-database.js",
+        "demo:firebase:verify": "node src/database/seeders/verify-demo-firebase.js",
         "demo:verify": "node src/database/seeders/verify-demo.js",
         "seed:delivery:local": "node src/database/seeders/seed-local-delivery-settings.js",
         "firebase:emulator": "pnpm dlx --allow-build=protobufjs --allow-build=re2 --package=firebase-tools firebase emulators:start --only auth --project demo-digital-e-local --config=../firebase.json --import=../.firebase/emulator-data --export-on-exit",
