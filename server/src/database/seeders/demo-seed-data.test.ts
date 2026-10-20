@@ -143,15 +143,24 @@ describe("Digital-E demo seed graph", () => {
         expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("admin account");
     });
 
-    it("requires every demo account to be marked as email verified", () => {
-        const invalidPlan = {
+    it("allows Firebase demo accounts to retain their email verification state", () => {
+        const unverifiedPlan = {
             ...DEMO_SEED_PLAN,
             users: DEMO_SEED_PLAN.users.map((user: Record<string, unknown>, index: number) =>
                 index === 0 ? { ...user, emailVerified: false } : user,
             ),
         };
 
-        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("verified email");
+        expect(() => validateDemoSeedPlan(unverifiedPlan)).not.toThrow();
+
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            users: DEMO_SEED_PLAN.users.map((user: Record<string, unknown>, index: number) =>
+                index === 0 ? { ...user, emailVerified: undefined } : user,
+            ),
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("email verification state");
     });
 
     it("keeps notification order keys and gives each account the required order history", () => {

@@ -875,8 +875,8 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     if (!plan.users.some((user) => user.role === USER_ROLE.CUSTOMER)) {
         throw new Error("Demo seed plan must include a customer account");
     }
-    if (plan.users.some((user) => user.emailVerified !== true)) {
-        throw new Error("Demo seed plan requires every account to have a verified email");
+    if (plan.users.some((user) => typeof user.emailVerified !== "boolean")) {
+        throw new Error("Demo seed plan requires an email verification state for every account");
     }
 
     const users = new Set(plan.users.map((user) => user.key));

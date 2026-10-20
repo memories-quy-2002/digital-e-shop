@@ -124,3 +124,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 
 - 2026-10-19 — Codex: documented UUID v7 public IDs for orders, support tickets and after-sales requests, numeric compatibility, backfill/defaults and deployment ordering.
 - 2026-10-19 - Codex - Added separate API liveness and MySQL readiness probes while preserving the legacy health endpoint; documented probe behavior and serverless limits; see [[architecture]].
+- 2026-10-20 - Codex - Allow demo seed identities to keep Firebase email verification state so unverified accounts remain usable for sign-in while restricted actions stay gated.
