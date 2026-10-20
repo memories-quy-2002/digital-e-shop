@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -207,12 +207,12 @@ const AdminProductPage = () => {
         setShow(true);
     };
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setShow(false);
         setSelectedProduct(null);
         setEditValidationErrors({});
         setAttributeError(undefined);
-    };
+    }, []);
 
     const handleEditFieldChange = (field: ProductFormField, value: string) => {
         setEditForm((currentForm) => ({ ...currentForm, [field]: value }));

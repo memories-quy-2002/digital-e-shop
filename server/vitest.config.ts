@@ -10,7 +10,6 @@ export default defineConfig({
         environment: "node",
         globals: true,
         env: {
-            PAYOS_USD_TO_VND_RATE: "25000",
             // Prisma validates the URL during module import. Unit tests never
             // need a database, so keep their connection target local and closed.
             NODE_ENV: "test",

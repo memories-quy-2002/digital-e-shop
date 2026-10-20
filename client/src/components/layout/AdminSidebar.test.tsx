@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { isValidElement, type ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../context/LocaleContext";
 import AdminSidebar from "./AdminSidebar";
 import { adminNavGroups } from "./adminNavigation";
@@ -20,6 +20,10 @@ const renderSidebar = (isCollapsed = false) => {
 };
 
 describe("AdminSidebar", () => {
+    beforeEach(() => {
+        window.sessionStorage.clear();
+    });
+
     it("uses a distinct icon for every destination in the collapsed sidebar", () => {
         const icons = adminNavGroups.flatMap((group) => group.items.map((item) => item.icon));
 
@@ -99,7 +103,7 @@ describe("AdminSidebar", () => {
         expect(screen.getByRole("link", { name: "Orders" })).toBeInTheDocument();
     });
 
-    it("opens System & setup for an active page and collapses it after leaving that group", () => {
+    it("keeps System & setup expanded after navigating to another group", () => {
         render(
             <LocaleProvider>
                 <MemoryRouter initialEntries={["/admin/audit"]}>
@@ -113,11 +117,11 @@ describe("AdminSidebar", () => {
 
         fireEvent.click(screen.getByRole("link", { name: "Orders" }));
 
-        expect(screen.getByRole("button", { name: "System & setup" })).toHaveAttribute("aria-expanded", "false");
-        expect(screen.queryByRole("link", { name: "Audit log" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "System & setup" })).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByRole("link", { name: "Audit log" })).toBeInTheDocument();
     });
 
-    it("opens People & support for an active page and collapses it after leaving that group", () => {
+    it("keeps People & support expanded after navigating to another group", () => {
         render(
             <LocaleProvider>
                 <MemoryRouter initialEntries={["/admin/support"]}>
@@ -131,8 +135,33 @@ describe("AdminSidebar", () => {
 
         fireEvent.click(screen.getByRole("link", { name: "Orders" }));
 
-        expect(screen.getByRole("button", { name: "People & support" })).toHaveAttribute("aria-expanded", "false");
-        expect(screen.queryByRole("link", { name: "Support" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "People & support" })).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByRole("link", { name: "Support" })).toBeInTheDocument();
+    });
+
+    it("restores expanded groups when the sidebar remounts on another admin page", () => {
+        const firstRender = render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/orders"]}>
+                    <AdminSidebar />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Finance" }));
+        expect(screen.getByRole("link", { name: "Payment reconciliation" })).toBeInTheDocument();
+        firstRender.unmount();
+
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/accounts"]}>
+                    <AdminSidebar />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        expect(screen.getByRole("button", { name: "Finance" })).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByRole("link", { name: "Payment reconciliation" })).toBeInTheDocument();
     });
 
     it("communicates and triggers the collapsed navigation state", () => {

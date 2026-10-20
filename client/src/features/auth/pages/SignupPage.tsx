@@ -17,6 +17,8 @@ import { useT } from "../../../hooks/useT";
 import { useLocale } from "../../../context/LocaleContext";
 
 interface User {
+    firstName: string;
+    lastName: string;
     username: string;
     email: string;
     password: string;
@@ -29,7 +31,7 @@ const SignupPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const { setUserData } = useAuth();
-    const [user, setUser] = useState<User>({ username: "", email: "", password: "", confirm: "" });
+    const [user, setUser] = useState<User>({ firstName: "", lastName: "", username: "", email: "", password: "", confirm: "" });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +42,9 @@ const SignupPage = () => {
         const map: Record<string, string> = {};
         for (const err of errors) {
             const lower = err.toLowerCase();
-            if (lower.includes("match") && lower.includes("password")) map.confirm = err;
+            if ((lower.includes("match") && lower.includes("password")) || err === t("auth.passwordMismatch")) map.confirm = err;
+            else if (lower.includes("first name") || err === t("auth.firstNameRequired")) map.firstName = err;
+            else if (lower.includes("last name") || err === t("auth.lastNameRequired")) map.lastName = err;
             else if (lower.includes("username")) map.username = err;
             else if (lower.includes("email") && !lower.includes("password")) map.email = err;
             else if (lower.includes("password") && lower.includes("confirm")) map.confirm = err;
@@ -48,7 +52,7 @@ const SignupPage = () => {
             else map.general = err;
         }
         return map;
-    }, [errors]);
+    }, [errors, t]);
 
     const passwordStrength = useMemo(() => {
         const checks = [
@@ -61,6 +65,19 @@ const SignupPage = () => {
         return checks.filter(Boolean).length;
     }, [user.password]);
 
+    const passwordsMismatch = user.confirm.length > 0 && user.password !== user.confirm;
+    const hasRequiredFields = Boolean(
+        user.firstName.trim()
+        && user.lastName.trim()
+        && user.username.trim()
+        && user.email.trim()
+        && user.password
+        && user.confirm,
+    );
+    const confirmPasswordError = passwordsMismatch
+        ? t("auth.passwordMismatch")
+        : fieldErrors.confirm;
+
     useEffect(() => {
         if (errors.length === 0) return;
         formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
@@ -71,9 +88,15 @@ const SignupPage = () => {
         const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/;
         const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const normalizedFirstName = user.firstName.trim();
+        const normalizedLastName = user.lastName.trim();
         const normalizedUsername = user.username.trim();
         const normalizedEmail = user.email.trim();
 
+        if (!normalizedFirstName) errorsList.push(t("auth.firstNameRequired"));
+        else if (normalizedFirstName.length > 100) errorsList.push(t("auth.firstNameInvalid"));
+        if (!normalizedLastName) errorsList.push(t("auth.lastNameRequired"));
+        else if (normalizedLastName.length > 100) errorsList.push(t("auth.lastNameInvalid"));
         if (!normalizedUsername) {
             errorsList.push("Enter a username.");
         } else if (!usernamePattern.test(normalizedUsername)) {
@@ -92,7 +115,7 @@ const SignupPage = () => {
         if (!user.confirm) {
             errorsList.push("Confirm your password.");
         } else if (user.password !== user.confirm) {
-            errorsList.push("Passwords do not match.");
+            errorsList.push(t("auth.passwordMismatch"));
         }
         return errorsList;
     };
@@ -100,12 +123,16 @@ const SignupPage = () => {
     const clearFieldError = (field: keyof User) => {
         setErrors((current) => current.filter((err) => {
             const lower = err.toLowerCase();
+            if (field === "firstName") return !lower.includes("first name") && err !== t("auth.firstNameRequired") && err !== t("auth.firstNameInvalid");
+            if (field === "lastName") return !lower.includes("last name") && err !== t("auth.lastNameRequired") && err !== t("auth.lastNameInvalid");
             if (field === "username") return !lower.includes("username");
             if (field === "email") return !lower.includes("email");
             if (field === "password") {
                 return !lower.includes("password") || (lower.includes("match") && lower.includes("password"));
             }
-            if (field === "confirm") return !(lower.includes("confirm") || lower.includes("match"));
+            if (field === "confirm") {
+                return err !== t("auth.passwordMismatch") && !(lower.includes("confirm") || lower.includes("match"));
+            }
             return false;
         }));
     };
@@ -130,6 +157,8 @@ const SignupPage = () => {
         try {
             await setFirebaseAuthPersistence(false);
             const normalizedEmail = user.email.trim();
+            const normalizedFirstName = user.firstName.trim();
+            const normalizedLastName = user.lastName.trim();
             const normalizedUsername = user.username.trim();
             let userCredential: UserCredential;
 
@@ -146,7 +175,11 @@ const SignupPage = () => {
 
             const firebaseUser = userCredential.user;
             const idToken = await firebaseUser.getIdToken(true);
-            const registrationResponse = await registerUser({ idToken, user: { username: normalizedUsername }, locale });
+            const registrationResponse = await registerUser({
+                idToken,
+                user: { username: normalizedUsername, firstName: normalizedFirstName, lastName: normalizedLastName },
+                locale,
+            });
 
             let verificationEmailSent = false;
             if (!firebaseUser.emailVerified) {
@@ -220,6 +253,45 @@ const SignupPage = () => {
                     noValidate
                     aria-busy={isSubmitting}
                 >
+                    <div className="auth-form__name-fields">
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-first-name">{t("auth.firstName")}</label>
+                        <input
+                            id="signup-first-name"
+                            className="auth-form__input"
+                            type="text"
+                            name="firstName"
+                            placeholder={t("auth.enterFirstName")}
+                            required
+                            maxLength={100}
+                            autoComplete="given-name"
+                            value={user.firstName}
+                            onChange={handleChangeInput}
+                            aria-invalid={Boolean(fieldErrors.firstName)}
+                            aria-describedby={fieldErrors.firstName ? "signup-first-name-error" : undefined}
+                        />
+                        {fieldErrors.firstName ? <p id="signup-first-name-error" className="auth-form__field-error" role="alert">{fieldErrors.firstName}</p> : null}
+                    </div>
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-last-name">{t("auth.lastName")}</label>
+                        <input
+                            id="signup-last-name"
+                            className="auth-form__input"
+                            type="text"
+                            name="lastName"
+                            placeholder={t("auth.enterLastName")}
+                            required
+                            maxLength={100}
+                            autoComplete="family-name"
+                            value={user.lastName}
+                            onChange={handleChangeInput}
+                            aria-invalid={Boolean(fieldErrors.lastName)}
+                            aria-describedby={fieldErrors.lastName ? "signup-last-name-error" : undefined}
+                        />
+                        {fieldErrors.lastName ? <p id="signup-last-name-error" className="auth-form__field-error" role="alert">{fieldErrors.lastName}</p> : null}
+                    </div>
+                    </div>
+
                     <div className="auth-form__field">
                         <label className="auth-form__label" htmlFor="signup-username">{t("auth.username")}</label>
                         <input
@@ -234,9 +306,10 @@ const SignupPage = () => {
                             value={user.username}
                             onChange={handleChangeInput}
                             aria-invalid={Boolean(fieldErrors.username)}
-                            aria-describedby={fieldErrors.username ? "signup-username-error" : undefined}
+                            aria-describedby={fieldErrors.username ? "signup-username-error" : "signup-username-help"}
                         />
                         {fieldErrors.username ? <p id="signup-username-error" className="auth-form__field-error" role="alert">{fieldErrors.username}</p> : null}
+                        {!fieldErrors.username ? <p id="signup-username-help" className="auth-form__field-help">{t("auth.usernameHint")}</p> : null}
                     </div>
 
                     <div className="auth-form__field">
@@ -314,8 +387,8 @@ const SignupPage = () => {
                                 autoComplete="new-password"
                                 value={user.confirm}
                                 onChange={handleChangeInput}
-                                aria-invalid={Boolean(fieldErrors.confirm)}
-                                aria-describedby={fieldErrors.confirm ? "signup-confirm-password-error" : undefined}
+                                aria-invalid={Boolean(confirmPasswordError)}
+                                aria-describedby={confirmPasswordError ? "signup-confirm-password-error" : undefined}
                             />
                             <button
                                 className="auth-form__password-toggle"
@@ -326,7 +399,7 @@ const SignupPage = () => {
                                 {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                             </button>
                         </div>
-                        {fieldErrors.confirm ? <p id="signup-confirm-password-error" className="auth-form__field-error" role="alert">{fieldErrors.confirm}</p> : null}
+                        {confirmPasswordError ? <p id="signup-confirm-password-error" className="auth-form__field-error" role="alert">{confirmPasswordError}</p> : null}
                     </div>
 
                     {fieldErrors.general ? (
@@ -335,7 +408,7 @@ const SignupPage = () => {
                         </div>
                     ) : null}
 
-                    <button className="auth-form__submit" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+                    <button className="auth-form__submit" type="submit" disabled={isSubmitting || !hasRequiredFields || passwordsMismatch} aria-busy={isSubmitting}>
                         {isSubmitting ? t("auth.creatingAccount") : t("auth.signUp")}
                         <span aria-hidden="true">→</span>
                     </button>

@@ -1,16 +1,17 @@
 # ADR 0003: Historical USD-canonical payment ledger decision
 
 Back to [[index]]. Status: **Accepted historical decision; superseded for new
-records**. Current-state refresh: 2026-09-20. Related: [[architecture]],
+records**. Current-state refresh: 2026-10-20. Related: [[architecture]],
 [[0001-mysql-primary-prisma-partial]], [[0005-vietnam-first-vnd-catalog-and-mock-payos]].
 
 ## Decision
 
-This page preserves the earlier USD-canonical design for historical context. New
-catalog, order, and payment-ledger records now use exact whole-number VND, and
-the runtime supports only PayOS and cash on delivery as new payment methods.
-Provider-specific settlement data remains in an additive payment ledger rather
-than being added as more nullable columns on `orders`.
+This page archives the earlier USD-canonical design for historical context. It
+is superseded: new catalog, order, and payment-ledger records use exact
+whole-number VND, and checkout supports only PayOS and cash on delivery (COD).
+There is no Stripe integration or USD-to-VND conversion configuration in the
+current payment flow. Provider-specific settlement data remains in an additive
+payment ledger rather than being added as more nullable columns on `orders`.
 
 Each new payment row stores the expected and provider amount/currency, provider
 references, reconciliation state, idempotency data, and refund state. PayOS
@@ -20,10 +21,10 @@ currency before redirect. A verified PayOS webhook, not a return URL, finalizes
 the reservation. Legacy USD and provider identifiers remain readable only for
 historical compatibility.
 
-The current database defaults are also VND for newly inserted
-`orders.currency` and `order_payments.base_currency` rows. Existing USD rows
-and payment snapshots are historical records and are not backfilled or
-reinterpreted.
+The current database defaults are VND for newly inserted `orders.currency` and
+`order_payments.base_currency` rows. Existing USD rows and payment snapshots
+are retained as historical records; they are not used for new checkout, and
+are not backfilled or reinterpreted.
 
 ## Why
 
@@ -32,7 +33,9 @@ payment state machine. The ledger represents PayOS and COD attempts, retries,
 paid state, reconciliation, and refunds without coupling the order table to one
 provider. Legacy values remain readable but are not selectable in checkout.
 
-Automatic FX fetching is outside the current scope. A configured rate makes local/staging behavior deterministic and prevents a provider from receiving an unexplained amount.
+The old configured FX rate belonged to the superseded USD-canonical design and
+has been removed from current configuration and documentation. PayOS receives
+the server-authoritative integer VND amount unchanged.
 
 ## Consequences
 

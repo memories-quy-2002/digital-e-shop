@@ -14,7 +14,7 @@ vi.mock("../../components/layout/Layout", () => ({
 }));
 
 vi.mock("../../hooks/useT", async () => {
-    const { dictionaries } = await import("../../i18n");
+    const { dictionaries } = await import("../../i18n/dictionaries");
     const translations: Record<string, string> = {
         "support.metaDescription": "Translated support description",
         "support.heroSubtitle": "Translated support subtitle",

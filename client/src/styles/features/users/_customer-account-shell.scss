@@ -153,11 +153,49 @@
         }
 
         &__nav {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.55rem;
+            overflow: visible;
+            padding: 0.15rem 0 0;
 
             &-link {
-                min-width: 9.25rem;
-                padding: 0.65rem 0.75rem;
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 0.55rem;
+                min-width: 0;
+                min-height: 3.25rem;
+                padding: 0.6rem 0.65rem;
+                border-radius: var(--de-radius-md);
+
+                &:focus-visible {
+                    outline: 2px solid var(--de-color-electric);
+                    outline-offset: 2px;
+                }
+            }
+
+            &-index,
+            &-copy small {
+                display: none;
+            }
+
+            &-icon {
+                align-items: center;
+                justify-content: center;
+                width: 1.8rem;
+                height: 1.8rem;
+                border-radius: 0.6rem;
+                background: var(--de-color-surface-muted);
+            }
+
+            &-link.is-active &-icon {
+                background: var(--de-color-primary-tint);
+            }
+
+            &-copy strong {
+                font-size: 0.8rem;
+                line-height: 1.2;
+                overflow-wrap: anywhere;
             }
         }
     }

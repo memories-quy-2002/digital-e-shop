@@ -66,7 +66,23 @@ export const sendFirebaseEmailVerification = async (): Promise<void> => {
     if (!auth.currentUser) {
         throw new Error("No signed-in Firebase user");
     }
-    await sendEmailVerification(auth.currentUser);
+    const actionCodeSettings = typeof window === "undefined"
+        ? undefined
+        : {
+            url: `${window.location.origin}/account?verification=complete`,
+            handleCodeInApp: false,
+        };
+    await sendEmailVerification(auth.currentUser, actionCodeSettings);
+};
+
+export const refreshFirebaseUserVerification = async (): Promise<{ idToken: string; emailVerified: boolean } | null> => {
+    const auth = await getFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) return null;
+
+    const { reload } = await import("firebase/auth");
+    await reload(user);
+    return { idToken: await user.getIdToken(true), emailVerified: user.emailVerified };
 };
 
 export const sendFirebaseEmailChangeVerification = async (newEmail: string): Promise<void> => {

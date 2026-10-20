@@ -79,7 +79,7 @@ Contributors must preserve the controls implemented in the current codebase:
 - Production authentication verifies Firebase identity before the server issues its own session; local development can use the configured local provider
 - Registration is provider-aware, but both providers converge on server-owned sessions; production verification state comes from Firebase claims
 - Firebase action links are handled by Firebase and the client; the server does not generate or log verification tokens
-- Unverified sessions may browse and manage an account, but `VerifiedEmailGuard` protects authenticated checkout, Stripe checkout-session creation, and review creation
+- Unverified sessions may browse and manage an account, but `VerifiedEmailGuard` protects authenticated checkout and review creation
 - Verification resend is performed through the signed-in Firebase user; Firebase owns verification delivery and action handling
 - Password-reset requests are generic; production reset is client-owned by Firebase, while the server request endpoint is a compatibility no-op and legacy local confirmation revokes active sessions without sending a notice
 - Email changes in production remain pending until Firebase confirms the new address; server-owned email-change requests and legacy confirmation links are rejected

@@ -211,8 +211,10 @@ application has not been converted to Prisma.
   internal delivery uses manually selected coordinates and never requests GPS.
 - Order items snapshot product identity, price, warranty, image, brand,
   category, and typed attributes so historical orders remain stable.
-- New order and payment-ledger defaults are VND. Historical USD rows remain
-  unchanged and are interpreted from their stored currency snapshots.
+- New orders, payment-ledger rows, catalog prices, and PayOS settlement amounts
+  use whole-number VND. Checkout supports PayOS and COD; it does not convert
+  USD or integrate Stripe. Historical USD rows remain unchanged and are
+  interpreted from their stored currency snapshots for compatibility.
 - Checkout, inventory reservations/movements, order timeline, addresses,
   notifications, sessions, and promotion redemption writes are transactionally
   coordinated. Never validate a schema change only against an empty database.

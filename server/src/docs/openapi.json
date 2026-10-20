@@ -607,7 +607,10 @@
                                         "additionalProperties": false,
                                         "required": ["username"],
                                         "properties": {
-                                            "username": { "type": "string", "minLength": 3, "maxLength": 50 }
+                                            "username": { "type": "string", "minLength": 3, "maxLength": 50 },
+                                            "firstName": { "type": "string", "maxLength": 100, "description": "Optional for older clients; stored directly in users.first_name." },
+                                            "lastName": { "type": "string", "maxLength": 100, "description": "Optional for older clients; stored directly in users.last_name." },
+                                            "displayName": { "type": "string", "minLength": 2, "maxLength": 100, "description": "Legacy compatibility field; split at the first whitespace into users.first_name and users.last_name." }
                                         }
                                     }
                                 }

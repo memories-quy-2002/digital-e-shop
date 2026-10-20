@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dictionaries } from './index';
+import { dictionaries } from './dictionaries';
 
 const collectKeyPaths = (value: unknown, prefix = ''): string[] => {
   if (typeof value === 'function' || value === null || typeof value !== 'object') {

@@ -156,11 +156,18 @@ snapshot.
 | POST | /api/users/logout | Authenticated |
 | GET | /api/users/session/check | Authenticated |
 | GET | /api/users/me | Authenticated |
+| POST | /api/users/me/email-verification/sync | Authenticated |
 
 Authentication verifies Firebase identity on the server. Successful
 authentication issues the server cookie-backed access and refresh session. The
 server does not accept email/password credentials and does not expose
 password-reset or email-verification token routes.
+
+After a Firebase verification link returns the customer to Account, the client
+may submit a fresh Firebase ID token to
+`POST /api/users/me/email-verification/sync`. The API requires the token's
+verified identity to match the current cookie session and updates only that
+account's verification state; it does not replace the session cookies.
 
 Registration accepts an ID token, optional profile input, and an optional "en" or "vi"
 locale. A newly created account queues a localized welcome email transactionally:
@@ -169,11 +176,19 @@ locale. A newly created account queues a localized welcome email transactionally
 {
   "idToken": "your_firebase_id_token",
   "user": {
-    "username": "customer"
+    "username": "customer",
+    "firstName": "Van",
+    "lastName": "Nguyen"
   },
   "locale": "vi"
 }
 ~~~
+
+`firstName` and `lastName` are optional for older clients and, when provided,
+are stored directly in `users.first_name` and `users.last_name`. The legacy
+`displayName` field remains supported for older clients; the server stores its
+first whitespace-delimited token in `first_name` and the remainder in
+`last_name`.
 
 Firebase owns verification, password reset, and email-change action links.
 After a verified sign-in, the server synchronizes the Firebase claim to the

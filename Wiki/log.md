@@ -124,4 +124,10 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 
 - 2026-10-19 — Codex: documented UUID v7 public IDs for orders, support tickets and after-sales requests, numeric compatibility, backfill/defaults and deployment ordering.
 - 2026-10-19 - Codex - Added separate API liveness and MySQL readiness probes while preserving the legacy health endpoint; documented probe behavior and serverless limits; see [[architecture]].
-- 2026-10-20 - Codex - Allow demo seed identities to keep Firebase email verification state so unverified accounts remain usable for sign-in while restricted actions stay gated.
+- 2026-10-20 — Codex — Refreshed payment documentation to mark Stripe and USD conversion as retired, clarify VND-only PayOS/COD checkout, and preserve historical USD records for compatibility.
+- 2026-10-20 — Codex — Documented Firebase email-verification continuation to Account, fresh-token synchronization through the existing login endpoint, and visible account verification status.
+- 2026-10-20 — Codex — Preserved existing session cookies while syncing verified Firebase claims through an authenticated, UID-bound endpoint; documented the signed-out return path.
+- 2026-10-20 — Codex — Aligned demo MySQL user IDs with Firebase UIDs and added a read-only Firebase identity preflight before the production demo reset.
+- 2026-10-20 — Codex — Added a display name to Firebase signup, persisted it to the existing user profile column, and updated the bilingual form and API docs.
+- 2026-10-20 — Codex — Split signup display names into the existing first_name and last_name columns; disable signup while password confirmation differs and show a bilingual inline error.
+- 2026-10-20 — Codex — Updated Signup to collect first and last names separately and persist each field directly, preserving the legacy displayName API fallback.

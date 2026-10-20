@@ -137,7 +137,8 @@
     overflow: hidden;
     background: var(--de-color-surface-strong);
     border: 1px solid var(--de-color-border-strong);
-    box-shadow: 0 1rem 2.8rem color-mix(in srgb, var(--de-color-text-inverse) 12%, transparent), 0.9rem 1rem 0 var(--de-color-primary-tint);
+    border-radius: 1.25rem;
+    box-shadow: 0 1.2rem 3rem color-mix(in srgb, var(--de-color-text-inverse) 13%, transparent), 0.7rem 0.8rem 0 var(--de-color-primary-tint);
 }
 
 .auth-shell__story {
@@ -388,6 +389,26 @@
     gap: 1rem;
 }
 
+.auth-form__name-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.auth-form__name-fields > .auth-form__field {
+    min-width: 0;
+}
+
+.auth-form--signup .auth-form__input,
+.auth-form--signup .auth-form__password-field input {
+    min-height: 3.15rem;
+    border-radius: var(--de-radius-sm);
+}
+
+.auth-form--signup .auth-form__label {
+    font-size: 0.82rem;
+}
+
 .auth-form__field {
     display: grid;
     gap: 0.45rem;
@@ -576,8 +597,12 @@
 }
 
 .auth-form__submit:disabled {
-    cursor: wait;
+    cursor: not-allowed;
     opacity: 0.68;
+}
+
+.auth-form__submit:disabled[aria-busy='true'] {
+    cursor: wait;
 }
 
 .auth-form__submit[aria-busy='true']::before {
@@ -696,6 +721,7 @@
     }
 
     .auth-shell__body {
+        border-radius: 1rem;
         box-shadow: 0 0.8rem 1.7rem color-mix(in srgb, var(--de-color-text-inverse) 13%, transparent), 0.35rem 0.4rem 0 var(--de-color-primary-tint);
     }
 
@@ -759,6 +785,11 @@
     .auth-form__meta {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .auth-form__name-fields {
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
 
     .auth-shell__legal {

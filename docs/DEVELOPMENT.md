@@ -78,11 +78,16 @@ a `VITE_*` variable or commit them to an `.env` file. See the [Vercel environmen
 [Vite environment variables](https://vite.dev/guide/env-and-mode), and
 [Firebase API key guidance](https://firebase.google.com/docs/projects/api-keys).
 
-Firebase Email/Password verification is client-owned in production. After
-Firebase creates the account, the client calls `sendEmailVerification`; Firebase
-delivers the link and its default action handler completes verification. This
-does not require a paid custom domain. Enable Email/Password sign-in and the
-verification template in the Firebase console. Add
+Firebase Email/Password verification is client-owned. After Firebase creates
+the account, the client calls `sendEmailVerification` with
+`/account?verification=complete` as its continue URL; Firebase's action handler
+completes verification before returning the customer to Account. The page
+refreshes the Firebase identity and synchronizes the verified claim through the
+authenticated `/api/users/me/email-verification/sync` endpoint without changing
+the current session cookies. If the browser has no Firebase session, Account
+asks the customer to sign in and preserves the return path. This does not
+require a paid custom domain. Enable Email/Password sign-in and the verification
+template in the Firebase console. Add
 digital-e.vercel.app under Authentication > Settings > Authorized domains; this
 is a free app-origin allowlist entry, not a paid email domain.
 
@@ -165,7 +170,7 @@ does not initiate a bank or PayOS refund. A retry/refund exception is not proof
 that real PayOS sandbox acceptance has passed: that acceptance still requires
 provider credentials and a configured test channel.
 
-Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After the user signs in again, the server reads Firebase's email_verified claim and updates email_verified_at, including synchronizing a verified email change by Firebase UID. Authenticated checkout, PayOS checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
+Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After a verification link returns to Account, the client refreshes the Firebase ID token and calls the authenticated verification-sync endpoint; the API binds the verified Firebase identity to the cookie session and updates `email_verified_at` without replacing the session. A verified email change is synchronized by Firebase UID at the next login. Authenticated checkout, PayOS checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
 
 ### Local Firebase Auth Emulator profile
 
@@ -258,7 +263,7 @@ pnpm --dir server docker:verify
 pnpm --dir server docker:down
 ```
 
-`demo:reset` and the manual GitHub demo-reset workflow are destructive. Use them only with the documented confirmation and backup safeguards. Do not bypass database-target guards for a remote or production target.
+`demo:reset` and the manual GitHub demo-reset workflow are destructive. Use them only with the documented confirmation and backup safeguards. The production workflow validates existing Firebase demo identities before resetting MySQL; configure `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` in the protected GitHub `production` Environment. Do not bypass database-target guards for a remote or production target.
 
 ## Run the applications
 

@@ -8,12 +8,13 @@ Back to [[index]].
 - The client signs in with Firebase Email/Password and sends an ID token to the API.
 - The server verifies the token with Firebase Admin, reloads the live user row, and issues the same server-owned cookie session.
 - Email/password credentials are never compared against the MySQL users.password column.
+- Signup collects first name and last name in separate fields and sends them as `firstName` and `lastName`; the API stores them directly in `users.first_name` and `users.last_name`. Both remain optional at the API boundary for older clients. Legacy `displayName` requests are still supported by splitting at the first whitespace.
 
 ## Firebase verification state
 
-In production, Firebase owns the verification email, link, and action-code handling. After Firebase creates an account, the client calls sendEmailVerification for the signed-in Firebase user. Firebase can deliver to any recipient address; a paid custom domain is not required.
+Firebase owns the verification email, link, and action-code handling in production and local Auth Emulator flows. After Firebase creates an account, the client calls sendEmailVerification for the signed-in Firebase user with `/account?verification=complete` as the continue URL. Firebase's action handler completes verification before redirecting to the Account page. The app origin must be listed under Firebase Authentication's authorized domains. Firebase can deliver to any recipient address; a paid custom domain is not required.
 
-The default Firebase action handler marks the Firebase user as verified. The user must sign in again so the client sends a fresh ID token. The server reads the verified claim, updates email_verified_at, and exposes the derived email_verified boolean. The server no longer generates verification tokens or exposes verification resend/confirmation endpoints.
+On that Account landing, the client reloads the Firebase user and obtains a fresh ID token. It submits the token to the authenticated `POST /api/users/me/email-verification/sync` endpoint. The API verifies that the token is verified and belongs to the signed-in user (including legacy Firebase-linked rows), updates `email_verified_at`, and returns the refreshed public user without changing session cookies. The client reloads `/api/users/me` and displays the confirmed status. If the link opens without a signed-in Firebase user, Account asks the customer to sign in and returns them to the same continuation. The same Account continuation is used for verification emails resent from the account. The server does not generate verification tokens or expose verification resend/confirmation endpoints.
 
 The nullable email_verification_token_hash, email_verification_expires_at, and email_verification_sent_at columns remain only for migration and row-shape compatibility with the previous implementation. They are not used to send or consume Firebase verification links.
 
@@ -35,7 +36,7 @@ Client protected routes wait for the server-backed `AuthContext` session check b
 
 Auth forms use Firebase error codes for meaningful, non-enumerating messages. Login credential failures share one safe message for unknown users and wrong passwords; Firebase availability failures are reported as service/network errors. Password-reset requests keep the generic response for unknown addresses, while invalid local input and Firebase availability failures use explicit inline alerts. Firebase action-code success and failure remain visible on the reset page instead of navigating away and losing context.
 
-If Firebase delivery fails, account creation still succeeds and the user can retry from the account page after signing in again. The server has no separate email provider; Firebase owns production verification, password reset, and email change.
+If Firebase delivery fails, account creation still succeeds and the user can retry from the account page while signed in. The server has no separate email provider; Firebase owns production verification, password reset, and email change.
 ## Customer email delivery
 
 Customer order confirmations are not sent by the current runtime. Database-backed in-app order notifications are the primary order update channel for authenticated customers, while guests use checkout success and protected lookup. Firebase production owns verification, password-reset, and email-change delivery; marketing delivery and its runtime routes have been removed.
@@ -56,6 +57,7 @@ Customers submit a new address through the client Firebase verifyBeforeUpdateEma
 
 - Firebase client helpers: client/src/services/firebase.ts
 - Client signup and account resend: client/src/features/auth/pages/SignupPage.tsx and client/src/features/users/pages/CustomerAccountPage.tsx
+- Authenticated email-verification synchronization: client/src/features/users/api.ts and server/src/users/users.controller.ts
 - Firebase identity verification and claim synchronization: server/src/auth/firebase-admin.service.ts and server/src/auth/auth.service.ts
 - Verification gate: server/src/guards/verified-email.guard.ts
 - Public-user compatibility fields: server/src/users/user-public.ts and server/src/users/users.types.ts

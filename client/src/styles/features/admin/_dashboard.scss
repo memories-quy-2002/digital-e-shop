@@ -1,4 +1,13 @@
 // Dashboard page styles
+.admin__dashboard__priority-badge--high,
+.admin__dashboard__delta-badge--negative {
+    color: var(--de-color-danger-strong);
+}
+
+.admin__dashboard__priority-badge--medium {
+    color: var(--de-color-text);
+}
+
 .admin__dashboard__hero {
     display: flex;
     flex-direction: column;

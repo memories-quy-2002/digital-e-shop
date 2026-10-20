@@ -28,7 +28,12 @@ const ModalTitleContext = React.createContext<string | null>(null);
 function Modal({ show = false, onHide, children, dialogClassName, contentClassName, size = "lg" }: ModalProps) {
     const dialogRef = React.useRef<HTMLDivElement>(null);
     const previousActiveElementRef = React.useRef<HTMLElement | null>(null);
+    const onHideRef = React.useRef(onHide);
     const titleId = React.useId();
+
+    React.useEffect(() => {
+        onHideRef.current = onHide;
+    }, [onHide]);
 
     React.useEffect(() => {
         if (!show) return;
@@ -52,7 +57,7 @@ function Modal({ show = false, onHide, children, dialogClassName, contentClassNa
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 event.preventDefault();
-                onHide?.();
+                onHideRef.current?.();
                 return;
             }
             if (event.key !== "Tab") return;
@@ -74,7 +79,7 @@ function Modal({ show = false, onHide, children, dialogClassName, contentClassNa
                 firstElement.focus();
             }
         };
-        const handleCloseEvent = () => onHide?.();
+        const handleCloseEvent = () => onHideRef.current?.();
 
         document.addEventListener("keydown", handleKeyDown);
         dialog.addEventListener("de-close", handleCloseEvent);
@@ -88,7 +93,7 @@ function Modal({ show = false, onHide, children, dialogClassName, contentClassNa
             }
             previousActiveElementRef.current = null;
         };
-    }, [onHide, show]);
+    }, [show]);
 
     if (!show) return null;
     const width = size === "sm" ? "max-w-md" : size === "xl" ? "max-w-6xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl";

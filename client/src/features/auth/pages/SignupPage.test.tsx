@@ -69,6 +69,8 @@ describe("SignupPage Firebase verification", () => {
             </MemoryRouter>,
         );
 
+        fireEvent.change(screen.getByRole("textbox", { name: "First name" }), { target: { value: "Demo" } });
+        fireEvent.change(screen.getByRole("textbox", { name: "Last name" }), { target: { value: "Customer" } });
         fireEvent.change(screen.getByRole("textbox", { name: "Username" }), { target: { value: "customer" } });
         fireEvent.change(screen.getByRole("textbox", { name: "Email address" }), { target: { value: "customer@example.com" } });
         fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Password1!" } });
@@ -77,13 +79,13 @@ describe("SignupPage Firebase verification", () => {
 
         await waitFor(() => expect(mocks.registerUser).toHaveBeenCalledWith(expect.objectContaining({
             idToken: "firebase-id-token",
-            user: { username: "customer" },
+            user: { username: "customer", firstName: "Demo", lastName: "Customer" },
             locale: expect.any(String),
         })));
         expect(mocks.sendFirebaseEmailVerification).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps the submit action available and focuses the first invalid field", async () => {
+    it("enables signup only after every mandatory field is filled", async () => {
         render(
             <MemoryRouter initialEntries={["/signup"]}>
                 <Routes><Route path="/signup" element={<SignupPage />} /></Routes>
@@ -92,15 +94,20 @@ describe("SignupPage Firebase verification", () => {
 
         const user = userEvent.setup();
         const submit = screen.getByRole("button", { name: "Sign up" });
+        expect(submit).toBeDisabled();
+
+        await user.type(screen.getByRole("textbox", { name: "First name" }), "Demo");
+        await user.type(screen.getByRole("textbox", { name: "Last name" }), "Customer");
+        await user.type(screen.getByRole("textbox", { name: "Username" }), "customer");
+        await user.type(screen.getByRole("textbox", { name: "Email address" }), "customer@example.com");
+        await user.type(screen.getByLabelText("Password"), "Password1!");
+        expect(submit).toBeDisabled();
+
+        await user.type(screen.getByLabelText("Confirm password"), "Password1!");
         expect(submit).toBeEnabled();
-
-        await user.click(submit);
-
-        expect(await screen.findByText("Enter a username.")).toBeInTheDocument();
-        expect(screen.getByRole("textbox", { name: "Username" })).toHaveFocus();
     });
 
-    it("reports a mismatched confirmation even when the password is invalid", async () => {
+    it("disables signup and explains a mismatched password confirmation", async () => {
         const user = userEvent.setup();
         render(
             <MemoryRouter initialEntries={["/signup"]}>
@@ -108,13 +115,20 @@ describe("SignupPage Firebase verification", () => {
             </MemoryRouter>,
         );
 
+        await user.type(screen.getByRole("textbox", { name: "First name" }), "Demo");
+        await user.type(screen.getByRole("textbox", { name: "Last name" }), "Customer");
         await user.type(screen.getByRole("textbox", { name: "Username" }), "customer");
         await user.type(screen.getByRole("textbox", { name: "Email address" }), "customer@example.com");
         await user.type(screen.getByLabelText("Password"), "short");
         await user.type(screen.getByLabelText("Confirm password"), "different");
-        await user.click(screen.getByRole("button", { name: "Sign up" }));
 
         expect(await screen.findByText("Passwords do not match.")).toBeInTheDocument();
+        const submit = screen.getByRole("button", { name: "Sign up" });
+        expect(submit).toBeDisabled();
+
+        await user.clear(screen.getByLabelText("Confirm password"));
+        await user.type(screen.getByLabelText("Confirm password"), "short");
+        expect(submit).toBeEnabled();
         expect(mocks.createFirebaseUser).not.toHaveBeenCalled();
     });
 

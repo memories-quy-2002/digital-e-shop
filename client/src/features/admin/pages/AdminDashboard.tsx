@@ -181,6 +181,13 @@ const AdminDashboard = () => {
     const { addToast } = useToast();
     const tx = useAdminDashboardCopy();
     const { locale } = useLocale();
+
+    useEffect(() => {
+        document.title = `${tx("Admin dashboard")} | Digital-E`;
+        return () => {
+            document.title = tx("Digital-E - Admin");
+        };
+    }, [tx]);
     const formatReportDate = (date = new Date()) => formatUtcDateTime(date, locale === "vi" ? "vi-VN" : "en-GB");
 
     useEffect(() => {
@@ -601,7 +608,6 @@ const AdminDashboard = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>{tx("Admin dashboard")} | Digital-E</title>
                 <meta name="description" content={tx("Overview of store performance and key metrics.")} />
             </Helmet>
             <main className="admin__page admin__page--dashboard">

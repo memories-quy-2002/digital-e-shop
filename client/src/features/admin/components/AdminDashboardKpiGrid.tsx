@@ -51,7 +51,10 @@ const AdminDashboardKpiGrid = ({ kpis }: AdminDashboardKpiGridProps) => {
                             {kpi.status === "success" ? kpi.value : null}
                         </div>
                         {kpi.delta && kpi.status === "success" ? (
-                            <Badge variant={kpi.delta.value < 0 ? "danger" : "electric"}>
+                            <Badge
+                                variant={kpi.delta.value < 0 ? "danger" : "electric"}
+                                className={kpi.delta.value < 0 ? "admin__dashboard__delta-badge admin__dashboard__delta-badge--negative" : "admin__dashboard__delta-badge"}
+                            >
                                 {formatDelta({ ...kpi.delta, label: tx(kpi.delta.label || "vs previous period") })}
                             </Badge>
                         ) : null}

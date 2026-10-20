@@ -1,11 +1,11 @@
-import { Body, Controller, Get, HttpException, Param, Put, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpException, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestUsersService } from "./users.service";
 import { NestAuthService } from "../auth/auth.service";
-import { adminUserUpdateSchema, adminUsersQuerySchema } from "./users.validator";
+import { adminUserUpdateSchema, adminUsersQuerySchema, emailVerificationSyncSchema } from "./users.validator";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { USER_ROLE } from "#src/shared/constants/user";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
@@ -28,6 +28,25 @@ export class UsersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             throw mapToHttpException(err, "Unable to get current user");
+        }
+    }
+
+    @Post("me/email-verification/sync")
+    async syncEmailVerification(
+        @Req() req: Request & { user?: { id?: string | number } },
+        @Body(new ZodValidationPipe(emailVerificationSyncSchema)) body: { idToken: string },
+    ) {
+        try {
+            const userId = String(req.user?.id || "");
+            if (!userId) {
+                throw new HttpException({ msg: "Not authenticated" }, HTTP_STATUS.UNAUTHORIZED);
+            }
+
+            const userData = await this.authService.syncEmailVerification(userId, body.idToken);
+            return { userData, msg: "Email verification status updated successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            throw mapToHttpException(err, "Unable to sync email verification status");
         }
     }
 
