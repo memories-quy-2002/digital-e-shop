@@ -75,7 +75,7 @@ describe("GuestOrderLookupPage", () => {
             </MemoryRouter>,
         );
 
-        expect(screen.getByRole("heading", { name: "Tra cứu đơn hàng khách" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Tra cứu đơn hàng khách" })).toBeInTheDocument();
         expect(screen.getByRole("region", { name: "Biểu mẫu tra cứu đơn hàng khách" })).toBeInTheDocument();
         fireEvent.change(screen.getByLabelText("Mã truy cập"), { target: { value: "private-token" } });
         fireEvent.click(screen.getByRole("button", { name: "Tìm đơn hàng" }));

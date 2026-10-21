@@ -46,7 +46,7 @@ describe("MockPayOSCheckoutPage", () => {
         expect(screen.queryByRole("button", { name: /simulate payment success/i })).not.toBeInTheDocument();
     });
 
-    it("localizes the simulator's safety and payment labels", () => {
+    it("localizes the simulator's safety and payment labels", async () => {
         window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
 
         render(
@@ -55,7 +55,7 @@ describe("MockPayOSCheckoutPage", () => {
             </MemoryRouter></LocaleProvider>,
         );
 
-        expect(screen.getByRole("heading", { name: "Xác nhận thanh toán PayOS" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Xác nhận thanh toán PayOS" })).toBeInTheDocument();
         expect(screen.getByLabelText("Số tiền thanh toán")).toHaveTextContent("2.250.000");
         expect(screen.getByText(/không có khoản tiền nào được chuyển/i)).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Mô phỏng thanh toán thành công" })).toBeInTheDocument();

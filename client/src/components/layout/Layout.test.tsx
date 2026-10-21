@@ -20,7 +20,7 @@ describe("storefront layout accessibility", () => {
         window.localStorage.clear();
     });
 
-    it("puts a localized skip link before the shared header and targets the main landmark", () => {
+    it("puts a localized skip link before the shared header and targets the main landmark", async () => {
         window.localStorage.setItem(
             "digital-e:locale:v1",
             JSON.stringify("vi"),
@@ -36,7 +36,7 @@ describe("storefront layout accessibility", () => {
             </MemoryRouter>,
         );
 
-        const skipLink = screen.getByRole("link", {
+        const skipLink = await screen.findByRole("link", {
             name: "Bỏ qua đến nội dung chính",
         });
         const main = screen.getByRole("main");

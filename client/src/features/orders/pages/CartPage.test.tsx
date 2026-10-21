@@ -207,7 +207,7 @@ describe("public cart states", () => {
 
         renderPage();
 
-        fireEvent.click(screen.getByRole("button", { name: "Gộp giỏ hàng khách" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Gộp giỏ hàng khách" }));
 
         await waitFor(() => expect(mocks.addToast).toHaveBeenCalledWith(
             "Giỏ hàng khách",

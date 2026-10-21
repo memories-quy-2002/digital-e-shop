@@ -357,6 +357,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                         onClick={() => setShowProfile((current) => !current)}
                         aria-expanded={showProfile}
                         aria-controls="admin-profile-popover"
+                        aria-label={`${tx("Admin profile")}: ${profileNameLabel}, ${profileRoleLabel}`}
                     >
                         <span className="admin__layout__main__header__profile-avatar" aria-hidden="true">{initials}</span>
                         <span className="admin__layout__main__header__profile-copy">

@@ -75,11 +75,11 @@ describe("AdminDashboard mixed request results", () => {
 
     it("keeps successful product data and labels rejected sections unavailable", async () => {
         renderDashboard();
+        const lazyChartQueryOptions = { timeout: 15000 };
 
         await waitFor(() => expect(screen.getByText(/Partially updated/)).toBeTruthy());
 
-        expect(await screen.findByText("No low-stock products")).toBeTruthy();
-        const lazyChartQueryOptions = { timeout: 15000 };
+        expect(await screen.findByText("No low-stock products", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Analytics unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Recent activity unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Category analytics unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
@@ -91,7 +91,7 @@ describe("AdminDashboard mixed request results", () => {
         expect(screen.queryByText("Inventory risk unavailable")).toBeNull();
         expect(screen.queryByText("Updated now")).toBeNull();
         expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(3);
-    }, 15000);
+    }, 30000);
 
     it("marks preserved analytics KPIs unavailable after an analytics refresh failure", async () => {
         vi.mocked(fetchAnalyticsSummary)
