@@ -1,5 +1,13 @@
 # Suppliers, Receiving and Stock Counts Implementation Plan
 
+> **Execution correction (2026-10-21):** This implementation is based on
+> `main` at `8dea2d3` (after PR #320). The four additive migrations were
+> already merged to `main` as `20261017100000_inventory_stock_revision`,
+> `20261017101000_suppliers_and_purchase_orders`,
+> `20261017102000_purchase_receipts`, and
+> `20261017103000_stock_counts`. Do not create or apply the obsolete migration
+> IDs listed in older task notes. No shared/local database was migrated here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let an admin trace supplier purchases and partial receipts into stock,

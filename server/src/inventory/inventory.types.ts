@@ -11,6 +11,8 @@ export type InventoryMovementRow = {
     stock_after?: number | null;
     note?: string | null;
     actor_id?: string | number | null;
+    purchase_receipt_line_id?: number | null;
+    stock_count_item_id?: number | null;
     created_at?: string | null;
 };
 

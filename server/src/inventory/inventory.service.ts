@@ -17,6 +17,8 @@ export const normalizeMovement = (movement: LooseRecord = {}) => ({
     stock_after: movement.stock_after === null ? null : Number(movement.stock_after),
     note: movement.note,
     actor_id: movement.actor_id,
+    purchase_receipt_line_id: movement.purchase_receipt_line_id == null ? null : Number(movement.purchase_receipt_line_id),
+    stock_count_item_id: movement.stock_count_item_id == null ? null : Number(movement.stock_count_item_id),
     created_at: movement.created_at,
 });
 

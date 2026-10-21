@@ -136,9 +136,18 @@ const upsertDemoProducts = async (connection, plan) => {
 
         if (existing[0]) {
             const productId = Number(existing[0].id);
+            const stockOperations = await query(
+                connection,
+                `SELECT EXISTS(SELECT 1 FROM purchase_order_items WHERE product_id = ?)
+                    OR EXISTS(SELECT 1 FROM stock_count_items WHERE product_id = ?) AS has_stock_operations`,
+                [productId, productId],
+            );
+            const shouldSeedStock = Number(stockOperations[0]?.has_stock_operations) !== 1;
             await connection.query(
                 `UPDATE products
-                SET description = ?, category_id = ?, brand_id = ?, price = ?, sale_price = ?, stock = ?, main_image = ?, specifications = ?, sku = ?, updated_at = UTC_TIMESTAMP()
+                SET description = ?, category_id = ?, brand_id = ?, price = ?, sale_price = ?,
+                    stock_revision = stock_revision + IF(? = 1 AND stock <> ?, 1, 0),
+                    stock = IF(? = 1, ?, stock), main_image = ?, specifications = ?, sku = ?, updated_at = UTC_TIMESTAMP()
                 WHERE id = ?`,
                 [
                     product.description,
@@ -146,6 +155,9 @@ const upsertDemoProducts = async (connection, plan) => {
                     brandId,
                     product.price,
                     product.salePrice,
+                    shouldSeedStock ? 1 : 0,
+                    product.stock,
+                    shouldSeedStock ? 1 : 0,
                     product.stock,
                     product.mainImage,
                     product.specifications,
@@ -434,8 +446,21 @@ const clearLegacyCatalogProducts = async (connection, managedProductIds) => {
             OR price < ? OR (sale_price IS NOT NULL AND sale_price < ?)`,
         [...LEGACY_PRODUCT_NAME_PATTERNS, DEMO_SEED_MIN_PRICE_VND, DEMO_SEED_MIN_PRICE_VND],
     );
-    const productIds = rows.map((row) => Number(row.id));
-
+    const candidateProductIds = rows.map((row) => Number(row.id));
+    if (candidateProductIds.length === 0) {
+        return { products: 0, orders: 0, checkouts: 0 };
+    }
+    const referencedProducts = await query(
+        connection,
+        `SELECT product_id FROM purchase_order_items WHERE product_id IN (?)
+         UNION
+         SELECT product_id FROM stock_count_items WHERE product_id IN (?)`,
+        [candidateProductIds, candidateProductIds],
+    );
+    const referencedProductIds = new Set(referencedProducts.map((row) => Number(row.product_id)));
+    // Retain products with operator procurement or count history so demo cleanup
+    // cannot erase those documents or leave their foreign keys orphaned.
+    const productIds = candidateProductIds.filter((id) => !referencedProductIds.has(id));
     const removedCheckouts = await clearPendingCheckoutsContainingProducts(connection, productIds);
     const ordersRemoved = await clearOrdersContainingProducts(connection, productIds, managedProductIds, DEMO_SEED_PLAN.currency);
     if (productIds.length === 0) {
@@ -443,24 +468,15 @@ const clearLegacyCatalogProducts = async (connection, managedProductIds) => {
     }
     const alertEvents = await query(connection, "SELECT id FROM product_alert_events WHERE product_id IN (?)", [productIds]);
     const alertEventIds = alertEvents.map((row) => Number(row.id));
-    const receiptLines = await query(connection, "SELECT id FROM purchase_receipt_lines WHERE product_id IN (?)", [productIds]);
-    const receiptLineIds = receiptLines.map((row) => Number(row.id));
-    const stockCountItems = await query(connection, "SELECT id FROM stock_count_items WHERE product_id IN (?)", [productIds]);
-    const stockCountItemIds = stockCountItems.map((row) => Number(row.id));
 
     await deleteByIds(connection, "customer_notifications", "alert_event_id", alertEventIds);
     await deleteByIds(connection, "inventory_movements", "product_id", productIds);
-    await deleteByIds(connection, "inventory_movements", "purchase_receipt_line_id", receiptLineIds);
-    await deleteByIds(connection, "inventory_movements", "stock_count_item_id", stockCountItemIds);
     await deleteByIds(connection, "product_attributes", "product_id", productIds);
     await deleteByIds(connection, "inventory_reservations", "product_id", productIds);
     await deleteByIds(connection, "cart_items", "product_id", productIds);
     await deleteByIds(connection, "guest_cart_items", "product_id", productIds);
     await deleteByIds(connection, "product_alert_events", "id", alertEventIds);
     await deleteByIds(connection, "product_alert_subscriptions", "product_id", productIds);
-    await deleteByIds(connection, "purchase_receipt_lines", "id", receiptLineIds);
-    await deleteByIds(connection, "purchase_order_items", "product_id", productIds);
-    await deleteByIds(connection, "stock_count_items", "id", stockCountItemIds);
     await deleteByIds(connection, "reviews", "product_id", productIds);
     await deleteByIds(connection, "wishlist", "product_id", productIds);
     await deleteByIds(connection, "products", "id", productIds);
@@ -614,7 +630,14 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
     }
 
     for (const [productId, finalStock] of stockByProductId.entries()) {
-        await connection.query("UPDATE products SET stock = ?, updated_at = UTC_TIMESTAMP() WHERE id = ?", [finalStock, productId]);
+        await connection.query(
+            `UPDATE products
+             SET stock_revision = stock_revision + IF(stock <> ?, 1, 0), stock = ?, updated_at = UTC_TIMESTAMP()
+             WHERE id = ?
+               AND NOT EXISTS (SELECT 1 FROM purchase_order_items WHERE product_id = products.id)
+               AND NOT EXISTS (SELECT 1 FROM stock_count_items WHERE product_id = products.id)`,
+            [finalStock, finalStock, productId],
+        );
     }
 
     return orderIds;

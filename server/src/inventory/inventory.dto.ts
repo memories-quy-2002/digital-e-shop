@@ -7,4 +7,6 @@ export type InventoryMovementInput = {
     stockAfter?: number | null;
     note?: string | null;
     actorId?: string | number | null;
+    purchaseReceiptLineId?: number | null;
+    stockCountItemId?: number | null;
 };

@@ -131,3 +131,8 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-20 — Codex — Added a display name to Firebase signup, persisted it to the existing user profile column, and updated the bilingual form and API docs.
 - 2026-10-20 — Codex — Split signup display names into the existing first_name and last_name columns; disable signup while password confirmation differs and show a bilingual inline error.
 - 2026-10-20 — Codex — Updated Signup to collect first and last names separately and persist each field directly, preserving the legacy displayName API fallback.
+
+- 2026-10-20 - Codex - Allow demo seed identities to keep Firebase email verification state so unverified accounts remain usable for sign-in while restricted actions stay gated.
+
+- 2026-10-21 - Codex - Implemented admin supplier purchasing, idempotent partial receipts, source-linked inventory history, revision-checked stock counts and reservation-aware approval; documented contracts and current verification limits in [[supplier-and-procurement]] and [[procurement-and-stock-counts]].
+- 2026-10-21 - Codex - Exercised supplier, PO confirmation/receipt and stock-count approval in the local browser; fixed numeric route-param coercion for procurement and count IDs and added validator coverage. Isolated MySQL concurrency acceptance remains pending.

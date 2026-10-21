@@ -69,7 +69,7 @@ pnpm --dir server prisma:migrate:status
 pnpm --dir server demo:verify
 ```
 
-Checkout, inventory, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior.
+Checkout, inventory, procurement, stock counts, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior. Procurement and count concurrency checks must target an isolated MySQL database with the four forward migrations applied; never use a shared or production database. Browser acceptance should exercise admin receipt retries, count conflicts, selected-line recount, both locales/themes, and desktop/mobile layouts.
 
 Authentication changes should cover Firebase ID-token payloads, Firebase signup delivery and account-page resend behavior, the absence of server-owned verification endpoints, synchronization from a verified Firebase ID-token claim, public-user redaction, unverified-session login, and `VerifiedEmailGuard` behavior. The disposable MySQL database is still required for repository and guard checks; the legacy email-verification columns are compatibility state, not a prerequisite for Firebase email delivery.
 

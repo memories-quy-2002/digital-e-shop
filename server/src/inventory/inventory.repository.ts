@@ -17,8 +17,9 @@ export class InventoryRepository {
     createMovement(movement: InventoryMovementInput, callback: QueryCallback<UpdateResult> = () => {}) {
         this.query(
             `INSERT INTO inventory_movements
-                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id,
+                 purchase_receipt_line_id, stock_count_item_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 movement.productId,
                 movement.orderId || null,
@@ -28,6 +29,8 @@ export class InventoryRepository {
                 movement.stockAfter ?? null,
                 movement.note || null,
                 movement.actorId || null,
+                movement.purchaseReceiptLineId ?? null,
+                movement.stockCountItemId ?? null,
             ],
             callback,
         );
@@ -45,11 +48,14 @@ export class InventoryRepository {
             movement.stockAfter ?? null,
             movement.note || null,
             movement.actorId || null,
+            movement.purchaseReceiptLineId ?? null,
+            movement.stockCountItemId ?? null,
         ]);
 
         this.query(
             `INSERT INTO inventory_movements
-                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id)
+                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id,
+                 purchase_receipt_line_id, stock_count_item_id)
             VALUES ?`,
             [values],
             callback,
@@ -68,11 +74,14 @@ export class InventoryRepository {
             movement.stockAfter ?? null,
             movement.note || null,
             movement.actorId || null,
+            movement.purchaseReceiptLineId ?? null,
+            movement.stockCountItemId ?? null,
         ]);
 
         await tx.query(
             `INSERT INTO inventory_movements
-                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id)
+                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id,
+                 purchase_receipt_line_id, stock_count_item_id)
             VALUES ?`,
             [values],
         );
@@ -82,6 +91,7 @@ export class InventoryRepository {
         this.query(
             `SELECT im.id, im.product_id, p.name AS product_name, im.order_id, im.movement_type,
                 im.quantity_change, im.stock_before, im.stock_after, im.note, im.actor_id,
+                im.purchase_receipt_line_id, im.stock_count_item_id,
                 DATE_FORMAT(im.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at
             FROM inventory_movements im
             LEFT JOIN products p ON p.id = im.product_id

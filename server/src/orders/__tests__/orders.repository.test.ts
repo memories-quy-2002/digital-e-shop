@@ -176,7 +176,7 @@ describe("transactional order lifecycle persistence", () => {
         ["getLatestPaymentForUpdate", [9], "SELECT id, provider, status, simulated FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE", [9]],
         ["getOrderItemsForUpdate", [9], "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE", [9]],
         ["getRestockProductForUpdate", [4], "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [4]],
-        ["incrementProductStockInTransaction", [4, 2], "UPDATE products SET stock = stock + ? WHERE id = ?", [2, 4]],
+        ["incrementProductStockInTransaction", [4, 2], "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock + ? WHERE id = ?", [2, 2, 4]],
         ["cancelOrderInTransaction", [9, "reason"], "WHERE id = ? AND status = 0", ["reason", 9]],
         ["ensureDeliveredAtInTransaction", [9], "UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [9]],
         ["completeOrderInTransaction", [9], "UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = 0", [9]],

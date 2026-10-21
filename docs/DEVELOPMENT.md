@@ -274,7 +274,7 @@ pnpm --dir server dev
 pnpm --dir client dev
 ```
 
-The server `predev` lifecycle only generates Prisma Client before compiling. It does not migrate or seed the database, so restarting the dev server is safe for existing local data. Run `pnpm --dir server prisma:migrate:deploy` explicitly when applying reviewed migrations, then run `pnpm --dir server seed:demo` and `pnpm --dir server demo:verify` when you deliberately want demo data. The client Vite cache lives in `client/.vite`. Production start and Vercel builds use the compiled server output and copied runtime assets.
+The server `predev` lifecycle only generates Prisma Client before compiling. It does not migrate or seed the database, so restarting the dev server is safe for existing local data. Procurement and stock-count endpoints require the forward migrations `20261017100000_inventory_stock_revision`, `20261017101000_suppliers_and_purchase_orders`, `20261017102000_purchase_receipts`, and `20261017103000_stock_counts`. After verifying that the selected target is your disposable local database, apply the reviewed migrations with `pnpm --dir server prisma:migrate:deploy`; this command is separate from `dev`. Run `pnpm --dir server prisma:migrate:deploy` explicitly when applying reviewed migrations, then run `pnpm --dir server seed:demo` and `pnpm --dir server demo:verify` when you deliberately want demo data. The client Vite cache lives in `client/.vite`. Production start and Vercel builds use the compiled server output and copied runtime assets.
 
 Default local URLs:
 

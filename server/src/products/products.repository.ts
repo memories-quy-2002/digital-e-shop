@@ -275,7 +275,8 @@ export class NestProductsRepository {
     updateProductInTransaction(tx: TransactionContext, pid: number, product: ProductUpdateRecord): Promise<UpdateResult> {
         return tx.query<UpdateResult>(
             `UPDATE products
-            SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
+            SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?,
+                stock_revision = stock_revision + IF(stock <> ?, 1, 0), stock = ?
             WHERE id = ? AND stock >= 0`,
             [
                 product.name,
@@ -289,13 +290,17 @@ export class NestProductsRepository {
                 product.price,
                 product.salePrice,
                 product.stock,
+                product.stock,
                 pid,
             ],
         );
     }
 
     updateProductStockInTransaction(tx: TransactionContext, pid: number, stock: number): Promise<UpdateResult> {
-        return tx.query<UpdateResult>("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid]);
+        return tx.query<UpdateResult>(
+            "UPDATE products SET stock_revision = stock_revision + IF(stock <> ?, 1, 0), stock = ? WHERE id = ? AND stock >= 0",
+            [stock, stock, pid],
+        );
     }
 
     insertProduct(product: ProductInsertRecord): Promise<UpdateResult> {
@@ -637,19 +642,27 @@ export class NestProductsRepository {
 
     updateProductStock(pid: number, stock: number): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
-            pool.query("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid], (err: Error | null, result: UpdateResult) => {
-                if (err) return reject(err);
-                resolve(result);
-            });
+            pool.query(
+                "UPDATE products SET stock_revision = stock_revision + IF(stock <> ?, 1, 0), stock = ? WHERE id = ? AND stock >= 0",
+                [stock, stock, pid],
+                (err: Error | null, result: UpdateResult) => {
+                    if (err) return reject(err);
+                    resolve(result);
+                },
+            );
         });
     }
 
     deleteProduct(pid: number): Promise<void> {
         return new Promise((resolve, reject) => {
-            pool.query("UPDATE products SET stock = -1 WHERE id = ?", [pid], (err: Error | null) => {
-                if (err) return reject(err);
-                resolve();
-            });
+            pool.query(
+                "UPDATE products SET stock_revision = stock_revision + IF(stock <> -1, 1, 0), stock = -1 WHERE id = ?",
+                [pid],
+                (err: Error | null) => {
+                    if (err) return reject(err);
+                    resolve();
+                },
+            );
         });
     }
 
@@ -657,7 +670,8 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `UPDATE products
-                SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, price = ?, sale_price = ?, stock = ?
+                SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, price = ?, sale_price = ?,
+                    stock_revision = stock_revision + IF(stock <> ?, 1, 0), stock = ?
                 WHERE id = ?`,
                 [
                     product.name,
@@ -667,6 +681,7 @@ export class NestProductsRepository {
                     product.specifications,
                     product.price,
                     product.salePrice,
+                    product.stock,
                     product.stock,
                     pid,
                 ],
