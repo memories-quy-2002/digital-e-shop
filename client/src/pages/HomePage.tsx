@@ -5,14 +5,16 @@ import React, {
     useOptimistic,
     useState,
 } from "react";
-import { preload } from "react-dom";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import carousel1 from "../assets/images/carousel_1.jpg";
-import carousel2 from "../assets/images/carousel_2.jpg";
-import carousel3 from "../assets/images/carousel_3.jpg";
-import carousel4 from "../assets/images/carousel_4.jpg";
-import heroAtmosphere from "../assets/images/home-hero-atmosphere.webp";
+import carousel1 from "../assets/images/carousel_1.webp";
+import carousel1Small from "../assets/images/carousel_1-420.webp";
+import carousel2 from "../assets/images/carousel_2.webp";
+import carousel2Small from "../assets/images/carousel_2-420.webp";
+import carousel3 from "../assets/images/carousel_3.webp";
+import carousel3Small from "../assets/images/carousel_3-420.webp";
+import carousel4 from "../assets/images/carousel_4.webp";
+import carousel4Small from "../assets/images/carousel_4-420.webp";
 import productPlaceholder from "../assets/images/product_placeholder.jpg";
 import {
     ArrowLeftIcon,
@@ -54,7 +56,7 @@ import {
 } from "../utils/images";
 import { formatCurrency } from "../utils/currency";
 
-preload(heroAtmosphere, { as: "image", fetchPriority: "high" });
+const HERO_ATMOSPHERE_IMAGE = "/images/home-hero-atmosphere-eb4e1f01e7c5.webp";
 
 const DISPLAYED_NUMBER = 8;
 const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
@@ -72,36 +74,42 @@ const categoryLinks = [
         labelKey: "home.categoryGaming",
         categories: ["Console"],
         fallback: carousel2,
+        fallbackSmall: carousel2Small,
     },
     {
         key: "laptops",
         labelKey: "home.categoryLaptops",
         categories: ["Laptop"],
         fallback: carousel1,
+        fallbackSmall: carousel1Small,
     },
     {
         key: "audio",
         labelKey: "home.categoryAudio",
         categories: ["Headphone", "Speaker"],
         fallback: carousel3,
+        fallbackSmall: carousel3Small,
     },
     {
         key: "components",
         labelKey: "home.categoryComponents",
         categories: ["Graphics Card", "PC"],
         fallback: carousel4,
+        fallbackSmall: carousel4Small,
     },
     {
         key: "smartHome",
         labelKey: "home.categorySmartHome",
         categories: ["Smart Home"],
         fallback: carousel2,
+        fallbackSmall: carousel2Small,
     },
     {
         key: "accessories",
         labelKey: "home.categoryAccessories",
         categories: ["Accessory", "Phone"],
         fallback: carousel3,
+        fallbackSmall: carousel3Small,
     },
 ] as const;
 
@@ -159,6 +167,27 @@ const getProductImageSource = (
         sizes,
         fit: "fit",
     });
+};
+
+const CATEGORY_IMAGE_SIZES =
+    "(min-width: 1201px) calc((min(100vw - 2rem, 1240px) - 3.75rem) / 6), " +
+    "(min-width: 761px) calc((100vw - 3.5rem) / 3), " +
+    "calc((100vw - 2.75rem) / 2)";
+
+const getCategoryImageSource = (
+    product: Product | undefined,
+    fallback: string,
+    fallbackSmall: string,
+) => {
+    if (product?.main_image) {
+        return getProductImageSource(product, CATEGORY_IMAGE_SIZES, fallback);
+    }
+
+    return {
+        src: fallback,
+        srcSet: `${fallbackSmall} 420w, ${fallback} 840w`,
+        sizes: CATEGORY_IMAGE_SIZES,
+    };
 };
 
 const getIntentHref = (categories: readonly string[]) =>
@@ -638,7 +667,7 @@ const HomePage = () => {
                 >
                     <div className="home__hero__ambience" aria-hidden="true">
                         <img
-                            src={heroAtmosphere}
+                            src={HERO_ATMOSPHERE_IMAGE}
                             alt=""
                             width={1600}
                             height={900}
@@ -948,10 +977,10 @@ const HomePage = () => {
                             aria-label={t("home.categoryTitle")}
                         >
                             {categoryProducts.map((category) => {
-                                const imageSource = getProductImageSource(
+                                const imageSource = getCategoryImageSource(
                                     category.product,
-                                    "(min-width: 1040px) 15vw, 70vw",
                                     category.fallback,
+                                    category.fallbackSmall,
                                 );
                                 return (
                                     <Link

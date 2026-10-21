@@ -217,7 +217,7 @@
         border: 1px solid color-mix(in srgb, var(--de-color-electric) 42%, transparent);
         border-radius: var(--de-radius-sm);
         background: color-mix(in srgb, var(--de-color-electric) 10%, transparent);
-        color: var(--de-color-electric);
+        color: var(--de-color-text);
         font-size: 0.78rem;
         transition:
             background-color var(--de-transition-fast),
@@ -228,7 +228,7 @@
         &:hover:not(:disabled) {
             border-color: var(--de-color-electric);
             background: color-mix(in srgb, var(--de-color-electric) 22%, transparent);
-            color: var(--de-color-info-strong);
+            color: var(--de-color-text);
         }
 
         &:active:not(:disabled) { transform: scale(0.98); }
@@ -236,7 +236,7 @@
         &--selected {
             border-color: var(--de-color-electric);
             background: var(--de-color-info-soft);
-            color: var(--de-color-info-strong);
+            color: var(--de-color-text);
         }
     }
 
