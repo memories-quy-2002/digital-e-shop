@@ -605,7 +605,7 @@ describe("Firebase identity boundary", () => {
         usersRepository.createRegisteredFirebaseUserInTransaction.mockResolvedValue(createdUser);
         issueLoginSession.mockResolvedValue({ user: createdUser, token: "access-token", sessionId: 42, refreshToken: null as string | null });
 
-        await service.registerUser("firebase-id-token", { username: "new-user", role: "Admin" } as never);
+        await service.registerUser("firebase-id-token", { username: "new-user", firstName: "Van", lastName: "Nguyen", role: "Admin" } as never);
 
         expect(usersRepository.createRegisteredFirebaseUserInTransaction).toHaveBeenCalledWith(
             expect.anything(),
@@ -615,6 +615,8 @@ describe("Firebase identity boundary", () => {
                 email: "customer@example.com",
                 password: expect.any(String),
                 emailVerified: false,
+                firstName: "Van",
+                lastName: "Nguyen",
             }),
         );
         expect(issueLoginSession).toHaveBeenCalledWith(createdUser, false);

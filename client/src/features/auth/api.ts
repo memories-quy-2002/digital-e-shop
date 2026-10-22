@@ -3,7 +3,7 @@ import type { UserData } from "../../types/user";
 
 export type LoginCredentials = { idToken: string };
 
-export type RegistrationRequest = { idToken: string; user: { username: string }; locale?: "en" | "vi" };
+export type RegistrationRequest = { idToken: string; user: { username: string; firstName?: string; lastName?: string; displayName?: string }; locale?: "en" | "vi" };
 
 export type RegistrationResponse = {
     uid?: string;

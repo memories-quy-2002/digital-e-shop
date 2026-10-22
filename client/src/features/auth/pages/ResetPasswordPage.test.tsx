@@ -61,7 +61,7 @@ describe("ResetPasswordPage", () => {
         expect(screen.getByRole("link", { name: "Back to login" })).toBeInTheDocument();
     });
 
-    it("localizes the missing-link recovery state", () => {
+    it("localizes the missing-link recovery state", async () => {
         window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
 
         render(
@@ -70,7 +70,7 @@ describe("ResetPasswordPage", () => {
             </MemoryRouter></LocaleProvider>,
         );
 
-        expect(screen.getByRole("heading", { name: "Chọn mật khẩu mới" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Chọn mật khẩu mới" })).toBeInTheDocument();
         expect(screen.getByRole("alert")).toHaveTextContent("Liên kết đặt lại mật khẩu thiếu mã thao tác Firebase.");
         expect(screen.getByRole("link", { name: "Quay lại đăng nhập" })).toBeInTheDocument();
     });

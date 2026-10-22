@@ -220,8 +220,8 @@ describe("guest purchase transaction", () => {
                 expect.arrayContaining([null, "buyer@example.com", "Buyer Name", "+84123456789", expect.any(String)]),
             );
             expect(tx.query).toHaveBeenCalledWith(
-                expect.stringContaining("UPDATE products SET stock"),
-                [2, 7, 2],
+                expect.stringContaining("UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0)"),
+                [2, 2, 7, 2],
             );
             expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledWith(tx, expect.objectContaining({ actorId: null }));
             expect(inventory.createMovementsInTransaction).toHaveBeenCalled();
@@ -347,8 +347,8 @@ describe("guest purchase transaction", () => {
         await expect(service.makeGuestPurchase(guestPayload())).rejects.toMatchObject({ statusCode: 409 });
         expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
         expect(tx.query).toHaveBeenCalledWith(
-            "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
-            [1, 7, 1],
+            "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock - ? WHERE id = ? AND stock >= ?",
+            [1, 1, 7, 1],
         );
     });
 

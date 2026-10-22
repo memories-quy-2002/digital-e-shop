@@ -144,7 +144,7 @@ const ProductCard = ({
                 <Button
                     type="button"
                     variant="ghost"
-                    className={`product-card__compare ${isComparisonSelected ? "product-card__compare--selected" : ""}`}
+                    className={`product-card__compare text-foreground ${isComparisonSelected ? "product-card__compare--selected" : ""}`}
                     onClick={handleComparisonToggle}
                     aria-label={comparisonLabel}
                     aria-pressed={isComparisonSelected}

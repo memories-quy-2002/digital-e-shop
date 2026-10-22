@@ -6,7 +6,7 @@
         "productRouteGzipBytes": 192147,
         "adminDashboardRouteGzipBytes": 293158,
         "adminDashboardChartsChunkGzipBytes": 115269,
-        "allProductionJavaScriptGzipBytes": 591785,
+        "allProductionJavaScriptGzipBytes": 1183570,
         "largestChunkRawBytes": 416874
     }
 }

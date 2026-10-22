@@ -325,3 +325,21 @@ export const ClipboardListIcon = (props: IconProps) => (
         <path d="M9 18h4" />
     </Svg>
 );
+
+export const SupplierIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01" />
+    </Svg>
+);
+
+export const PurchaseOrderIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M3 7h11v11H3zM14 11h4l3 3v4h-7zM7 18a2 2 0 1 0 4 0M16 18a2 2 0 1 0 4 0" />
+    </Svg>
+);
+
+export const StockCountIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M4 4h16v16H4zM8 8h3M8 12h3M8 16h2M14 11l2 2 4-5" />
+    </Svg>
+);

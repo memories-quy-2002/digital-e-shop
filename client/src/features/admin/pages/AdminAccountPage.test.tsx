@@ -33,11 +33,12 @@ describe("AdminAccountPage delivery role management", () => {
         expect(within(roleSelect).getByRole("option", { name: "shipping.deliveryStaffRole" })).toHaveValue("DeliveryStaff");
         fireEvent.change(roleSelect, { target: { value: "DeliveryStaff" } });
 
-        fireEvent.change(screen.getByLabelText("Reason (at least 8 characters)"), { target: { value: "Delivery staff assignment" } });
+        fireEvent.click(screen.getByLabelText("Other"));
+        fireEvent.change(screen.getByLabelText("Describe the other reason"), { target: { value: "Delivery staff assignment" } });
         fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
 
         await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("customer-1", {
-            role: "DeliveryStaff", status: "Active", reason: "Delivery staff assignment",
+            role: "DeliveryStaff", status: "Active", reason: "Other: Delivery staff assignment",
         }));
     });
 });

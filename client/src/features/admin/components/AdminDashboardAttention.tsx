@@ -54,7 +54,12 @@ const AdminDashboardAttention = ({ status, groups, onRetry, onOpenAlerts }: Admi
                 {groups.map((group) => (
                     <article className={`admin__dashboard__attention-card admin__dashboard__attention-card--${group.priority.toLowerCase()}`} key={group.type}>
                         <div className="admin__dashboard__attention-card-topline">
-                            <Badge variant={priorityVariant(group.priority)}>{tx(`${group.priority} priority`)}</Badge>
+                            <Badge
+                                variant={priorityVariant(group.priority)}
+                                className={`admin__dashboard__priority-badge admin__dashboard__priority-badge--${group.priority.toLowerCase()}`}
+                            >
+                                {tx(`${group.priority} priority`)}
+                            </Badge>
                             <span className="admin__dashboard__attention-count">
                                 {group.count} {tx(group.count === 1 ? "item" : "items")}
                             </span>

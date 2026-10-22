@@ -1,4 +1,86 @@
 // Accounts page styles
+.admin__dialog .admin__account-access-reason {
+    min-height: 7.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--de-color-border-strong) !important;
+    border-radius: var(--de-radius-sm) !important;
+    background: var(--de-color-bg-muted) !important;
+    color: var(--de-color-text) !important;
+    resize: vertical;
+}
+
+.admin__dialog .admin__account-access-reason:focus-visible {
+    border-color: var(--de-color-electric) !important;
+    outline: none;
+    box-shadow: var(--de-shadow-focus);
+}
+
+.admin__dialog .admin__account-access-reasons {
+    min-width: 0;
+    margin: 1.25rem 0 0;
+    padding: 1rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-md);
+}
+
+.admin__dialog .admin__account-access-reasons legend {
+    width: auto;
+    margin: 0;
+    padding: 0 0.35rem;
+    color: var(--de-color-text);
+    font-weight: 600;
+}
+
+.admin__account-access-reasons__options {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.admin__account-access-reasons__option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin: 0;
+    color: var(--de-color-text);
+    cursor: pointer;
+}
+
+.admin__account-access-reasons__option input {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    margin: 0.15rem 0 0;
+    accent-color: var(--de-color-electric);
+}
+
+.admin__account-access-reasons__option input:focus-visible {
+    outline: 2px solid var(--de-color-electric);
+    outline-offset: 3px;
+}
+
+.admin__account-access-reasons__help,
+.admin__account-access-reasons__count {
+    display: block;
+    margin: 0.8rem 0 0;
+    color: var(--de-color-text-muted);
+    font-size: 0.875rem;
+}
+
+.admin__account-access-reasons__other {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.admin__account-access-reasons__other > label {
+    color: var(--de-color-text);
+    font-weight: 600;
+}
+
+.admin__account-access-reasons__count {
+    margin: 0;
+}
+
 .admin__customer-profile {
     display: grid;
     gap: 1rem;

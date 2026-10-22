@@ -101,7 +101,10 @@ export class OrdersRepository {
     }
 
     incrementProductStockInTransaction(tx: TransactionContext, productId: number, quantity: number): Promise<UpdateResult> {
-        return tx.query<UpdateResult>("UPDATE products SET stock = stock + ? WHERE id = ?", [quantity, productId]);
+        return tx.query<UpdateResult>(
+            "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock + ? WHERE id = ?",
+            [quantity, quantity, productId],
+        );
     }
 
     cancelOrderInTransaction(tx: TransactionContext, orderId: number, reason: string | null): Promise<UpdateResult> {
@@ -219,8 +222,8 @@ export class OrdersRepository {
         quantity: number,
     ): Promise<UpdateResult> {
         return tx.query<UpdateResult>(
-            "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
-            [quantity, productId, quantity],
+            "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock - ? WHERE id = ? AND stock >= ?",
+            [quantity, quantity, productId, quantity],
         );
     }
 
@@ -287,7 +290,11 @@ export class OrdersRepository {
     }
 
     updateProductStock(productId: number, quantity: number, callback: QueryCallback<UpdateResult>) {
-        this.query("UPDATE products SET stock = stock - ? WHERE id = ?", [quantity, productId], callback);
+        this.query(
+            "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock - ? WHERE id = ?",
+            [quantity, quantity, productId],
+            callback,
+        );
     }
 
     private readonly orderSelect = `

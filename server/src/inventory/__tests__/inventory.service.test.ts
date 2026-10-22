@@ -14,6 +14,8 @@ describe("normalizeMovement", () => {
             stock_after: "7",
             note: "Stock deducted",
             actor_id: "user-1",
+            purchase_receipt_line_id: "18",
+            stock_count_item_id: null,
             created_at: "2026-07-07T00:00:00.000Z",
         });
 
@@ -28,6 +30,8 @@ describe("normalizeMovement", () => {
             stock_after: 7,
             note: "Stock deducted",
             actor_id: "user-1",
+            purchase_receipt_line_id: 18,
+            stock_count_item_id: null,
             created_at: "2026-07-07T00:00:00.000Z",
         });
     });

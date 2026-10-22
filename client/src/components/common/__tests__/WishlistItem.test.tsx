@@ -62,10 +62,10 @@ describe("WishlistItem localization", () => {
     it.each([
         { locale: "en" as const, select: "Select Studio Headphones", stock: "3 in stock", sale: "Sale from", available: "Available", move: "Move to cart", remove: "Remove Studio Headphones from wishlist" },
         { locale: "vi" as const, select: "Chọn Studio Headphones", stock: "Còn 3 sản phẩm", sale: "Giá gốc", available: "Còn hàng", move: "Chuyển vào giỏ hàng", remove: "Xóa Studio Headphones khỏi danh sách yêu thích" },
-    ])("localizes row labels and actions in $locale while retaining product facts", ({ locale, select, stock, sale, available, move, remove }) => {
+    ])("localizes row labels and actions in $locale while retaining product facts", async ({ locale, select, stock, sale, available, move, remove }) => {
         renderWishlistItem(locale);
 
-        expect(screen.getByRole("checkbox", { name: select })).toBeInTheDocument();
+        expect(await screen.findByRole("checkbox", { name: select })).toBeInTheDocument();
         expect(screen.getByText(stock)).toBeInTheDocument();
         expect(screen.getByText(sale, { exact: false })).toHaveTextContent(formatCurrency(product.price).replace(/\u00a0/g, " "));
         expect(screen.getByText(available)).toBeInTheDocument();
@@ -81,10 +81,10 @@ describe("WishlistItem localization", () => {
         expect(callbacks.onRemoveWishlist).toHaveBeenCalledWith(product.id);
     });
 
-    it("localizes out-of-stock status and disables the existing cart action", () => {
+    it("localizes out-of-stock status and disables the existing cart action", async () => {
         renderWishlistItem("vi", { ...product, stock: 0, available_stock: 0, sale_price: null });
 
-        expect(screen.getAllByText("Hết hàng")).toHaveLength(2);
+        expect(await screen.findAllByText("Hết hàng")).toHaveLength(2);
         expect(screen.getByText("Giá không đổi")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Chuyển vào giỏ hàng" })).toBeDisabled();
     });

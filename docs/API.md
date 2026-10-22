@@ -156,11 +156,18 @@ snapshot.
 | POST | /api/users/logout | Authenticated |
 | GET | /api/users/session/check | Authenticated |
 | GET | /api/users/me | Authenticated |
+| POST | /api/users/me/email-verification/sync | Authenticated |
 
 Authentication verifies Firebase identity on the server. Successful
 authentication issues the server cookie-backed access and refresh session. The
 server does not accept email/password credentials and does not expose
 password-reset or email-verification token routes.
+
+After a Firebase verification link returns the customer to Account, the client
+may submit a fresh Firebase ID token to
+`POST /api/users/me/email-verification/sync`. The API requires the token's
+verified identity to match the current cookie session and updates only that
+account's verification state; it does not replace the session cookies.
 
 Registration accepts an ID token, optional profile input, and an optional "en" or "vi"
 locale. A newly created account queues a localized welcome email transactionally:
@@ -169,11 +176,19 @@ locale. A newly created account queues a localized welcome email transactionally
 {
   "idToken": "your_firebase_id_token",
   "user": {
-    "username": "customer"
+    "username": "customer",
+    "firstName": "Van",
+    "lastName": "Nguyen"
   },
   "locale": "vi"
 }
 ~~~
+
+`firstName` and `lastName` are optional for older clients and, when provided,
+are stored directly in `users.first_name` and `users.last_name`. The legacy
+`displayName` field remains supported for older clients; the server stores its
+first whitespace-delimited token in `first_name` and the remainder in
+`last_name`.
 
 Firebase owns verification, password reset, and email-change action links.
 After a verified sign-in, the server synchronizes the Firebase claim to the
@@ -360,6 +375,21 @@ ledger is marked simulated cannot transition to delivered status.
 | PUT | /api/admin/alerts/acknowledge | Persist the current admin's alert read state |
 | PUT | /api/admin/alerts/triage | Claim, release, resolve, or reopen an active alert |
 | GET | /api/admin/audit | Search paginated inventory, account-access, and promotion audit events |
+| GET/POST | /api/admin/suppliers | List or create supplier contacts |
+| GET/PATCH | /api/admin/suppliers/:id | Read or update supplier details with optimistic versioning |
+| POST | /api/admin/suppliers/:id/archive | Archive a supplier with an audit reason |
+| GET/POST | /api/admin/purchase-orders | List or create purchase orders |
+| GET/PATCH | /api/admin/purchase-orders/:id | Read or edit a draft purchase order |
+| POST | /api/admin/purchase-orders/:id/confirm | Snapshot supplier and product identities and confirm a draft |
+| POST | /api/admin/purchase-orders/:id/cancel | Cancel a draft purchase order with a reason |
+| POST | /api/admin/purchase-orders/:id/close | Close an open order with outstanding quantities recorded |
+| GET/POST | /api/admin/purchase-orders/:id/receipts | Read receipt history or post an idempotent partial receipt |
+| GET/POST | /api/admin/stock-counts | List or create stock-count sessions |
+| GET/PATCH | /api/admin/stock-counts/:id | Read a count or save draft observations with a version |
+| POST | /api/admin/stock-counts/:id/submit | Submit a complete count for review |
+| POST | /api/admin/stock-counts/:id/reopen | Reopen selected submitted lines for recount |
+| POST | /api/admin/stock-counts/:id/approve | Approve differences after live stock and reservation checks |
+| POST | /api/admin/stock-counts/:id/cancel | Cancel a count with a reason |
 | GET | /api/users | List users |
 | GET | /api/users/:id | Read a user |
 | GET | /api/users/:id/profile | Read a customer profile |
@@ -395,7 +425,7 @@ returns global inventory counts. `/api/users` accepts `page`, `limit`,
 `search`, and `entityType` (`product`, `user`, or `promotion`). All list limits
 are capped at 100. Admin access requires the admin role. Inventory adjustments
 and account-access updates require a reason; stock, account-access, and
-promotion changes are recorded in the admin audit log. Alert acknowledgements
+promotion changes are recorded in the admin audit log. Supplier, purchase order, receipt, and stock-count writes are admin-only and record their actor and reason/change summary in the same transaction. Receipt posting is idempotent per purchase order and payload; accepted quantities add stock and source-linked inventory movements atomically. Count baselines include pending checkout holds in physical warehouse units; approval rejects stale stock revisions or counts below current active holds, and recount refreshes only selected lines. Alert acknowledgements
 are stored per administrator; ownership and resolution state are shared across
 admins. An admin can claim an unassigned alert, release their own claim, resolve
 a claimed alert, or reopen a resolved alert. Product deletion preserves the

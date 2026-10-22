@@ -167,6 +167,98 @@
         }
     }
 
+    &__verification {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.25rem;
+        width: min(100%, 1180px);
+        margin: 0 auto var(--de-space-4);
+        padding: clamp(1rem, 2.5vw, 1.5rem);
+        border: 1px solid var(--de-color-border-strong);
+        border-left: 4px solid var(--de-color-electric);
+        border-radius: var(--de-radius-md);
+        background: var(--de-color-surface-strong);
+        box-shadow: var(--de-shadow-sm);
+
+        &--verified {
+            border-left-color: var(--de-color-success-strong);
+        }
+
+        &--unverified {
+            border-left-color: var(--de-color-warning-strong, var(--de-color-electric));
+        }
+
+        &__copy {
+            min-width: 0;
+        }
+
+        &__eyebrow {
+            color: var(--de-color-primary-emphasis);
+            font-family: var(--de-font-family-mono);
+            font-size: 0.68rem;
+            font-weight: 900;
+            letter-spacing: 0.07em;
+        }
+
+        h2 {
+            margin: 0.35rem 0 0;
+            color: var(--de-color-text);
+            font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+        }
+
+        p {
+            max-width: 55rem;
+            margin: 0.4rem 0 0;
+            color: var(--de-color-text-muted);
+            line-height: 1.5;
+        }
+
+        &__actions {
+            display: flex;
+            flex: 0 0 auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.55rem;
+        }
+
+        button,
+        &__login {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0.55rem 0.85rem;
+            border: 1px solid var(--de-color-primary);
+            border-radius: var(--de-radius-sm);
+            background: var(--de-color-primary);
+            color: var(--de-color-primary-contrast, #172018);
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: none;
+
+            &:hover:not(:disabled) {
+                filter: brightness(1.06);
+            }
+
+            &:focus-visible {
+                outline: 2px solid var(--de-color-electric);
+                outline-offset: 3px;
+            }
+
+            &:disabled {
+                cursor: progress;
+                opacity: 0.65;
+            }
+        }
+
+        .customer-account-page__verification__refresh {
+            border-color: var(--de-color-border-strong);
+            background: var(--de-color-surface-muted);
+            color: var(--de-color-text);
+        }
+    }
+
     &__workflow,
     &__grid {
         width: min(100%, 1180px);
@@ -657,6 +749,20 @@
             grid-template-columns: 1fr;
         }
 
+        &__verification {
+            align-items: stretch;
+            flex-direction: column;
+
+            &__actions {
+                justify-content: stretch;
+            }
+
+            button,
+            .customer-account-page__verification__login {
+                flex: 1 1 100%;
+            }
+        }
+
         &__stats {
             gap: 0.5rem;
 
@@ -702,5 +808,303 @@
 @keyframes customer-account-skeleton {
     100% {
         transform: translateX(100%);
+    }
+}
+
+// Account overview refresh: keep the existing account data and actions while
+// giving each section a clearer role and a calmer, more consistent rhythm.
+.customer-account-page {
+    padding-block: clamp(1.5rem, 4vw, 3.25rem) var(--de-space-9);
+
+    &__hero,
+    &__verification,
+    &__notifications,
+    &__panel,
+    &__workflow a {
+        border-color: color-mix(in srgb, var(--de-color-border-strong) 72%, transparent);
+        border-radius: var(--de-radius-lg, 1rem);
+        box-shadow: var(--de-shadow-md, var(--de-shadow-sm));
+    }
+
+    &__hero {
+        position: relative;
+        isolation: isolate;
+        grid-template-columns: minmax(0, 1.35fr) minmax(15rem, 0.65fr);
+        gap: clamp(1.25rem, 3vw, 2.5rem);
+        padding: clamp(1.25rem, 3.4vw, 2.5rem);
+        background:
+            radial-gradient(ellipse at 94% 0%, var(--de-color-primary-tint), transparent 38%),
+            linear-gradient(135deg, var(--de-color-surface-strong), var(--de-color-surface-muted));
+        overflow: hidden;
+
+        &::after {
+            position: absolute;
+            z-index: -1;
+            right: -4rem;
+            bottom: -7rem;
+            width: 15rem;
+            aspect-ratio: 1;
+            border: 1px solid var(--de-color-border);
+            border-radius: 50%;
+            content: "";
+            box-shadow: 0 0 0 1.5rem color-mix(in srgb, var(--de-color-border) 34%, transparent),
+                0 0 0 3rem color-mix(in srgb, var(--de-color-border) 20%, transparent);
+            pointer-events: none;
+        }
+    }
+
+    &__identity {
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 1rem;
+        align-items: center;
+
+        &__badge {
+            grid-column: 2;
+            width: fit-content;
+            padding-inline: 0.65rem;
+            letter-spacing: 0.08em;
+        }
+
+        h2,
+        > p,
+        > small,
+        .customer-account-page__email-change {
+            grid-column: 2;
+        }
+
+        h2 {
+            margin-top: 0.15rem;
+            font-size: clamp(1.8rem, 4vw, 2.75rem);
+            letter-spacing: -0.035em;
+        }
+
+        > p {
+            font-size: 1rem;
+        }
+
+        > small {
+            font-size: 0.76rem;
+        }
+    }
+
+    &__avatar {
+        display: grid;
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        place-items: center;
+        width: clamp(3.5rem, 8vw, 5rem);
+        aspect-ratio: 1;
+        border: 1px solid var(--de-color-primary-soft);
+        border-radius: 1.35rem;
+        background: linear-gradient(145deg, var(--de-color-primary), var(--de-color-primary-strong));
+        color: var(--de-color-primary-contrast, #172018);
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 900;
+        box-shadow: 0 0.65rem 1.5rem color-mix(in srgb, var(--de-color-primary) 22%, transparent);
+    }
+
+    &__email-change {
+        max-width: 38rem;
+        margin-top: 0.9rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--de-color-border);
+
+        input {
+            min-height: 2.8rem;
+            border-radius: var(--de-radius-md, 0.75rem);
+        }
+
+        button {
+            min-height: 2.8rem;
+            border-radius: var(--de-radius-md, 0.75rem);
+        }
+    }
+
+    &__stats {
+        align-content: center;
+        gap: 0.75rem;
+
+        article {
+            min-height: 8.25rem;
+            padding: 1.1rem;
+            border-radius: var(--de-radius-md, 0.75rem);
+            background: color-mix(in srgb, var(--de-color-surface-strong) 68%, transparent);
+            backdrop-filter: blur(8px);
+        }
+
+        strong {
+            font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+            letter-spacing: -0.04em;
+        }
+    }
+
+    &__verification {
+        position: relative;
+        min-height: 7rem;
+        padding: clamp(1rem, 2.5vw, 1.5rem) clamp(1.1rem, 3vw, 1.75rem);
+
+        &--verified {
+            background: linear-gradient(110deg, var(--de-color-success-soft), var(--de-color-surface-strong) 64%);
+        }
+
+        &--unverified {
+            background: linear-gradient(110deg, var(--de-color-warning-soft, var(--de-color-primary-emphasis-soft)), var(--de-color-surface-strong) 64%);
+        }
+
+        &__eyebrow {
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            letter-spacing: -0.02em;
+        }
+    }
+
+    &__workflow {
+        gap: 1rem;
+
+        a {
+            position: relative;
+            min-height: 6.25rem;
+            align-content: center;
+            padding: 1.15rem 1.25rem;
+            background: var(--de-color-surface-strong);
+
+            > span {
+                width: 2.6rem;
+                height: 2.6rem;
+                border: 1px solid var(--de-color-primary-soft);
+                border-radius: 0.85rem;
+            }
+
+            &:focus-visible {
+                outline: 2px solid var(--de-color-electric);
+                outline-offset: 3px;
+            }
+        }
+    }
+
+    &__grid {
+        gap: 1rem;
+    }
+
+    &__panel {
+        min-height: 15rem;
+        background: var(--de-color-surface-strong);
+
+        &__header {
+            min-height: 3.8rem;
+            padding: 1rem 1.15rem 0.85rem;
+
+            h3 {
+                letter-spacing: -0.015em;
+            }
+
+            a:focus-visible {
+                outline: 2px solid var(--de-color-electric);
+                outline-offset: 3px;
+                border-radius: 2px;
+            }
+        }
+
+        &-body {
+            padding: 1rem;
+        }
+    }
+
+    &__order-list a,
+    &__address {
+        border-radius: var(--de-radius-md, 0.75rem);
+        padding: 1rem;
+    }
+
+    &__notifications {
+        margin-top: 1rem;
+
+        &__header {
+            padding: 1.15rem 1.25rem;
+
+            h3 {
+                font-size: 1.1rem;
+                letter-spacing: -0.02em;
+            }
+        }
+
+        &__body {
+            padding: 1rem;
+        }
+    }
+
+    &__notification-list article {
+        border-radius: var(--de-radius-md, 0.75rem);
+        padding: 1rem;
+    }
+
+    &__action-skeleton {
+        min-height: 6.25rem;
+        border-radius: var(--de-radius-lg, 1rem);
+    }
+
+    :is(button, input, a):focus-visible {
+        outline: 2px solid var(--de-color-electric);
+        outline-offset: 3px;
+    }
+
+    @media (max-width: 860px) {
+        &__hero {
+            grid-template-columns: minmax(0, 1.2fr) minmax(13rem, 0.8fr);
+        }
+    }
+
+    @media (max-width: 680px) {
+        padding-inline: 1rem;
+
+        &__hero {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        &__stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 520px) {
+        padding: 1.25rem 0.8rem 3rem;
+
+        &__hero {
+            padding: 1rem;
+        }
+
+        &__identity {
+            column-gap: 0.75rem;
+
+            &__badge {
+                font-size: 0.64rem;
+            }
+        }
+
+        &__avatar {
+            border-radius: 1rem;
+        }
+
+        &__stats article {
+            min-height: 6.5rem;
+        }
+
+        &__workflow a {
+            min-height: 5.75rem;
+        }
+
+        &__panel {
+            min-height: 0;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .customer-account-page__workflow a,
+    .customer-account-page__order-list a {
+        transition: none;
     }
 }

@@ -67,7 +67,7 @@ describe("transactional product persistence methods", () => {
         await expect(new NestProductsRepository().updateProductInTransaction(tx as unknown as TransactionContext, 41, record))
             .resolves.toEqual({ affectedRows: 1 });
         expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("UPDATE products"), [
-            "GPU", "updated", 2, 3, "spec", "GPU-41", null, 24, 100, 0, 0, 41,
+            "GPU", "updated", 2, 3, "spec", "GPU-41", null, 24, 100, 0, 0, 0, 41,
         ]);
         expect(pool.query).not.toHaveBeenCalled();
     });

@@ -4,6 +4,23 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAdminDashboardCopy } from "../../hooks/useAdminDashboardCopy";
 import { adminNavGroups } from "./adminNavigation";
 
+const EXPANDED_GROUPS_STORAGE_KEY = "digital-e.admin-sidebar.expanded-groups.v1";
+
+const getInitialExpandedGroups = (pathname: string): Record<string, boolean> => {
+    let stored: Record<string, unknown> = {};
+    try {
+        const parsed: unknown = JSON.parse(window.sessionStorage.getItem(EXPANDED_GROUPS_STORAGE_KEY) ?? "{}");
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed as Record<string, unknown>;
+    } catch {
+        // Storage may be unavailable in restricted browser contexts; keep navigation usable.
+    }
+
+    return Object.fromEntries(adminNavGroups.filter((group) => group.collapsible).map((group) => {
+        const isActive = group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`));
+        return [group.label, isActive || (typeof stored[group.label] === "boolean" ? stored[group.label] : Boolean(group.defaultExpanded))];
+    })) as Record<string, boolean>;
+};
+
 type AdminSidebarProps = {
     isOpen?: boolean;
     isMobile?: boolean;
@@ -15,27 +32,30 @@ type AdminSidebarProps = {
 const AdminSidebar = ({ isOpen = false, isMobile = false, isCollapsed = false, onClose, onToggleCollapsed }: AdminSidebarProps) => {
     const tx = useAdminDashboardCopy();
     const { pathname } = useLocation();
-    const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>(() =>
-        Object.fromEntries(
-            adminNavGroups
-                .filter((group) => group.collapsible)
-                .map((group) => [
-                    group.label,
-                    Boolean(group.defaultExpanded) || group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`)),
-                ]),
-        ),
-    );
+    const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>(() => getInitialExpandedGroups(pathname));
     const previousPathname = React.useRef(pathname);
+
+    React.useEffect(() => {
+        try {
+            window.sessionStorage.setItem(EXPANDED_GROUPS_STORAGE_KEY, JSON.stringify(expandedGroups));
+        } catch {
+            // The in-memory state remains authoritative for the current mount.
+        }
+    }, [expandedGroups]);
 
     React.useEffect(() => {
         if (previousPathname.current === pathname) return;
         previousPathname.current = pathname;
 
-        adminNavGroups.forEach((group) => {
-            if (!group.collapsible) return;
-            const isActive = group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`));
-            setExpandedGroups((current) => current[group.label] === isActive ? current : { ...current, [group.label]: isActive });
-        });
+        const activeGroup = adminNavGroups.find((group) =>
+            group.collapsible
+            && group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`)),
+        );
+        if (!activeGroup) return;
+
+        setExpandedGroups((current) => current[activeGroup.label]
+            ? current
+            : { ...current, [activeGroup.label]: true });
     }, [pathname]);
 
     return (

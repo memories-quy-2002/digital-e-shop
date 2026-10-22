@@ -17,7 +17,7 @@ TL;DR: A product is the catalog identity used by browsing, carts, checkout, inve
 The `products` table gives each product an auto-incremented `id` and a unique
 `sku`. The record also stores the name, description, main image,
 manufacturer part number, warranty duration, category, brand, specifications,
-price, sale price, stock, and timestamps.
+price, sale price, stock, a monotonically increasing `stock_revision`, and timestamps.
 
 `manufacturer_part_number` supports supplier or manufacturer lookup. `sku`
 identifies the store item and remains stable after an order is created. The
@@ -32,7 +32,7 @@ Product data participates in these relationships:
   attribute key per product
 - `CartItem` and `GuestCartItem` reference the current product for cart display
 - `InventoryReservation` references the product during a pending checkout
-- `InventoryMovement` records sales and manual stock adjustments
+- `InventoryMovement` records sales, manual stock adjustments, receipts, and count corrections; receipt/count movements link to their source line
 - `OrderItem` references the product while also storing an order snapshot
 - `Review` references the product and a customer
 

@@ -20,6 +20,16 @@ import { useAdminCopy } from "../../../hooks/useAdminCopy";
 const ITEMS_PER_PAGE = 8;
 const emptyPagination: AdminListPagination = { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 };
 type AccountChange = { account: Account; role: string; status: "Active" | "Suspended" };
+const ACCOUNT_CHANGE_REASONS = [
+    "Routine access review",
+    "Role or responsibility change",
+    "Security concern",
+    "Account inactive or duplicate",
+    "Other",
+] as const;
+const OTHER_ACCOUNT_CHANGE_REASON = "Other";
+const MIN_ACCOUNT_CHANGE_REASON_LENGTH = 8;
+const MAX_ACCOUNT_CHANGE_REASON_LENGTH = 500;
 
 const getStatusLabel = (status: number) => {
     const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
@@ -40,7 +50,8 @@ const AdminAccountPage = () => {
     const [pagination, setPagination] = useState(emptyPagination);
     const [accountSummary, setAccountSummary] = useState({ total: 0, customers: 0, suspended: 0 });
     const [pendingChange, setPendingChange] = useState<AccountChange | null>(null);
-    const [changeReason, setChangeReason] = useState("");
+    const [selectedChangeReasons, setSelectedChangeReasons] = useState<string[]>([]);
+    const [otherChangeReason, setOtherChangeReason] = useState("");
     const [isSavingChange, setIsSavingChange] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | null>(null);
     const [showProfile, setShowProfile] = useState(false);
@@ -97,16 +108,59 @@ const AdminAccountPage = () => {
 
     const requestAccountChange = (account: Account, role: string, status: "Active" | "Suspended") => {
         if (role === account.role && status === (account.status || "Active")) return;
-        setChangeReason("");
+        setSelectedChangeReasons([]);
+        setOtherChangeReason("");
         setPendingChange({ account, role, status });
     };
 
+    const handleAccountChangeModalHide = React.useCallback(() => {
+        if (!isSavingChange) {
+            setPendingChange(null);
+            setSelectedChangeReasons([]);
+            setOtherChangeReason("");
+        }
+    }, [isSavingChange]);
+
+    const hasOtherChangeReason = selectedChangeReasons.includes(OTHER_ACCOUNT_CHANGE_REASON);
+    const localizedOtherReasonLabel = tx(OTHER_ACCOUNT_CHANGE_REASON);
+    const otherReasonPrefix = selectedChangeReasons
+        .filter((reason) => reason !== OTHER_ACCOUNT_CHANGE_REASON)
+        .map((reason) => tx(reason))
+        .join("; ");
+    const serializedChangeReason = [
+        ...selectedChangeReasons.filter((reason) => reason !== OTHER_ACCOUNT_CHANGE_REASON).map((reason) => tx(reason)),
+        ...(hasOtherChangeReason && otherChangeReason.trim()
+            ? [`${localizedOtherReasonLabel}: ${otherChangeReason.trim()}`]
+            : []),
+    ].join("; ");
+    const otherReasonMaxLength = Math.max(
+        0,
+        MAX_ACCOUNT_CHANGE_REASON_LENGTH -
+            otherReasonPrefix.length -
+            (otherReasonPrefix ? 2 : 0) -
+            `${localizedOtherReasonLabel}: `.length,
+    );
+    const isChangeReasonValid =
+        selectedChangeReasons.length > 0 &&
+        (!hasOtherChangeReason || otherChangeReason.trim().length >= MIN_ACCOUNT_CHANGE_REASON_LENGTH) &&
+        serializedChangeReason.length >= MIN_ACCOUNT_CHANGE_REASON_LENGTH &&
+        serializedChangeReason.length <= MAX_ACCOUNT_CHANGE_REASON_LENGTH;
+
+    const toggleChangeReason = (reason: string) => {
+        if (reason === OTHER_ACCOUNT_CHANGE_REASON && selectedChangeReasons.includes(reason)) {
+            setOtherChangeReason("");
+        }
+        setSelectedChangeReasons((current) =>
+            current.includes(reason) ? current.filter((item) => item !== reason) : [...current, reason],
+        );
+    };
+
     const handleUpdateAccount = async () => {
-        if (!pendingChange || changeReason.trim().length < 8) return;
+        if (!pendingChange || !isChangeReasonValid) return;
         const { account, role, status } = pendingChange;
         try {
             setIsSavingChange(true);
-            const result = await updateAccount(account.id, { role, status, reason: changeReason.trim() });
+            const result = await updateAccount(account.id, { role, status, reason: serializedChangeReason });
             const updatedAccount = {
                 ...account,
                 ...result.account,
@@ -117,11 +171,16 @@ const AdminAccountPage = () => {
                 currentAccounts.map((item) => (item.id === account.id ? updatedAccount : item)),
             );
             setPendingChange(null);
-            setChangeReason("");
+            setSelectedChangeReasons([]);
+            setOtherChangeReason("");
             void loadUsers();
             addToast("Accounts", "Account updated successfully.");
         } catch (error) {
-            addToast("Accounts", getApiErrorMessage(error, "Unable to update account."));
+            addToast(
+                tx("Account update failed"),
+                getApiErrorMessage(error, "Unable to update account."),
+                "error",
+            );
         } finally {
             setIsSavingChange(false);
         }
@@ -361,7 +420,7 @@ const AdminAccountPage = () => {
 
                 <Modal
                     show={Boolean(pendingChange)}
-                    onHide={() => { if (!isSavingChange) setPendingChange(null); }}
+                    onHide={handleAccountChangeModalHide}
                     centered
                     dialogClassName="admin__dialog"
                     contentClassName="admin__dialog__content"
@@ -371,20 +430,50 @@ const AdminAccountPage = () => {
                     </Modal.Header>
                     <Modal.Body>
                         <p>{tx("This changes access to customer or admin tools. Add a reason to the audit history.")}</p>
-                        <label htmlFor="account-change-reason">{tx("Reason (at least 8 characters)")}</label>
-                        <textarea
-                            id="account-change-reason"
-                            className="admin__table__input"
-                            rows={3}
-                            maxLength={500}
-                            value={changeReason}
-                            onChange={(event) => setChangeReason(event.target.value)}
-                            required
-                        />
+                        <fieldset className="admin__account-access-reasons" aria-describedby="account-change-reason-help">
+                            <legend>{tx("Select one or more reasons")}</legend>
+                            <div className="admin__account-access-reasons__options">
+                                {ACCOUNT_CHANGE_REASONS.map((reason, index) => {
+                                    const id = `account-change-reason-${index}`;
+                                    return (
+                                        <label className="admin__account-access-reasons__option" htmlFor={id} key={reason}>
+                                            <input
+                                                id={id}
+                                                type="checkbox"
+                                                checked={selectedChangeReasons.includes(reason)}
+                                                onChange={() => toggleChangeReason(reason)}
+                                            />
+                                            <span>{tx(reason)}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <p className="admin__account-access-reasons__help" id="account-change-reason-help">
+                                {tx("Select at least one reason. If you choose Other, enter at least 8 characters.")}
+                            </p>
+                        </fieldset>
+                        {hasOtherChangeReason ? (
+                            <div className="admin__account-access-reasons__other">
+                                <label htmlFor="account-change-reason-other">{tx("Describe the other reason")}</label>
+                                <textarea
+                                    id="account-change-reason-other"
+                                    className="admin__table__input admin__account-access-reason"
+                                    rows={3}
+                                    maxLength={otherReasonMaxLength}
+                                    value={otherChangeReason}
+                                    onChange={(event) => setOtherChangeReason(event.target.value)}
+                                    required
+                                    aria-invalid={otherChangeReason.length > 0 && otherChangeReason.trim().length < MIN_ACCOUNT_CHANGE_REASON_LENGTH}
+                                />
+                                <span className="admin__account-access-reasons__count">
+                                    {tx("At least 8 characters")}
+                                </span>
+                            </div>
+                        ) : null}
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" disabled={isSavingChange} onClick={() => setPendingChange(null)}>{tx("Cancel")}</Button>
-                        <Button variant="primary" disabled={isSavingChange || changeReason.trim().length < 8} onClick={handleUpdateAccount}>
+                        <Button variant="secondary" disabled={isSavingChange} onClick={handleAccountChangeModalHide}>{tx("Cancel")}</Button>
+                        <Button variant="primary" disabled={isSavingChange || !isChangeReasonValid} onClick={handleUpdateAccount}>
                             {isSavingChange ? tx("Saving…") : tx("Confirm change")}
                         </Button>
                     </Modal.Footer>

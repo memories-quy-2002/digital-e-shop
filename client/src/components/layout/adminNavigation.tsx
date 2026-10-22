@@ -13,6 +13,9 @@ import {
     ShieldIcon,
     SpeedometerIcon,
     StarFillIcon,
+    SupplierIcon,
+    PurchaseOrderIcon,
+    StockCountIcon,
     TelephoneIcon,
 } from "../common/Icons";
 
@@ -71,6 +74,27 @@ export const adminNavGroups: { label: string; items: AdminNavItem[]; collapsible
                 match: "products",
                 icon: <ClipboardListIcon size={20} />,
                 searchTerms: ["product", "catalog", "inventory", "sản phẩm", "danh mục", "tồn kho"],
+            },
+            {
+                label: "Suppliers",
+                path: "/admin/suppliers",
+                match: "suppliers",
+                icon: <SupplierIcon size={20} />,
+                searchTerms: ["vendor", "nhà cung cấp"],
+            },
+            {
+                label: "Purchase orders",
+                path: "/admin/purchase-orders",
+                match: "purchase-orders",
+                icon: <PurchaseOrderIcon size={20} />,
+                searchTerms: ["procurement", "receiving", "đơn mua hàng", "nhập hàng"],
+            },
+            {
+                label: "Stock counts",
+                path: "/admin/stock-counts",
+                match: "stock-counts",
+                icon: <StockCountIcon size={20} />,
+                searchTerms: ["inventory count", "kiểm kê"],
             },
             {
                 label: "Promotions",

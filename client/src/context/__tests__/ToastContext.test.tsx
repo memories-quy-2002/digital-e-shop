@@ -134,8 +134,9 @@ describe("ToastContext", () => {
         expect(screen.getByText("Action needed")).toBeInTheDocument();
     });
 
-    it("uses explicit outcome tones and localized labels for non-English messages", () => {
+    it("uses explicit outcome tones and localized labels for non-English messages", async () => {
         renderWithProvider("vi");
+        await screen.findByText("add-explicit-success");
         act(() => {
             screen.getByText("add-explicit-success").click();
             screen.getByText("add-explicit-error").click();

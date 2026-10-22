@@ -125,7 +125,7 @@ describe("order lifecycle", () => {
         await expect(service.cancelOrder(9, "user-1")).resolves.toMatchObject({ id: 9, status: 2 });
         await expect(service.cancelOrder(9, "user-1")).resolves.toMatchObject({ id: 9, status: 2 });
 
-        expect(tx.query).toHaveBeenCalledWith("UPDATE products SET stock = stock + ? WHERE id = ?", [2, 4]);
+        expect(tx.query).toHaveBeenCalledWith("UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock + ? WHERE id = ?", [2, 2, 4]);
         expect(inventory.createMovementsInTransaction).toHaveBeenCalledTimes(1);
         expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledWith(tx, expect.objectContaining({
             orderId: 9,
@@ -186,8 +186,8 @@ describe("order lifecycle", () => {
         );
         expect(tx.query.mock.calls.filter(([sql]) => String(sql).includes("FROM products") && String(sql).includes("FOR UPDATE"))).toHaveLength(1);
         expect(tx.query.mock.calls.filter(([sql]) => String(sql).startsWith("UPDATE products"))).toEqual([
-            ["UPDATE products SET stock = stock + ? WHERE id = ?", [2, 4]],
-            ["UPDATE products SET stock = stock + ? WHERE id = ?", [3, 4]],
+            ["UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock + ? WHERE id = ?", [2, 2, 4]],
+            ["UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock + ? WHERE id = ?", [3, 3, 4]],
         ]);
         expect(inventory.createMovementsInTransaction).toHaveBeenCalledWith(tx, [
             expect.objectContaining({ productId: 4, stockBefore: 0, stockAfter: 2 }),

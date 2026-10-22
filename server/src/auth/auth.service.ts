@@ -163,6 +163,10 @@ export class NestAuthService {
 
     async registerUser(idToken: string, input: RegisterUserInput, locale: EmailLocale = "en"): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        const displayName = input.displayName?.trim();
+        const legacyNameParts = displayName?.split(/\s+/).filter(Boolean) ?? [];
+        const firstName = input.firstName?.trim() || legacyNameParts[0] || null;
+        const lastName = input.lastName?.trim() || (input.firstName ? null : legacyNameParts.slice(1).join(" ")) || null;
         const existing = await this.findFirebaseUser(identity);
         if (existing?.status === USER_ACCOUNT_STATUS.SUSPENDED) {
             throw new UnauthorizedException({ msg: "Account is suspended" });
@@ -193,20 +197,23 @@ export class NestAuthService {
 
         const firebasePasswordPlaceholder = crypto.randomBytes(32).toString("hex");
         const created = await withTransaction(async (tx) => {
-            const user = await this.usersRepository.createRegisteredFirebaseUserInTransaction(tx, {
+            const registrationUser = {
                 uid: identity.uid,
                 username: input.username,
                 email: identity.email,
                 password: firebasePasswordPlaceholder,
                 emailVerified: identity.emailVerified,
-            });
+                firstName,
+                lastName,
+            };
+            const user = await this.usersRepository.createRegisteredFirebaseUserInTransaction(tx, registrationUser);
             if (!user) throw new NotFoundException({ msg: "Unable to create user" });
             await this.emails.enqueue(tx, {
                 eventKey: "account:" + identity.uid + ":welcome",
                 type: "account_welcome",
                 recipient: identity.email,
                 locale,
-                snapshot: { customerName: input.username },
+                snapshot: { customerName: [firstName, lastName].filter(Boolean).join(" ") || displayName || input.username },
             });
             return user;
         });
@@ -231,6 +238,35 @@ export class NestAuthService {
         }
 
         return this.issueLoginSession(reconciled, rememberMe);
+    }
+
+    async syncEmailVerification(userId: string, idToken: string) {
+        const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        if (!identity.emailVerified) {
+            throw new UnauthorizedException({
+                msg: "Please verify your email before continuing.",
+                code: "EMAIL_VERIFICATION_REQUIRED",
+                emailVerified: false,
+            });
+        }
+
+        const user = await this.usersRepository.findById(userId);
+        if (!user) throw new NotFoundException({ msg: "User not found" });
+        const firebaseIdentityMatchesUser =
+            String(user.id) === identity.uid
+            || (user.auth_provider === "firebase" && user.provider_user_id === identity.uid);
+        if (!firebaseIdentityMatchesUser) {
+            throw new UnauthorizedException({ msg: "Firebase identity does not match the authenticated account" });
+        }
+        if ((user.email || "").trim().toLowerCase() !== identity.email.trim().toLowerCase()) {
+            throw new UnauthorizedException({ msg: "Firebase email does not match the authenticated account" });
+        }
+
+        await this.usersRepository.markEmailVerified(user.id);
+        const refreshedUser = await this.usersRepository.findById(user.id);
+        if (!refreshedUser) throw new NotFoundException({ msg: "User not found" });
+
+        return toPublicUser(refreshedUser);
     }
 
     async refreshToken(sessionId: number | string, rawRefreshToken: string) {

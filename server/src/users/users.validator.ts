@@ -17,3 +17,7 @@ export const adminUsersQuerySchema = z.object({
     role: roleSchema.optional(),
     status: accountStatusSchema.optional(),
 });
+
+export const emailVerificationSyncSchema = z.object({
+    idToken: z.string().trim().min(1, "Firebase ID token is required").max(8192, "Firebase ID token is too long"),
+}).strict();

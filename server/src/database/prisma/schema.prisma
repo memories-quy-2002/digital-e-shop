@@ -33,25 +33,25 @@ model OperationsTask {
 }
 
 model DeliveryQuote {
-  id                   String @id @db.Char(36)
-  fingerprint          String @db.Char(64)
-  ownerHash            String @map("owner_hash") @db.Char(64)
-  provider             String @db.VarChar(16)
-  serviceTypeId        Int? @map("service_type_id")
+  id                   String    @id @db.Char(36)
+  fingerprint          String    @db.Char(64)
+  ownerHash            String    @map("owner_hash") @db.Char(64)
+  provider             String    @db.VarChar(16)
+  serviceTypeId        Int?      @map("service_type_id")
   address              Json
   parcel               Json?
   pricing              Json
-  originLatitude       Decimal? @map("origin_latitude") @db.Decimal(10, 7)
-  originLongitude      Decimal? @map("origin_longitude") @db.Decimal(10, 7)
-  destinationLatitude  Decimal? @map("destination_latitude") @db.Decimal(10, 7)
-  destinationLongitude Decimal? @map("destination_longitude") @db.Decimal(10, 7)
-  distanceMeters       BigInt? @map("distance_meters") @db.UnsignedBigInt
-  routeGeometry        Json? @map("route_geometry")
-  settingsVersion      Int? @map("settings_version") @db.UnsignedInt
+  originLatitude       Decimal?  @map("origin_latitude") @db.Decimal(10, 7)
+  originLongitude      Decimal?  @map("origin_longitude") @db.Decimal(10, 7)
+  destinationLatitude  Decimal?  @map("destination_latitude") @db.Decimal(10, 7)
+  destinationLongitude Decimal?  @map("destination_longitude") @db.Decimal(10, 7)
+  distanceMeters       BigInt?   @map("distance_meters") @db.UnsignedBigInt
+  routeGeometry        Json?     @map("route_geometry")
+  settingsVersion      Int?      @map("settings_version") @db.UnsignedInt
   expectedDeliveryAt   DateTime? @map("expected_delivery_at") @db.DateTime(3)
-  expiresAt            DateTime @map("expires_at") @db.DateTime(3)
+  expiresAt            DateTime  @map("expires_at") @db.DateTime(3)
   consumedAt           DateTime? @map("consumed_at") @db.DateTime(3)
-  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.DateTime(3)
 
   @@index([ownerHash, expiresAt], map: "idx_delivery_quotes_owner")
   @@index([expiresAt], map: "idx_delivery_quotes_expiry")
@@ -59,17 +59,17 @@ model DeliveryQuote {
 }
 
 model DeliverySettings {
-  id              Int @id @db.UnsignedTinyInt
-  storeAddress    String? @map("store_address") @db.VarChar(255)
+  id              Int      @id @db.UnsignedTinyInt
+  storeAddress    String?  @map("store_address") @db.VarChar(255)
   storeLatitude   Decimal? @map("store_latitude") @db.Decimal(10, 7)
   storeLongitude  Decimal? @map("store_longitude") @db.Decimal(10, 7)
-  fee5To20Vnd     BigInt? @map("fee_5_to_20_vnd") @db.UnsignedBigInt
-  feeOver20Vnd    BigInt? @map("fee_over_20_vnd") @db.UnsignedBigInt
-  routingEndpoint String? @map("routing_endpoint") @db.VarChar(2048)
-  tileUrl         String? @map("tile_url") @db.VarChar(2048)
-  tileAttribution String? @map("tile_attribution") @db.VarChar(512)
-  version         Int @default(0) @db.UnsignedInt
-  updatedById     String? @map("updated_by_id") @db.VarChar(255)
+  fee5To20Vnd     BigInt?  @map("fee_5_to_20_vnd") @db.UnsignedBigInt
+  feeOver20Vnd    BigInt?  @map("fee_over_20_vnd") @db.UnsignedBigInt
+  routingEndpoint String?  @map("routing_endpoint") @db.VarChar(2048)
+  tileUrl         String?  @map("tile_url") @db.VarChar(2048)
+  tileAttribution String?  @map("tile_attribution") @db.VarChar(512)
+  version         Int      @default(0) @db.UnsignedInt
+  updatedById     String?  @map("updated_by_id") @db.VarChar(255)
   updatedAt       DateTime @default(now()) @map("updated_at") @db.DateTime(3)
 
   updatedBy User? @relation("DeliverySettingsAdmin", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -78,21 +78,21 @@ model DeliverySettings {
 }
 
 model DeliveryAssignment {
-  id               Int @id @default(autoincrement())
-  orderId          Int @map("order_id")
-  employeeId       String @map("employee_id") @db.VarChar(255)
-  assignedById     String @map("assigned_by_id") @db.VarChar(255)
+  id               Int      @id @default(autoincrement())
+  orderId          Int      @map("order_id")
+  employeeId       String   @map("employee_id") @db.VarChar(255)
+  assignedById     String   @map("assigned_by_id") @db.VarChar(255)
   scheduledStartAt DateTime @map("scheduled_start_at") @db.DateTime(3)
   scheduledEndAt   DateTime @map("scheduled_end_at") @db.DateTime(3)
-  status           String @default("ASSIGNED") @db.VarChar(24)
-  failureReason    String? @map("failure_reason") @db.VarChar(500)
-  attemptNumber    Int @default(1) @map("attempt_number") @db.UnsignedInt
+  status           String   @default("ASSIGNED") @db.VarChar(24)
+  failureReason    String?  @map("failure_reason") @db.VarChar(500)
+  attemptNumber    Int      @default(1) @map("attempt_number") @db.UnsignedInt
   createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt        DateTime @default(now()) @map("updated_at") @db.DateTime(3)
 
-  order      Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  employee   User @relation("DeliveryAssignmentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("DeliveryAssignmentAdmin", fields: [assignedById], references: [id], onDelete: Restrict)
+  order      Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  employee   User            @relation("DeliveryAssignmentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  assignedBy User            @relation("DeliveryAssignmentAdmin", fields: [assignedById], references: [id], onDelete: Restrict)
   events     DeliveryEvent[]
 
   @@index([employeeId, status, scheduledStartAt, scheduledEndAt], map: "idx_delivery_assignments_employee_schedule")
@@ -101,19 +101,19 @@ model DeliveryAssignment {
 }
 
 model DeliveryEvent {
-  id           Int @id @default(autoincrement())
-  assignmentId Int @map("assignment_id")
-  orderId      Int @map("order_id")
-  eventType    String @map("event_type") @db.VarChar(32)
-  status       String? @db.VarChar(24)
-  actorId      String? @map("actor_id") @db.VarChar(255)
-  publicNote   String? @map("public_note") @db.VarChar(500)
+  id           Int      @id @default(autoincrement())
+  assignmentId Int      @map("assignment_id")
+  orderId      Int      @map("order_id")
+  eventType    String   @map("event_type") @db.VarChar(32)
+  status       String?  @db.VarChar(24)
+  actorId      String?  @map("actor_id") @db.VarChar(255)
+  publicNote   String?  @map("public_note") @db.VarChar(500)
   details      Json?
   createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
 
   assignment DeliveryAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
-  order      Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  actor      User? @relation("DeliveryEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  order      Order              @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  actor      User?              @relation("DeliveryEventActor", fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([assignmentId, id], map: "idx_delivery_events_assignment")
   @@index([orderId, id], map: "idx_delivery_events_order")
@@ -121,61 +121,70 @@ model DeliveryEvent {
 }
 
 model SandboxCarrierShipment {
-  clientReference String @id @map("client_reference") @db.VarChar(50)
-  providerOrderCode String @unique @map("provider_order_code") @db.VarChar(100)
-  inputHash String @map("input_hash") @db.Char(64)
-  snapshot Json
-  updatedAt DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+  clientReference   String   @id @map("client_reference") @db.VarChar(50)
+  providerOrderCode String   @unique @map("provider_order_code") @db.VarChar(100)
+  inputHash         String   @map("input_hash") @db.Char(64)
+  snapshot          Json
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
   @@map("sandbox_carrier_shipments")
 }
 
 model User {
-  financialEvidenceUploads FinancialEvidence[]
-  codSettlementEvents CodSettlementEvent[]
-  manualRefundOperations ManualRefundOperation[]
-  paymentAttemptRefunds PaymentAttemptRefund[] @relation("PaymentAttemptRefundActor")
-  transactionalEmails TransactionalEmail[] @relation("TransactionalEmailAdmin")
-  id                         String    @id @db.VarChar(255)
-  username                   String    @db.VarChar(16)
-  email                      String    @db.VarChar(255)
-  password                   String    @db.VarChar(255)
-  role                       String    @db.VarChar(16)
-  token                      String    @db.Text
-  authProvider               String?   @map("auth_provider") @db.VarChar(32)
-  providerUserId             String?   @map("provider_user_id") @db.VarChar(255)
-  emailVerifiedAt            DateTime? @map("email_verified_at") @db.DateTime(0)
-  emailVerificationTokenHash String?   @map("email_verification_token_hash") @db.Char(64)
-  emailVerificationExpiresAt DateTime? @map("email_verification_expires_at") @db.DateTime(0)
-  emailVerificationSentAt    DateTime? @map("email_verification_sent_at") @db.DateTime(0)
-  passwordResetTokenHash     String?   @map("password_reset_token_hash") @db.Char(64)
-  passwordResetExpiresAt     DateTime? @map("password_reset_expires_at") @db.DateTime(0)
-  pendingEmail               String?   @map("pending_email") @db.VarChar(255)
-  emailChangeTokenHash       String?   @map("email_change_token_hash") @db.Char(64)
-  emailChangeExpiresAt       DateTime? @map("email_change_expires_at") @db.DateTime(0)
-  firstName                  String?   @map("first_name") @db.Text
-  lastName                   String?   @map("last_name") @db.Text
-  status                     String    @default("Active") @db.VarChar(20)
-  createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  lastLogin                  DateTime  @default(now()) @map("last_login") @db.DateTime(0)
+  financialEvidenceUploads   FinancialEvidence[]
+  codSettlementEvents        CodSettlementEvent[]
+  manualRefundOperations     ManualRefundOperation[]
+  paymentAttemptRefunds      PaymentAttemptRefund[]  @relation("PaymentAttemptRefundActor")
+  transactionalEmails        TransactionalEmail[]    @relation("TransactionalEmailAdmin")
+  id                         String                  @id @db.VarChar(255)
+  username                   String                  @db.VarChar(16)
+  email                      String                  @db.VarChar(255)
+  password                   String                  @db.VarChar(255)
+  role                       String                  @db.VarChar(16)
+  token                      String                  @db.Text
+  authProvider               String?                 @map("auth_provider") @db.VarChar(32)
+  providerUserId             String?                 @map("provider_user_id") @db.VarChar(255)
+  emailVerifiedAt            DateTime?               @map("email_verified_at") @db.DateTime(0)
+  emailVerificationTokenHash String?                 @map("email_verification_token_hash") @db.Char(64)
+  emailVerificationExpiresAt DateTime?               @map("email_verification_expires_at") @db.DateTime(0)
+  emailVerificationSentAt    DateTime?               @map("email_verification_sent_at") @db.DateTime(0)
+  passwordResetTokenHash     String?                 @map("password_reset_token_hash") @db.Char(64)
+  passwordResetExpiresAt     DateTime?               @map("password_reset_expires_at") @db.DateTime(0)
+  pendingEmail               String?                 @map("pending_email") @db.VarChar(255)
+  emailChangeTokenHash       String?                 @map("email_change_token_hash") @db.Char(64)
+  emailChangeExpiresAt       DateTime?               @map("email_change_expires_at") @db.DateTime(0)
+  firstName                  String?                 @map("first_name") @db.Text
+  lastName                   String?                 @map("last_name") @db.Text
+  status                     String                  @default("Active") @db.VarChar(20)
+  createdAt                  DateTime                @default(now()) @map("created_at") @db.DateTime(0)
+  lastLogin                  DateTime                @default(now()) @map("last_login") @db.DateTime(0)
 
-  orders                    Order[]
-  carts                     Cart[]
-  reviews                   Review[]
-  pendingCheckouts          PendingCheckout[]
-  supportTickets            SupportTicket[]
-  afterSalesRequests        AfterSalesRequest[]        @relation("AfterSalesRequestCustomer")
-  afterSalesEvents          AfterSalesEvent[]          @relation("AfterSalesEventActor")
-  marketingSubscriptions    MarketingSubscription[]
-  wishlists                 Wishlist[]
-  productAlertSubscriptions ProductAlertSubscription[]
-  loyaltyAccount            LoyaltyAccount?
-  loyaltyLedger             LoyaltyLedger[]
-  loyaltyVouchers           LoyaltyVoucher[]
-  deliverySettingsUpdates    DeliverySettings[] @relation("DeliverySettingsAdmin")
-  cartMergeOperations       CartMergeOperation[]
-  deliveryAssignments        DeliveryAssignment[] @relation("DeliveryAssignmentEmployee")
-  deliveryAssignmentsCreated DeliveryAssignment[] @relation("DeliveryAssignmentAdmin")
-  deliveryEvents             DeliveryEvent[] @relation("DeliveryEventActor")
+  orders                     Order[]
+  carts                      Cart[]
+  reviews                    Review[]
+  pendingCheckouts           PendingCheckout[]
+  supportTickets             SupportTicket[]
+  afterSalesRequests         AfterSalesRequest[]        @relation("AfterSalesRequestCustomer")
+  afterSalesEvents           AfterSalesEvent[]          @relation("AfterSalesEventActor")
+  marketingSubscriptions     MarketingSubscription[]
+  wishlists                  Wishlist[]
+  productAlertSubscriptions  ProductAlertSubscription[]
+  loyaltyAccount             LoyaltyAccount?
+  loyaltyLedger              LoyaltyLedger[]
+  loyaltyVouchers            LoyaltyVoucher[]
+  deliverySettingsUpdates    DeliverySettings[]         @relation("DeliverySettingsAdmin")
+  cartMergeOperations        CartMergeOperation[]
+  deliveryAssignments        DeliveryAssignment[]       @relation("DeliveryAssignmentEmployee")
+  deliveryAssignmentsCreated DeliveryAssignment[]       @relation("DeliveryAssignmentAdmin")
+  deliveryEvents             DeliveryEvent[]            @relation("DeliveryEventActor")
+  suppliersCreated           Supplier[]                 @relation("SupplierCreatedBy")
+  suppliersUpdated           Supplier[]                 @relation("SupplierUpdatedBy")
+  purchaseOrdersCreated      PurchaseOrder[]            @relation("PurchaseOrderCreatedBy")
+  purchaseReceiptsCreated    PurchaseReceipt[]          @relation("PurchaseReceiptActor")
+  stockCountsCreated         StockCount[]               @relation("StockCountCreatedBy")
+  stockCountsSubmitted       StockCount[]               @relation("StockCountSubmittedBy")
+  stockCountsApproved        StockCount[]               @relation("StockCountApprovedBy")
+  stockCountsCanceled        StockCount[]               @relation("StockCountCanceledBy")
 
   @@map("users")
 }
@@ -282,10 +291,10 @@ model Wishlist {
 }
 
 model Product {
-  parcelGrams            Int? @map("parcel_grams")
-  parcelLengthCm         Int? @map("parcel_length_cm")
-  parcelWidthCm          Int? @map("parcel_width_cm")
-  parcelHeightCm         Int? @map("parcel_height_cm")
+  parcelGrams            Int?     @map("parcel_grams")
+  parcelLengthCm         Int?     @map("parcel_length_cm")
+  parcelWidthCm          Int?     @map("parcel_width_cm")
+  parcelHeightCm         Int?     @map("parcel_height_cm")
   id                     Int      @id @default(autoincrement())
   name                   String   @db.VarChar(255)
   description            String   @default("No description available") @db.VarChar(255)
@@ -299,6 +308,7 @@ model Product {
   price                  Decimal  @db.Decimal(10, 2)
   salePrice              Decimal? @map("sale_price") @db.Decimal(10, 2)
   stock                  Int      @default(0)
+  stockRevision          BigInt   @default(0) @map("stock_revision") @db.UnsignedBigInt
   createdAt              DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt              DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
@@ -313,6 +323,9 @@ model Product {
   wishlists                 Wishlist[]
   productAlertSubscriptions ProductAlertSubscription[]
   productAlertEvents        ProductAlertEvent[]
+  purchaseOrderItems        PurchaseOrderItem[]
+  purchaseReceiptLines      PurchaseReceiptLine[]
+  stockCountItems           StockCountItem[]
 
   @@index([categoryId, brandId, id], map: "idx_products_category_brand_rating")
   @@index([brandId], map: "idx_products_brand")
@@ -374,20 +387,192 @@ model ProductAttribute {
 }
 
 model InventoryMovement {
-  id             Int      @id @default(autoincrement())
-  productId      Int      @map("product_id")
-  orderId        Int?     @map("order_id")
-  movementType   String   @map("movement_type") @db.VarChar(40)
-  quantityChange Int      @map("quantity_change")
-  stockBefore    Int?     @map("stock_before")
-  stockAfter     Int?     @map("stock_after")
-  note           String?  @db.VarChar(255)
-  actorId        String?  @map("actor_id") @db.VarChar(255)
-  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  id                    Int      @id @default(autoincrement())
+  productId             Int      @map("product_id")
+  orderId               Int?     @map("order_id")
+  movementType          String   @map("movement_type") @db.VarChar(40)
+  quantityChange        Int      @map("quantity_change")
+  stockBefore           Int?     @map("stock_before")
+  stockAfter            Int?     @map("stock_after")
+  note                  String?  @db.VarChar(255)
+  actorId               String?  @map("actor_id") @db.VarChar(255)
+  purchaseReceiptLineId Int?     @unique(map: "uq_inventory_movements_purchase_receipt_line") @map("purchase_receipt_line_id")
+  stockCountItemId      Int?     @unique(map: "uq_inventory_movements_stock_count_item") @map("stock_count_item_id")
+  createdAt             DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  purchaseReceiptLine PurchaseReceiptLine? @relation(fields: [purchaseReceiptLineId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_inventory_movements_purchase_receipt_line")
+  stockCountItem      StockCountItem?      @relation(fields: [stockCountItemId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_inventory_movements_stock_count_item")
 
   @@index([productId], map: "inventory_movements_product_id_idx")
   @@index([createdAt], map: "inventory_movements_created_at_idx")
   @@map("inventory_movements")
+}
+
+model Supplier {
+  id             Int      @id @default(autoincrement())
+  code           String   @db.VarChar(64)
+  normalizedCode String   @unique(map: "uq_suppliers_normalized_code") @map("normalized_code") @db.VarChar(64)
+  name           String   @db.VarChar(160)
+  contactName    String?  @map("contact_name") @db.VarChar(120)
+  email          String?  @db.VarChar(254)
+  phone          String?  @db.VarChar(40)
+  address        String?  @db.VarChar(500)
+  notes          String?  @db.VarChar(2000)
+  active         Boolean  @default(true) @db.TinyInt
+  version        Int      @default(1) @db.UnsignedInt
+  createdById    String   @map("created_by_id") @db.VarChar(255)
+  updatedById    String   @map("updated_by_id") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
+  createdBy      User            @relation("SupplierCreatedBy", fields: [createdById], references: [id], onUpdate: Cascade, map: "fk_suppliers_created_by")
+  updatedBy      User            @relation("SupplierUpdatedBy", fields: [updatedById], references: [id], onUpdate: Cascade, map: "fk_suppliers_updated_by")
+  purchaseOrders PurchaseOrder[]
+
+  @@index([active, name, id], map: "idx_suppliers_active_name")
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id             Int       @id @default(autoincrement())
+  supplierId     Int       @map("supplier_id")
+  supplierCode   String?   @map("supplier_code") @db.VarChar(64)
+  supplierName   String?   @map("supplier_name") @db.VarChar(160)
+  status         String    @default("DRAFT") @db.VarChar(24)
+  version        Int       @default(1) @db.UnsignedInt
+  note           String?   @db.VarChar(2000)
+  confirmedAt    DateTime? @map("confirmed_at") @db.DateTime(3)
+  closedAt       DateTime? @map("closed_at") @db.DateTime(3)
+  closedReason   String?   @map("closed_reason") @db.VarChar(500)
+  canceledAt     DateTime? @map("canceled_at") @db.DateTime(3)
+  canceledReason String?   @map("canceled_reason") @db.VarChar(500)
+  createdById    String    @map("created_by_id") @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id], map: "fk_purchase_orders_supplier")
+  createdBy User                @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onUpdate: Cascade, map: "fk_purchase_orders_created_by")
+  lines     PurchaseOrderItem[]
+  receipts  PurchaseReceipt[]
+
+  @@index([supplierId, status, id], map: "idx_purchase_orders_supplier_status")
+  @@index([status, id], map: "idx_purchase_orders_status_id")
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               Int     @id @default(autoincrement())
+  purchaseOrderId  Int     @map("purchase_order_id")
+  productId        Int     @map("product_id")
+  productSku       String? @map("product_sku") @db.VarChar(64)
+  productName      String? @map("product_name") @db.VarChar(255)
+  orderedQuantity  Int     @map("ordered_quantity")
+  acceptedQuantity Int     @default(0) @map("accepted_quantity")
+  unitCostVnd      Decimal @map("unit_cost_vnd") @db.Decimal(20, 0)
+  note             String? @db.VarChar(500)
+
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], map: "fk_purchase_order_items_order")
+  product       Product               @relation(fields: [productId], references: [id], map: "fk_purchase_order_items_product")
+  receiptLines  PurchaseReceiptLine[]
+
+  @@unique([purchaseOrderId, productId], map: "uq_purchase_order_items_order_product")
+  @@index([productId, purchaseOrderId], map: "idx_purchase_order_items_product_order")
+  @@map("purchase_order_items")
+}
+
+model PurchaseReceipt {
+  id                   Int      @id @default(autoincrement())
+  purchaseOrderId      Int      @map("purchase_order_id")
+  idempotencyKey       String   @map("idempotency_key") @db.Char(36)
+  payloadHash          String   @map("payload_hash") @db.Char(64)
+  actorId              String   @map("actor_id") @db.VarChar(255)
+  note                 String?  @db.VarChar(2000)
+  totalAcceptedCostVnd Decimal  @map("total_accepted_cost_vnd") @db.Decimal(20, 0)
+  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_purchase_receipts_order")
+  actor         User                  @relation("PurchaseReceiptActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_purchase_receipts_actor")
+  lines         PurchaseReceiptLine[]
+
+  @@unique([purchaseOrderId, idempotencyKey], map: "uq_purchase_receipts_order_idempotency")
+  @@index([purchaseOrderId, createdAt, id], map: "idx_purchase_receipts_order_created")
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptLine {
+  id                  Int      @id @default(autoincrement())
+  purchaseReceiptId   Int      @map("purchase_receipt_id")
+  purchaseOrderItemId Int      @map("purchase_order_item_id")
+  productId           Int      @map("product_id")
+  sku                 String   @db.VarChar(64)
+  productName         String   @map("product_name") @db.VarChar(255)
+  expectedQuantity    Int      @map("expected_quantity")
+  acceptedQuantity    Int      @map("accepted_quantity")
+  rejectedQuantity    Int      @map("rejected_quantity")
+  missingQuantity     Int      @map("missing_quantity")
+  plannedUnitCostVnd  Decimal  @map("planned_unit_cost_vnd") @db.Decimal(20, 0)
+  unitCostVnd         Decimal  @map("unit_cost_vnd") @db.Decimal(20, 0)
+  actualCostReason    String?  @map("actual_cost_reason") @db.VarChar(500)
+  note                String?  @db.VarChar(500)
+  createdAt           DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  receipt   PurchaseReceipt    @relation(fields: [purchaseReceiptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_purchase_receipt_lines_receipt")
+  orderItem PurchaseOrderItem  @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_purchase_receipt_lines_order_item")
+  product   Product            @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_purchase_receipt_lines_product")
+  movement  InventoryMovement?
+
+  @@unique([purchaseReceiptId, purchaseOrderItemId], map: "uq_purchase_receipt_lines_receipt_order_item")
+  @@index([purchaseOrderItemId, purchaseReceiptId], map: "idx_purchase_receipt_lines_order_item")
+  @@map("purchase_receipt_lines")
+}
+
+model StockCount {
+  id             Int       @id @default(autoincrement())
+  status         String    @default("DRAFT") @db.VarChar(24)
+  version        Int       @default(1) @db.UnsignedInt
+  note           String?   @db.VarChar(2000)
+  createdById    String    @map("created_by_id") @db.VarChar(255)
+  submittedById  String?   @map("submitted_by_id") @db.VarChar(255)
+  approvedById   String?   @map("approved_by_id") @db.VarChar(255)
+  canceledById   String?   @map("canceled_by_id") @db.VarChar(255)
+  canceledReason String?   @map("canceled_reason") @db.VarChar(500)
+  submittedAt    DateTime? @map("submitted_at") @db.DateTime(3)
+  approvedAt     DateTime? @map("approved_at") @db.DateTime(3)
+  canceledAt     DateTime? @map("canceled_at") @db.DateTime(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
+
+  createdBy   User             @relation("StockCountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_stock_counts_created_by")
+  submittedBy User?            @relation("StockCountSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_stock_counts_submitted_by")
+  approvedBy  User?            @relation("StockCountApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_stock_counts_approved_by")
+  canceledBy  User?            @relation("StockCountCanceledBy", fields: [canceledById], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "fk_stock_counts_canceled_by")
+  items       StockCountItem[]
+
+  @@index([status, updatedAt, id], map: "idx_stock_counts_status_updated")
+  @@index([createdById, createdAt], map: "idx_stock_counts_creator_created")
+  @@map("stock_counts")
+}
+
+model StockCountItem {
+  id               Int      @id @default(autoincrement())
+  stockCountId     Int      @map("stock_count_id")
+  productId        Int      @map("product_id")
+  sku              String   @db.VarChar(64)
+  productName      String   @map("product_name") @db.VarChar(255)
+  baselineStock    Int      @map("baseline_stock")
+  baselineRevision BigInt   @map("baseline_revision") @db.UnsignedBigInt
+  countedQuantity  Int?     @map("counted_quantity")
+  reason           String?  @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
+  count    StockCount         @relation(fields: [stockCountId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_stock_count_items_count")
+  product  Product            @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_stock_count_items_product")
+  movement InventoryMovement?
+
+  @@unique([stockCountId, productId], map: "uq_stock_count_items_count_product")
+  @@index([productId, stockCountId], map: "idx_stock_count_items_product_count")
+  @@map("stock_count_items")
 }
 
 model OrderStatusEvent {
@@ -491,16 +676,16 @@ model GuestCartItem {
 }
 
 model Discount {
-  id              Int       @id @default(autoincrement())
-  discountCode    String    @map("discount_code") @db.VarChar(50)
-  description     String?   @db.Text
-  discountPercent Decimal   @map("discount_percent") @db.Decimal(5, 2)
-  active          Boolean   @default(true) @db.TinyInt
-  minOrderValue   Decimal   @default(0) @map("min_order_value") @db.Decimal(10, 2)
-  startsAt        DateTime? @map("starts_at") @db.DateTime(0)
-  expiresAt       DateTime? @map("expires_at") @db.DateTime(0)
-  usageLimit      Int?      @map("usage_limit")
-  loyaltyPointsCost Int?    @map("loyalty_points_cost")
+  id                Int       @id @default(autoincrement())
+  discountCode      String    @map("discount_code") @db.VarChar(50)
+  description       String?   @db.Text
+  discountPercent   Decimal   @map("discount_percent") @db.Decimal(5, 2)
+  active            Boolean   @default(true) @db.TinyInt
+  minOrderValue     Decimal   @default(0) @map("min_order_value") @db.Decimal(10, 2)
+  startsAt          DateTime? @map("starts_at") @db.DateTime(0)
+  expiresAt         DateTime? @map("expires_at") @db.DateTime(0)
+  usageLimit        Int?      @map("usage_limit")
+  loyaltyPointsCost Int?      @map("loyalty_points_cost")
 
   redemptions      DiscountRedemption[]
   pendingCheckouts PendingCheckout[]
@@ -511,22 +696,22 @@ model Discount {
 }
 
 model Shipment {
-  id                 Int @id @default(autoincrement())
-  orderId            Int @unique(map: "uq_shipment_order") @map("order_id")
-  state              String @default("UNFULFILLED") @db.VarChar(24)
-  provider           String @db.VarChar(16)
-  clientReference    String @unique(map: "uq_shipment_client") @map("client_reference") @db.VarChar(50)
-  providerOrderCode  String? @map("provider_order_code") @db.VarChar(100)
-  expectedCodVnd     BigInt @map("expected_cod_vnd") @db.UnsignedBigInt
-  actualFeeVnd       BigInt? @map("actual_fee_vnd") @db.UnsignedBigInt
-  expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.DateTime(3)
-  deliveredAt        DateTime? @map("delivered_at") @db.DateTime(3)
-  providerUpdatedAt  DateTime? @map("provider_updated_at") @db.DateTime(3)
-  stockReceivedAt    DateTime? @map("stock_received_at") @db.DateTime(3)
-  sandbox            Boolean @default(false)
-  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt          DateTime @default(now()) @map("updated_at") @db.DateTime(3)
-  order              Order @relation(fields: [orderId], references: [id], map: "fk_shipment_order")
+  id                 Int             @id @default(autoincrement())
+  orderId            Int             @unique(map: "uq_shipment_order") @map("order_id")
+  state              String          @default("UNFULFILLED") @db.VarChar(24)
+  provider           String          @db.VarChar(16)
+  clientReference    String          @unique(map: "uq_shipment_client") @map("client_reference") @db.VarChar(50)
+  providerOrderCode  String?         @map("provider_order_code") @db.VarChar(100)
+  expectedCodVnd     BigInt          @map("expected_cod_vnd") @db.UnsignedBigInt
+  actualFeeVnd       BigInt?         @map("actual_fee_vnd") @db.UnsignedBigInt
+  expectedDeliveryAt DateTime?       @map("expected_delivery_at") @db.DateTime(3)
+  deliveredAt        DateTime?       @map("delivered_at") @db.DateTime(3)
+  providerUpdatedAt  DateTime?       @map("provider_updated_at") @db.DateTime(3)
+  stockReceivedAt    DateTime?       @map("stock_received_at") @db.DateTime(3)
+  sandbox            Boolean         @default(false)
+  createdAt          DateTime        @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime        @default(now()) @map("updated_at") @db.DateTime(3)
+  order              Order           @relation(fields: [orderId], references: [id], map: "fk_shipment_order")
   events             ShipmentEvent[]
 
   @@unique([provider, providerOrderCode], map: "uq_shipment_provider_order")
@@ -534,59 +719,59 @@ model Shipment {
 }
 
 model ShipmentEvent {
-  id               Int @id @default(autoincrement())
-  shipmentId       Int @map("shipment_id")
-  state            String @db.VarChar(24)
-  actorId          String? @map("actor_id") @db.VarChar(255)
-  publicNote       String @map("public_note") @db.VarChar(255)
-  providerEventKey String? @unique(map: "uq_shipment_provider_event") @map("provider_event_key") @db.Char(64)
-  providerPayload  Json? @map("provider_payload")
+  id               Int       @id @default(autoincrement())
+  shipmentId       Int       @map("shipment_id")
+  state            String    @db.VarChar(24)
+  actorId          String?   @map("actor_id") @db.VarChar(255)
+  publicNote       String    @map("public_note") @db.VarChar(255)
+  providerEventKey String?   @unique(map: "uq_shipment_provider_event") @map("provider_event_key") @db.Char(64)
+  providerPayload  Json?     @map("provider_payload")
   processedAt      DateTime? @map("processed_at") @db.DateTime(3)
-  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  shipment         Shipment @relation(fields: [shipmentId], references: [id], map: "fk_shipment_event")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  shipment         Shipment  @relation(fields: [shipmentId], references: [id], map: "fk_shipment_event")
 
   @@index([shipmentId, id], map: "idx_shipment_events")
   @@map("shipment_events")
 }
 
 model Order {
-  publicId String @unique(map: "uq_orders_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
-  contactSnapshot Json? @map("contact_snapshot")
-  codSettlement CodSettlement?
-  shipment               Shipment?
-  pricingSnapshot        Json? @map("pricing_snapshot")
-  deliverySnapshot       Json? @map("delivery_snapshot")
-  id                      Int       @id @default(autoincrement())
-  userId                  String?   @map("user_id") @db.VarChar(255)
-  guestEmail              String?   @map("guest_email") @db.VarChar(255)
-  guestName               String?   @map("guest_name") @db.VarChar(160)
-  guestPhone              String?   @map("guest_phone") @db.VarChar(40)
-  guestOrderTokenHash     String?   @unique(map: "uq_orders_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
-  totalPrice              Decimal   @map("total_price") @db.Decimal(11, 2)
-  discount                Decimal   @default(0) @db.Decimal(11, 2)
-  loyaltyPointsRedeemed   Int       @default(0) @map("loyalty_points_redeemed")
-  loyaltyDiscount         Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
-  shippingAddress         String    @map("shipping_address") @db.Text
-  paymentMethod           String    @default("cash") @map("payment_method") @db.VarChar(32)
-  dateAdded               DateTime  @default(now()) @map("date_added") @db.DateTime(0)
-  deliveredAt             DateTime? @map("delivered_at") @db.DateTime(0)
-  status                  Int       @default(0)
-  currency                String    @default("VND") @db.Char(3)
-  inventoryRestoredAt     DateTime? @map("inventory_restored_at") @db.DateTime(0)
-  cancellationReason      String?   @map("cancellation_reason") @db.Text
+  publicId              String         @unique(map: "uq_orders_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
+  contactSnapshot       Json?          @map("contact_snapshot")
+  codSettlement         CodSettlement?
+  shipment              Shipment?
+  pricingSnapshot       Json?          @map("pricing_snapshot")
+  deliverySnapshot      Json?          @map("delivery_snapshot")
+  id                    Int            @id @default(autoincrement())
+  userId                String?        @map("user_id") @db.VarChar(255)
+  guestEmail            String?        @map("guest_email") @db.VarChar(255)
+  guestName             String?        @map("guest_name") @db.VarChar(160)
+  guestPhone            String?        @map("guest_phone") @db.VarChar(40)
+  guestOrderTokenHash   String?        @unique(map: "uq_orders_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
+  totalPrice            Decimal        @map("total_price") @db.Decimal(11, 2)
+  discount              Decimal        @default(0) @db.Decimal(11, 2)
+  loyaltyPointsRedeemed Int            @default(0) @map("loyalty_points_redeemed")
+  loyaltyDiscount       Decimal        @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
+  shippingAddress       String         @map("shipping_address") @db.Text
+  paymentMethod         String         @default("cash") @map("payment_method") @db.VarChar(32)
+  dateAdded             DateTime       @default(now()) @map("date_added") @db.DateTime(0)
+  deliveredAt           DateTime?      @map("delivered_at") @db.DateTime(0)
+  status                Int            @default(0)
+  currency              String         @default("VND") @db.Char(3)
+  inventoryRestoredAt   DateTime?      @map("inventory_restored_at") @db.DateTime(0)
+  cancellationReason    String?        @map("cancellation_reason") @db.Text
 
-  user                User?                @relation(fields: [userId], references: [id])
-  items               OrderItem[]
-  discountRedemptions DiscountRedemption[]
-  payments            OrderPayment[]
-  paymentAttempt       PaymentAttempt?
-  supportTickets      SupportTicket[]
-  afterSalesRequests  AfterSalesRequest[]
+  user                          User?                               @relation(fields: [userId], references: [id])
+  items                         OrderItem[]
+  discountRedemptions           DiscountRedemption[]
+  payments                      OrderPayment[]
+  paymentAttempt                PaymentAttempt?
+  supportTickets                SupportTicket[]
+  afterSalesRequests            AfterSalesRequest[]
   guestAccessRecoveryChallenges GuestOrderAccessRecoveryChallenge[]
-  loyaltyLedger       LoyaltyLedger[]
-  loyaltyVoucher      LoyaltyVoucher?
-  deliveryAssignments DeliveryAssignment[]
-  deliveryEvents      DeliveryEvent[]
+  loyaltyLedger                 LoyaltyLedger[]
+  loyaltyVoucher                LoyaltyVoucher?
+  deliveryAssignments           DeliveryAssignment[]
+  deliveryEvents                DeliveryEvent[]
 
   @@index([guestEmail], map: "idx_orders_guest_email")
   @@index([status, dateAdded, id], map: "orders_admin_queue_idx")
@@ -612,33 +797,33 @@ model GuestOrderAccessRecoveryChallenge {
 }
 
 model PendingCheckout {
-  contactSnapshot Json? @map("contact_snapshot")
-  pricingSnapshot        Json? @map("pricing_snapshot")
-  deliverySnapshot       Json? @map("delivery_snapshot")
-  id                  Int       @id @default(autoincrement())
-  paymentProvider     String?   @map("payment_provider") @db.VarChar(32)
-  providerReference   String?   @map("provider_reference") @db.VarChar(255)
-  providerOrderCode   BigInt?   @map("provider_order_code")
-  paymentAmount       Decimal?  @map("payment_amount") @db.Decimal(14, 2)
-  paymentCurrency     String?   @map("payment_currency") @db.Char(3)
-  paymentFxRate       Decimal   @default(1) @map("payment_fx_rate") @db.Decimal(18, 6)
-  reservationToken    String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
-  userId              String?   @map("user_id") @db.VarChar(255)
-  guestEmail          String?   @map("guest_email") @db.VarChar(255)
-  guestName           String?   @map("guest_name") @db.VarChar(160)
-  guestPhone          String?   @map("guest_phone") @db.VarChar(40)
-  guestOrderTokenHash String?   @unique(map: "uq_pending_checkouts_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
-  cartJson            String    @map("cart_json") @db.Text
-  totalPrice          Decimal   @map("total_price") @db.Decimal(11, 2)
-  discount            Decimal   @default(0) @db.Decimal(11, 2)
-  loyaltyPointsRedeemed Int     @default(0) @map("loyalty_points_redeemed")
-  loyaltyDiscount     Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
-  shippingAddress     String    @map("shipping_address") @db.Text
-  status              String    @default("PENDING") @db.VarChar(20)
-  expiresAt           DateTime  @map("expires_at") @db.DateTime(0)
-  discountId          Int?      @map("discount_id")
-  createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  consumedAt          DateTime? @map("consumed_at") @db.DateTime(0)
+  contactSnapshot       Json?     @map("contact_snapshot")
+  pricingSnapshot       Json?     @map("pricing_snapshot")
+  deliverySnapshot      Json?     @map("delivery_snapshot")
+  id                    Int       @id @default(autoincrement())
+  paymentProvider       String?   @map("payment_provider") @db.VarChar(32)
+  providerReference     String?   @map("provider_reference") @db.VarChar(255)
+  providerOrderCode     BigInt?   @map("provider_order_code")
+  paymentAmount         Decimal?  @map("payment_amount") @db.Decimal(14, 2)
+  paymentCurrency       String?   @map("payment_currency") @db.Char(3)
+  paymentFxRate         Decimal   @default(1) @map("payment_fx_rate") @db.Decimal(18, 6)
+  reservationToken      String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
+  userId                String?   @map("user_id") @db.VarChar(255)
+  guestEmail            String?   @map("guest_email") @db.VarChar(255)
+  guestName             String?   @map("guest_name") @db.VarChar(160)
+  guestPhone            String?   @map("guest_phone") @db.VarChar(40)
+  guestOrderTokenHash   String?   @unique(map: "uq_pending_checkouts_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
+  cartJson              String    @map("cart_json") @db.Text
+  totalPrice            Decimal   @map("total_price") @db.Decimal(11, 2)
+  discount              Decimal   @default(0) @db.Decimal(11, 2)
+  loyaltyPointsRedeemed Int       @default(0) @map("loyalty_points_redeemed")
+  loyaltyDiscount       Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
+  shippingAddress       String    @map("shipping_address") @db.Text
+  status                String    @default("PENDING") @db.VarChar(20)
+  expiresAt             DateTime  @map("expires_at") @db.DateTime(0)
+  discountId            Int?      @map("discount_id")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  consumedAt            DateTime? @map("consumed_at") @db.DateTime(0)
 
   user                   User?                          @relation(fields: [userId], references: [id])
   promotion              Discount?                      @relation(fields: [discountId], references: [id])
@@ -667,20 +852,20 @@ model LoyaltyAccount {
 }
 
 model LoyaltyVoucher {
-  id                Int       @id @default(autoincrement())
-  userId            String    @map("user_id") @db.VarChar(255)
-  promotionId       Int       @map("promotion_id")
-  voucherCode       String    @unique(map: "uq_loyalty_voucher_code") @map("voucher_code") @db.VarChar(64)
-  pointsCost        Int       @map("points_cost")
-  status            String    @default("AVAILABLE") @db.VarChar(16)
-  pendingCheckoutId Int?      @unique(map: "uq_loyalty_voucher_checkout") @map("pending_checkout_id")
-  orderId           Int?      @unique(map: "uq_loyalty_voucher_order") @map("order_id")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  redeemedAt        DateTime? @map("redeemed_at") @db.DateTime(3)
-  user              User      @relation(fields: [userId], references: [id])
-  promotion         Discount  @relation(fields: [promotionId], references: [id])
+  id                Int              @id @default(autoincrement())
+  userId            String           @map("user_id") @db.VarChar(255)
+  promotionId       Int              @map("promotion_id")
+  voucherCode       String           @unique(map: "uq_loyalty_voucher_code") @map("voucher_code") @db.VarChar(64)
+  pointsCost        Int              @map("points_cost")
+  status            String           @default("AVAILABLE") @db.VarChar(16)
+  pendingCheckoutId Int?             @unique(map: "uq_loyalty_voucher_checkout") @map("pending_checkout_id")
+  orderId           Int?             @unique(map: "uq_loyalty_voucher_order") @map("order_id")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  redeemedAt        DateTime?        @map("redeemed_at") @db.DateTime(3)
+  user              User             @relation(fields: [userId], references: [id])
+  promotion         Discount         @relation(fields: [promotionId], references: [id])
   pendingCheckout   PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
-  order             Order?    @relation(fields: [orderId], references: [id])
+  order             Order?           @relation(fields: [orderId], references: [id])
   ledgerEntries     LoyaltyLedger[]
 
   @@index([userId, status, id], map: "loyalty_vouchers_user_status_idx")
@@ -689,20 +874,20 @@ model LoyaltyVoucher {
 }
 
 model LoyaltyLedger {
-  id                BigInt    @id @default(autoincrement())
-  userId            String    @map("user_id") @db.VarChar(255)
-  orderId           Int?      @map("order_id")
-  voucherId         Int?      @map("voucher_id")
-  pendingCheckoutId Int?      @map("pending_checkout_id")
-  entryType         String    @map("entry_type") @db.VarChar(32)
-  pointsDelta       Int       @map("points_delta")
-  amountVnd         BigInt?   @map("amount_vnd") @db.UnsignedBigInt
-  eventKey          String    @unique(map: "uq_loyalty_ledger_event_key") @map("event_key") @db.VarChar(191)
-  description       String    @db.VarChar(255)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  user              User      @relation(fields: [userId], references: [id])
-  order             Order?    @relation(fields: [orderId], references: [id])
-  voucher           LoyaltyVoucher? @relation(fields: [voucherId], references: [id])
+  id                BigInt           @id @default(autoincrement())
+  userId            String           @map("user_id") @db.VarChar(255)
+  orderId           Int?             @map("order_id")
+  voucherId         Int?             @map("voucher_id")
+  pendingCheckoutId Int?             @map("pending_checkout_id")
+  entryType         String           @map("entry_type") @db.VarChar(32)
+  pointsDelta       Int              @map("points_delta")
+  amountVnd         BigInt?          @map("amount_vnd") @db.UnsignedBigInt
+  eventKey          String           @unique(map: "uq_loyalty_ledger_event_key") @map("event_key") @db.VarChar(191)
+  description       String           @db.VarChar(255)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  user              User             @relation(fields: [userId], references: [id])
+  order             Order?           @relation(fields: [orderId], references: [id])
+  voucher           LoyaltyVoucher?  @relation(fields: [voucherId], references: [id])
   pendingCheckout   PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
 
   @@index([userId, id], map: "loyalty_ledger_user_created_idx")
@@ -745,20 +930,20 @@ model DiscountRedemption {
 }
 
 model OrderItem {
-  manualRefundUnits ManualRefundUnit[]
-  id                     Int      @id @default(autoincrement())
-  orderId                Int      @map("order_id")
-  productId              Int      @map("product_id")
+  manualRefundUnits      ManualRefundUnit[]
+  id                     Int                @id @default(autoincrement())
+  orderId                Int                @map("order_id")
+  productId              Int                @map("product_id")
   quantity               Int
-  totalPrice             Decimal  @default(0) @map("total_price") @db.Decimal(11, 2)
-  skuSnapshot            String?  @map("sku_snapshot") @db.VarChar(64)
-  productNameSnapshot    String?  @map("product_name_snapshot") @db.VarChar(255)
-  imageSnapshot          String?  @map("image_snapshot") @db.VarChar(255)
-  unitPriceSnapshot      Decimal? @map("unit_price_snapshot") @db.Decimal(11, 2)
-  brandSnapshot          String?  @map("brand_snapshot") @db.VarChar(255)
-  categorySnapshot       String?  @map("category_snapshot") @db.VarChar(255)
-  warrantyMonthsSnapshot Int?     @map("warranty_months_snapshot")
-  specificationsSnapshot Json?    @map("specifications_snapshot")
+  totalPrice             Decimal            @default(0) @map("total_price") @db.Decimal(11, 2)
+  skuSnapshot            String?            @map("sku_snapshot") @db.VarChar(64)
+  productNameSnapshot    String?            @map("product_name_snapshot") @db.VarChar(255)
+  imageSnapshot          String?            @map("image_snapshot") @db.VarChar(255)
+  unitPriceSnapshot      Decimal?           @map("unit_price_snapshot") @db.Decimal(11, 2)
+  brandSnapshot          String?            @map("brand_snapshot") @db.VarChar(255)
+  categorySnapshot       String?            @map("category_snapshot") @db.VarChar(255)
+  warrantyMonthsSnapshot Int?               @map("warranty_months_snapshot")
+  specificationsSnapshot Json?              @map("specifications_snapshot")
 
   order           Order            @relation(fields: [orderId], references: [id])
   product         Product          @relation(fields: [productId], references: [id])
@@ -769,30 +954,30 @@ model OrderItem {
 }
 
 model OrderPayment {
-  manualRefundOperations ManualRefundOperation[]
-  id                      Int       @id @default(autoincrement())
-  orderId                 Int       @map("order_id")
-  provider                String    @db.VarChar(32)
-  status                  String    @db.VarChar(24)
-  providerReference       String?   @map("provider_reference") @db.VarChar(255)
-  providerPaymentId       String?   @map("provider_payment_id") @db.VarChar(255)
-  idempotencyKey          String    @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
-  baseAmount              Decimal   @map("base_amount") @db.Decimal(11, 2)
-  baseCurrency            String    @default("VND") @map("base_currency") @db.Char(3)
-  amount                  Decimal   @db.Decimal(14, 2)
-  currency                String    @db.Char(3)
-  fxRate                  Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)
-  paidAt                  DateTime? @map("paid_at") @db.DateTime(0)
-  refundedAmount          Decimal   @default(0) @map("refunded_amount") @db.Decimal(14, 2)
-  refundedAt              DateTime? @map("refunded_at") @db.DateTime(0)
-  refundReference         String?   @map("refund_reference") @db.VarChar(255)
-  simulated               Boolean   @default(false) @db.TinyInt
-  createdAt               DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt               DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
-  reconciliationStatus    String    @default("PENDING") @map("reconciliation_status") @db.VarChar(24)
-  providerStatus          String?   @map("provider_status") @db.VarChar(32)
-  lastReconciledAt        DateTime? @map("last_reconciled_at") @db.DateTime(0)
-  lastReconciliationError String?   @map("last_reconciliation_error") @db.Text
+  manualRefundOperations  ManualRefundOperation[]
+  id                      Int                     @id @default(autoincrement())
+  orderId                 Int                     @map("order_id")
+  provider                String                  @db.VarChar(32)
+  status                  String                  @db.VarChar(24)
+  providerReference       String?                 @map("provider_reference") @db.VarChar(255)
+  providerPaymentId       String?                 @map("provider_payment_id") @db.VarChar(255)
+  idempotencyKey          String                  @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
+  baseAmount              Decimal                 @map("base_amount") @db.Decimal(11, 2)
+  baseCurrency            String                  @default("VND") @map("base_currency") @db.Char(3)
+  amount                  Decimal                 @db.Decimal(14, 2)
+  currency                String                  @db.Char(3)
+  fxRate                  Decimal                 @default(1) @map("fx_rate") @db.Decimal(18, 6)
+  paidAt                  DateTime?               @map("paid_at") @db.DateTime(0)
+  refundedAmount          Decimal                 @default(0) @map("refunded_amount") @db.Decimal(14, 2)
+  refundedAt              DateTime?               @map("refunded_at") @db.DateTime(0)
+  refundReference         String?                 @map("refund_reference") @db.VarChar(255)
+  simulated               Boolean                 @default(false) @db.TinyInt
+  createdAt               DateTime                @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt               DateTime                @default(now()) @map("updated_at") @db.DateTime(0)
+  reconciliationStatus    String                  @default("PENDING") @map("reconciliation_status") @db.VarChar(24)
+  providerStatus          String?                 @map("provider_status") @db.VarChar(32)
+  lastReconciledAt        DateTime?               @map("last_reconciled_at") @db.DateTime(0)
+  lastReconciliationError String?                 @map("last_reconciliation_error") @db.Text
 
   order                  Order                          @relation(fields: [orderId], references: [id])
   reconciliationAttempts PaymentReconciliationAttempt[]
@@ -855,36 +1040,36 @@ model PaymentReconciliationAttempt {
 }
 
 model PaymentAttempt {
-  id                       String   @id @db.Char(36)
-  ownerScope               String   @map("owner_scope") @db.VarChar(320)
-  idempotencyKeyHash       String   @map("idempotency_key_hash") @db.Char(64)
-  requestHash              String   @map("request_hash") @db.Char(64)
-  snapshotHash             String   @map("snapshot_hash") @db.Char(64)
-  pendingCheckoutId        Int      @unique(map: "uq_payment_attempts_pending_checkout") @map("pending_checkout_id")
-  provider                 String   @db.VarChar(32)
-  providerOrderCode        BigInt   @map("provider_order_code") @db.UnsignedBigInt
-  providerLinkId           String?  @map("provider_link_id") @db.VarChar(255)
-  providerLinkUrl          String?  @map("provider_link_url") @db.Text
-  expectedAmountVnd        BigInt   @map("expected_amount_vnd") @db.UnsignedBigInt
-  verifiedReceivedAmountVnd BigInt  @default(0) @map("verified_received_amount_vnd") @db.UnsignedBigInt
-  currency                 String   @default("VND") @db.Char(3)
-  paymentState             String   @default("PENDING") @map("payment_state") @db.VarChar(24)
-  orderState               String   @default("NOT_CREATED") @map("order_state") @db.VarChar(24)
-  resolutionState          String   @default("NONE") @map("resolution_state") @db.VarChar(24)
-  orderId                  Int?     @unique(map: "uq_payment_attempts_order") @map("order_id")
-  displaySnapshot          Json     @map("display_snapshot")
-  expiresAt                DateTime @map("expires_at") @db.DateTime(3)
-  createLeaseToken         String?  @map("create_lease_token") @db.Char(36)
-  createLeaseUntil         DateTime? @map("create_lease_until") @db.DateTime(3)
-  lastCheckedAt            DateTime? @map("last_checked_at") @db.DateTime(3)
-  retryAfterSeconds        Int?     @map("retry_after_seconds") @db.UnsignedInt
-  cancelRequestedAt        DateTime? @map("cancel_requested_at") @db.DateTime(3)
-  reconcileRequestedAt     DateTime? @map("reconcile_requested_at") @db.DateTime(3)
-  createdAt                DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt                DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+  id                        String    @id @db.Char(36)
+  ownerScope                String    @map("owner_scope") @db.VarChar(320)
+  idempotencyKeyHash        String    @map("idempotency_key_hash") @db.Char(64)
+  requestHash               String    @map("request_hash") @db.Char(64)
+  snapshotHash              String    @map("snapshot_hash") @db.Char(64)
+  pendingCheckoutId         Int       @unique(map: "uq_payment_attempts_pending_checkout") @map("pending_checkout_id")
+  provider                  String    @db.VarChar(32)
+  providerOrderCode         BigInt    @map("provider_order_code") @db.UnsignedBigInt
+  providerLinkId            String?   @map("provider_link_id") @db.VarChar(255)
+  providerLinkUrl           String?   @map("provider_link_url") @db.Text
+  expectedAmountVnd         BigInt    @map("expected_amount_vnd") @db.UnsignedBigInt
+  verifiedReceivedAmountVnd BigInt    @default(0) @map("verified_received_amount_vnd") @db.UnsignedBigInt
+  currency                  String    @default("VND") @db.Char(3)
+  paymentState              String    @default("PENDING") @map("payment_state") @db.VarChar(24)
+  orderState                String    @default("NOT_CREATED") @map("order_state") @db.VarChar(24)
+  resolutionState           String    @default("NONE") @map("resolution_state") @db.VarChar(24)
+  orderId                   Int?      @unique(map: "uq_payment_attempts_order") @map("order_id")
+  displaySnapshot           Json      @map("display_snapshot")
+  expiresAt                 DateTime  @map("expires_at") @db.DateTime(3)
+  createLeaseToken          String?   @map("create_lease_token") @db.Char(36)
+  createLeaseUntil          DateTime? @map("create_lease_until") @db.DateTime(3)
+  lastCheckedAt             DateTime? @map("last_checked_at") @db.DateTime(3)
+  retryAfterSeconds         Int?      @map("retry_after_seconds") @db.UnsignedInt
+  cancelRequestedAt         DateTime? @map("cancel_requested_at") @db.DateTime(3)
+  reconcileRequestedAt      DateTime? @map("reconcile_requested_at") @db.DateTime(3)
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt                 DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
 
-  pendingCheckout PendingCheckout          @relation(fields: [pendingCheckoutId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  order           Order?                   @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  pendingCheckout PendingCheckout             @relation(fields: [pendingCheckoutId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  order           Order?                      @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   observations    PaymentAttemptObservation[]
   refunds         PaymentAttemptRefund[]
 
@@ -897,22 +1082,22 @@ model PaymentAttempt {
 }
 
 model PaymentAttemptObservation {
-  id                BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  attemptId         String   @map("attempt_id") @db.Char(36)
-  source            String   @db.VarChar(16)
-  sourceKey         String   @map("source_key") @db.VarChar(255)
-  payloadHash       String   @map("payload_hash") @db.Char(64)
-  providerOrderCode BigInt?  @map("provider_order_code") @db.UnsignedBigInt
-  providerLinkId    String?  @map("provider_link_id") @db.VarChar(255)
-  expectedAmountVnd BigInt   @map("expected_amount_vnd") @db.UnsignedBigInt
-  reportedAmountVnd BigInt?  @map("reported_amount_vnd") @db.UnsignedBigInt
-  paidAmountVnd     BigInt?  @map("paid_amount_vnd") @db.UnsignedBigInt
-  currency          String?  @db.Char(3)
-  normalizedStatus  String   @map("normalized_status") @db.VarChar(32)
-  verified          Boolean  @default(false) @db.TinyInt
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  attemptId         String    @map("attempt_id") @db.Char(36)
+  source            String    @db.VarChar(16)
+  sourceKey         String    @map("source_key") @db.VarChar(255)
+  payloadHash       String    @map("payload_hash") @db.Char(64)
+  providerOrderCode BigInt?   @map("provider_order_code") @db.UnsignedBigInt
+  providerLinkId    String?   @map("provider_link_id") @db.VarChar(255)
+  expectedAmountVnd BigInt    @map("expected_amount_vnd") @db.UnsignedBigInt
+  reportedAmountVnd BigInt?   @map("reported_amount_vnd") @db.UnsignedBigInt
+  paidAmountVnd     BigInt?   @map("paid_amount_vnd") @db.UnsignedBigInt
+  currency          String?   @db.Char(3)
+  normalizedStatus  String    @map("normalized_status") @db.VarChar(32)
+  verified          Boolean   @default(false) @db.TinyInt
   verifiedAt        DateTime? @map("verified_at") @db.DateTime(3)
-  sanitizedReason   String?  @map("sanitized_reason") @db.VarChar(500)
-  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  sanitizedReason   String?   @map("sanitized_reason") @db.VarChar(500)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
 
   attempt PaymentAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
@@ -935,16 +1120,16 @@ model PaymentAttemptRefund {
   reason            String   @db.VarChar(500)
   createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(3)
 
-  attempt  PaymentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  attempt  PaymentAttempt    @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   evidence FinancialEvidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  actor    User             @relation("PaymentAttemptRefundActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor    User              @relation("PaymentAttemptRefundActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([attemptId, createdAt], map: "idx_payment_attempt_refunds_attempt_created")
   @@map("payment_attempt_refunds")
 }
 
 model SupportTicket {
-  publicId String @unique(map: "uq_support_tickets_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
+  publicId  String   @unique(map: "uq_support_tickets_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
   id        Int      @id @default(autoincrement())
   userId    String   @map("user_id") @db.VarChar(255)
   orderId   Int?     @map("order_id")
@@ -966,26 +1151,26 @@ model SupportTicket {
 }
 
 model AfterSalesRequest {
-  publicId String @unique(map: "uq_after_sales_requests_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
+  publicId               String                  @unique(map: "uq_after_sales_requests_public_id") @default(dbgenerated("lower(concat(insert(lpad(hex(cast(unix_timestamp(current_timestamp(3)) * 1000 as unsigned)), 12, '0'), 9, 0, '-'), '-7', right(hex(random_bytes(2)), 3), '-', hex(8 + (ord(random_bytes(1)) & 3)), right(hex(random_bytes(2)), 3), '-', hex(random_bytes(6))))")) @map("public_id") @db.Char(36)
   manualRefundOperations ManualRefundOperation[]
-  id                    Int       @id @default(autoincrement())
-  orderId               Int       @map("order_id")
-  userId                String?   @map("user_id") @db.VarChar(255)
-  guestOrderTokenHash   String?   @map("guest_order_token_hash") @db.Char(64)
-  kind                  String    @db.VarChar(16)
-  status                String    @default("REQUESTED") @db.VarChar(24)
-  reason                String    @db.Text
-  adminNote             String?   @map("admin_note") @db.Text
-  requestIdempotencyKey String    @unique(map: "after_sales_requests_idempotency_key") @map("request_idempotency_key") @db.VarChar(128)
-  refundAmount          Decimal?  @map("refund_amount") @db.Decimal(14, 2)
-  refundCurrency        String?   @map("refund_currency") @db.Char(3)
-  refundReference       String?   @map("refund_reference") @db.VarChar(255)
-  createdAt             DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt             DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
-  approvedAt            DateTime? @map("approved_at") @db.DateTime(0)
-  receivedAt            DateTime? @map("received_at") @db.DateTime(0)
-  refundedAt            DateTime? @map("refunded_at") @db.DateTime(0)
-  closedAt              DateTime? @map("closed_at") @db.DateTime(0)
+  id                     Int                     @id @default(autoincrement())
+  orderId                Int                     @map("order_id")
+  userId                 String?                 @map("user_id") @db.VarChar(255)
+  guestOrderTokenHash    String?                 @map("guest_order_token_hash") @db.Char(64)
+  kind                   String                  @db.VarChar(16)
+  status                 String                  @default("REQUESTED") @db.VarChar(24)
+  reason                 String                  @db.Text
+  adminNote              String?                 @map("admin_note") @db.Text
+  requestIdempotencyKey  String                  @unique(map: "after_sales_requests_idempotency_key") @map("request_idempotency_key") @db.VarChar(128)
+  refundAmount           Decimal?                @map("refund_amount") @db.Decimal(14, 2)
+  refundCurrency         String?                 @map("refund_currency") @db.Char(3)
+  refundReference        String?                 @map("refund_reference") @db.VarChar(255)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt              DateTime                @default(now()) @map("updated_at") @db.DateTime(0)
+  approvedAt             DateTime?               @map("approved_at") @db.DateTime(0)
+  receivedAt             DateTime?               @map("received_at") @db.DateTime(0)
+  refundedAt             DateTime?               @map("refunded_at") @db.DateTime(0)
+  closedAt               DateTime?               @map("closed_at") @db.DateTime(0)
 
   order  Order             @relation(fields: [orderId], references: [id])
   user   User?             @relation("AfterSalesRequestCustomer", fields: [userId], references: [id], onDelete: SetNull)
@@ -1031,36 +1216,37 @@ model AfterSalesEvent {
   @@index([actorUserId, createdAt], map: "after_sales_events_actor_created_idx")
   @@map("after_sales_events")
 }
+
 model FinancialEvidence {
-  id         Int      @id @default(autoincrement())
-  uploadedBy String   @map("uploaded_by") @db.VarChar(255)
-  originalFilename String @map("original_filename") @db.VarChar(255)
-  mimeType   String   @map("mime_type") @db.VarChar(100)
-  byteSize   Int      @map("byte_size") @db.UnsignedInt
-  sha256     String   @db.Char(64)
-  content    Bytes    @db.LongBlob
-  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  id               Int      @id @default(autoincrement())
+  uploadedBy       String   @map("uploaded_by") @db.VarChar(255)
+  originalFilename String   @map("original_filename") @db.VarChar(255)
+  mimeType         String   @map("mime_type") @db.VarChar(100)
+  byteSize         Int      @map("byte_size") @db.UnsignedInt
+  sha256           String   @db.Char(64)
+  content          Bytes    @db.LongBlob
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
   uploader               User                    @relation(fields: [uploadedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  codSettlementEvents   CodSettlementEvent[]
+  codSettlementEvents    CodSettlementEvent[]
   manualRefundOperations ManualRefundOperation[]
-  paymentAttemptRefunds PaymentAttemptRefund[]
+  paymentAttemptRefunds  PaymentAttemptRefund[]
 
   @@index([uploadedBy], map: "financial_evidence_uploaded_by_idx")
   @@map("financial_evidence")
 }
 
 model CodSettlement {
-  id              Int      @id @default(autoincrement())
-  orderId         Int      @unique(map: "uq_cod_settlements_order") @map("order_id")
-  expectedCodVnd  BigInt   @default(0) @map("expected_cod_vnd") @db.UnsignedBigInt
-  collectedVnd    BigInt   @default(0) @map("collected_vnd") @db.UnsignedBigInt
-  carrierFeeVnd   BigInt   @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
-  remittedVnd     BigInt   @default(0) @map("remitted_vnd") @db.UnsignedBigInt
-  currency        String   @default("VND") @db.Char(3)
-  status          String   @default("PENDING") @db.VarChar(16)
-  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  id             Int      @id @default(autoincrement())
+  orderId        Int      @unique(map: "uq_cod_settlements_order") @map("order_id")
+  expectedCodVnd BigInt   @default(0) @map("expected_cod_vnd") @db.UnsignedBigInt
+  collectedVnd   BigInt   @default(0) @map("collected_vnd") @db.UnsignedBigInt
+  carrierFeeVnd  BigInt   @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
+  remittedVnd    BigInt   @default(0) @map("remitted_vnd") @db.UnsignedBigInt
+  currency       String   @default("VND") @db.Char(3)
+  status         String   @default("PENDING") @db.VarChar(16)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
 
   order  Order                @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   events CodSettlementEvent[]
@@ -1069,21 +1255,21 @@ model CodSettlement {
 }
 
 model CodSettlementEvent {
-  id              Int      @id @default(autoincrement())
-  settlementId    Int      @map("settlement_id")
-  eventType       String   @map("event_type") @db.VarChar(16)
-  actorId         String?  @map("actor_id") @db.VarChar(255)
-  amountVnd       BigInt   @map("amount_vnd") @db.UnsignedBigInt
-  carrierFeeVnd   BigInt   @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
-  transferReference String? @unique(map: "uq_cod_settlement_transfer_reference") @map("transfer_reference") @db.VarChar(191)
-  transferDate    DateTime? @map("transfer_date") @db.Date
-  evidenceId      Int?     @map("evidence_id")
-  previousValues  Json?    @map("previous_values")
-  newValues       Json     @map("new_values")
-  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  id                Int       @id @default(autoincrement())
+  settlementId      Int       @map("settlement_id")
+  eventType         String    @map("event_type") @db.VarChar(16)
+  actorId           String?   @map("actor_id") @db.VarChar(255)
+  amountVnd         BigInt    @map("amount_vnd") @db.UnsignedBigInt
+  carrierFeeVnd     BigInt    @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
+  transferReference String?   @unique(map: "uq_cod_settlement_transfer_reference") @map("transfer_reference") @db.VarChar(191)
+  transferDate      DateTime? @map("transfer_date") @db.Date
+  evidenceId        Int?      @map("evidence_id")
+  previousValues    Json?     @map("previous_values")
+  newValues         Json      @map("new_values")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
 
-  settlement CodSettlement    @relation(fields: [settlementId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  actor      User?            @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  settlement CodSettlement      @relation(fields: [settlementId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actor      User?              @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   evidence   FinancialEvidence? @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([settlementId, createdAt], map: "cod_settlement_events_settlement_created_idx")
@@ -1092,24 +1278,24 @@ model CodSettlementEvent {
 }
 
 model ManualRefundOperation {
-  id               Int      @id @default(autoincrement())
-  requestId        Int      @map("request_id")
-  orderPaymentId   Int      @map("order_payment_id")
-  actorId          String   @map("actor_id") @db.VarChar(255)
-  idempotencyKey   String   @unique(map: "uq_manual_refund_idempotency") @map("idempotency_key") @db.VarChar(191)
-  transferReference String  @unique(map: "uq_manual_refund_transfer_reference") @map("transfer_reference") @db.VarChar(191)
-  transferDate     DateTime @map("transfer_date") @db.Date
-  reviewedReason   String   @map("reviewed_reason") @db.VarChar(500)
-  amountVnd        BigInt   @map("amount_vnd") @db.UnsignedBigInt
-  currency         String   @default("VND") @db.Char(3)
-  evidenceId       Int      @map("evidence_id")
-  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  id                Int      @id @default(autoincrement())
+  requestId         Int      @map("request_id")
+  orderPaymentId    Int      @map("order_payment_id")
+  actorId           String   @map("actor_id") @db.VarChar(255)
+  idempotencyKey    String   @unique(map: "uq_manual_refund_idempotency") @map("idempotency_key") @db.VarChar(191)
+  transferReference String   @unique(map: "uq_manual_refund_transfer_reference") @map("transfer_reference") @db.VarChar(191)
+  transferDate      DateTime @map("transfer_date") @db.Date
+  reviewedReason    String   @map("reviewed_reason") @db.VarChar(500)
+  amountVnd         BigInt   @map("amount_vnd") @db.UnsignedBigInt
+  currency          String   @default("VND") @db.Char(3)
+  evidenceId        Int      @map("evidence_id")
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
-  request     AfterSalesRequest @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  payment     OrderPayment      @relation(fields: [orderPaymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  actor       User              @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  evidence    FinancialEvidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  units       ManualRefundUnit[]
+  request  AfterSalesRequest  @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  payment  OrderPayment       @relation(fields: [orderPaymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actor    User               @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  evidence FinancialEvidence  @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  units    ManualRefundUnit[]
 
   @@index([requestId, createdAt], map: "manual_refund_request_created_idx")
   @@index([orderPaymentId], map: "manual_refund_payment_idx")
@@ -1154,9 +1340,9 @@ model TransactionalEmail {
   createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt                  DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
 
-  resendOf      TransactionalEmail?  @relation("TransactionalEmailResends", fields: [resendOfId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_resend_of")
-  resends       TransactionalEmail[] @relation("TransactionalEmailResends")
-  createdByAdmin User?               @relation("TransactionalEmailAdmin", fields: [createdByAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_admin")
+  resendOf       TransactionalEmail?  @relation("TransactionalEmailResends", fields: [resendOfId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_resend_of")
+  resends        TransactionalEmail[] @relation("TransactionalEmailResends")
+  createdByAdmin User?                @relation("TransactionalEmailAdmin", fields: [createdByAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_admin")
   deliveryEvents EmailDeliveryEvent[]
 
   @@index([state, id], map: "idx_transactional_email_state")

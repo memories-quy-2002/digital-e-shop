@@ -67,6 +67,9 @@ vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
 vi.mock("../features/admin/pages/AdminAuditPage", () => ({ default: () => <div>Admin audit log</div> }));
 vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div data-testid="admin-notifications-page">Admin notifications</div> }));
+vi.mock("../features/admin/procurement/pages/AdminSuppliersPage", () => ({ default: () => <div data-testid="admin-suppliers-page">Admin suppliers</div> }));
+vi.mock("../features/admin/procurement/pages/AdminPurchaseOrdersPage", () => ({ default: () => <div data-testid="admin-purchase-orders-page">Admin purchase orders</div> }));
+vi.mock("../features/admin/procurement/pages/AdminStockCountsPage", () => ({ default: () => <div data-testid="admin-stock-counts-page">Admin stock counts</div> }));
 vi.mock("../features/shipping/pages/AdminDeliverySettingsPage", () => ({ default: () => <div data-testid="delivery-settings-page">Delivery settings</div> }));
 vi.mock("../features/shipping/pages/DeliveryStaffAssignmentsPage", () => ({ default: () => <div data-testid="delivery-staff-page">My deliveries</div> }));
 
@@ -85,6 +88,9 @@ const RouteLocationProbe = () => {
 const adminPaths = [
     "/admin",
     "/admin/notifications",
+    "/admin/suppliers",
+    "/admin/purchase-orders",
+    "/admin/stock-counts",
     "/admin/support",
     "/admin/products",
     "/admin/orders",
@@ -280,6 +286,16 @@ describe("admin routing", () => {
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    });
+
+    it.each([
+        ["/admin/suppliers", "admin-suppliers-page"],
+        ["/admin/purchase-orders", "admin-purchase-orders-page"],
+        ["/admin/stock-counts", "admin-stock-counts-page"],
+    ])("opens the protected procurement route %s", async (path, testId) => {
+        authState.value = { loading: false, userData: buildUser(Role.Admin) };
+        render(<MemoryRouter initialEntries={[path]}><AppRouter /></MemoryRouter>);
+        expect(await screen.findByTestId(testId)).toBeInTheDocument();
     });
 
     it("opens the admin notifications center", async () => {

@@ -2626,8 +2626,6 @@
                 object-fit: cover;
                 object-position: center 52%;
                 opacity: 0.3;
-                animation: home-hero-art-reveal 820ms
-                    var(--de-ease-enter) both;
             }
 
             &::after {
@@ -3209,27 +3207,13 @@
     }
 }
 
-@keyframes home-hero-art-reveal {
-    from {
-        clip-path: inset(0 0 0 38%);
-        transform: scale(1.045);
-    }
-
-    to {
-        clip-path: inset(0);
-        transform: scale(1.01);
-    }
-}
-
 @keyframes home-featured-slide-in {
     from {
-        filter: blur(4px);
         opacity: 0;
         transform: translateY(10px);
     }
 
     to {
-        filter: blur(0);
         opacity: 1;
         transform: translateY(0);
     }

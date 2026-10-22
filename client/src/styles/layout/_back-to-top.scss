@@ -1,3 +1,13 @@
+.back-to-top__sentinel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+    visibility: hidden;
+}
+
 .back-to-top {
     position: fixed;
     z-index: 80;

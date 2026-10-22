@@ -17,7 +17,7 @@ describe("ForbiddenPage", () => {
     it.each([
         ["en", "Access denied", "Go to home"],
         ["vi", "Không có quyền truy cập", "Về trang chủ"],
-    ] as const)("localizes recovery actions in %s", (locale, title, homeAction) => {
+    ] as const)("localizes recovery actions in %s", async (locale, title, homeAction) => {
         localStorage.setItem("digital-e:locale:v1", JSON.stringify(locale));
         render(
             <LocaleProvider>
@@ -27,7 +27,7 @@ describe("ForbiddenPage", () => {
             </LocaleProvider>,
         );
 
-        expect(screen.getByRole("heading", { name: title })).toBeVisible();
+        expect(await screen.findByRole("heading", { name: title })).toBeVisible();
         expect(screen.getByRole("link", { name: homeAction })).toHaveAttribute("href", "/");
         expect(screen.getByRole("link", { name: locale === "en" ? "Go to account" : "Đến trang tài khoản" })).toHaveAttribute("href", "/account");
     });

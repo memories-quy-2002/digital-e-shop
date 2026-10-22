@@ -59,7 +59,7 @@ describe("CartItem", () => {
         expect(screen.getByLabelText("cart-42-quantity")).toHaveAttribute("inputmode", "numeric");
     });
 
-    it("localizes item action labels for Vietnamese", () => {
+    it("localizes item action labels for Vietnamese", async () => {
         render(
             <MemoryRouter>
                 <LocaleProvider>
@@ -75,7 +75,7 @@ describe("CartItem", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Switch to Vietnamese" }));
 
-        expect(screen.getByRole("link", { name: "Xem Apple iPhone 13" })).toBeInTheDocument();
+        expect(await screen.findByRole("link", { name: "Xem Apple iPhone 13" })).toBeInTheDocument();
         expect(screen.getByRole("group", { name: "Điều chỉnh số lượng cho Apple iPhone 13" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Xoá Apple iPhone 13 khỏi giỏ hàng" })).toBeInTheDocument();
     });

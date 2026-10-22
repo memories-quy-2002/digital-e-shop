@@ -450,6 +450,49 @@
     }
 }
 
+.auth-form--signup {
+    width: 100%;
+    gap: 1.15rem;
+
+    .auth-form__field {
+        gap: 0.5rem;
+    }
+
+    .auth-form__label {
+        font-size: 0.84rem;
+    }
+
+    .auth-form__input,
+    .auth-form__password-field input {
+        min-height: 3.1rem;
+        border-radius: var(--de-radius-sm);
+    }
+
+    .auth-form__field-help {
+        margin: 0;
+        color: var(--de-color-text-muted);
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
+
+    .auth-form__password-hint {
+        margin-top: 0;
+    }
+
+    .auth-form__submit {
+        margin-top: 0.25rem;
+    }
+
+    @media (max-width: 520px) {
+        gap: 1rem;
+
+        .auth-form__input,
+        .auth-form__password-field input {
+            min-height: 3rem;
+        }
+    }
+}
+
 @media (max-width: 520px) {
     .auth-page {
         padding: 0;

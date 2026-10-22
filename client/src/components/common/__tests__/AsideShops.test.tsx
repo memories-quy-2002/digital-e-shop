@@ -56,10 +56,10 @@ afterEach(() => {
 });
 
 describe("AsideShops", () => {
-  it("localizes known catalog categories without changing their filter values", () => {
+  it("localizes known catalog categories without changing their filter values", async () => {
     renderAside("vi");
 
-    const category = screen.getByRole("checkbox", { name: "Card đồ họa" });
+    const category = await screen.findByRole("checkbox", { name: "Card đồ họa" });
     fireEvent.click(category);
 
     expect(defaultProps.onCheckboxChange).toHaveBeenCalledWith(

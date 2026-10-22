@@ -72,6 +72,14 @@ const AdminPromotionsPage = () => {
     const t = useT();
     const tx = useAdminCopy();
     const { locale } = useLocale();
+    const formatUsageCount = (value: number) => new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US").format(value);
+
+    useEffect(() => {
+        document.title = `${tx("Promotions")} | Digital-E`;
+        return () => {
+            document.title = tx("Digital-E - Admin");
+        };
+    }, [tx]);
 
     const loadPromotions = React.useCallback(async () => {
         try {
@@ -200,7 +208,7 @@ const AdminPromotionsPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-            <title>{tx("Promotions")} | Digital-E</title>
+                <title>{tx("Promotions")} | Digital-E</title>
                 <meta name="description" content={tx("Manage discount codes and promotion rules.")} />
             </Helmet>
             <main className="admin__page admin__page--promotions">
@@ -245,7 +253,7 @@ const AdminPromotionsPage = () => {
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>{tx("Promotion list")}</h3>
+                            <h2 className="admin__promotion-list-title">{tx("Promotion list")}</h2>
                             <span>{filteredPromotions.length} {tx("matching rules")}</span>
                         </div>
                         <div className="admin__list-toolbar">
@@ -277,48 +285,81 @@ const AdminPromotionsPage = () => {
                         <Table responsive={false} hover borderless className="admin__table admin__table--promotions">
                             <thead>
                                 <tr>
-                                    <th>{tx("Code")}</th>
-                                    <th>{tx("Discount")}</th>
-                                    <th>{t("adminPromotions.loyaltyPointsCost")}</th>
-                                    <th>{tx("Minimum")}</th>
-                                    <th>{tx("Schedule")}</th>
-                                    <th>{tx("Usage")}</th>
-                                    <th>{tx("Status")}</th>
-                                    <th>{tx("Action")}</th>
+                                    <th scope="col">{tx("Code")}</th>
+                                    <th scope="col">{tx("Discount")}</th>
+                                    <th scope="col">{t("adminPromotions.loyaltyPointsCost")}</th>
+                                    <th scope="col">{tx("Minimum")}</th>
+                                    <th scope="col">{tx("Schedule")}</th>
+                                    <th scope="col">{tx("Usage")}</th>
+                                    <th scope="col">{tx("Status")}</th>
+                                    <th scope="col">{tx("Action")}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPromotions.map((promotion) => (
+                                {filteredPromotions.map((promotion) => {
+                                    const usageCount = promotion.usage_count || 0;
+                                    const usageLimit = promotion.usage_limit;
+                                    const usagePercent = usageLimit ? Math.min(100, (usageCount / usageLimit) * 100) : 0;
+
+                                    return (
                                     <tr key={promotion.id}>
-                                        <td className="admin__promotion-code" width="180px">
+                                        <td className="admin__promotion-code">
                                             <strong>{promotion.discount_code}</strong>
                                         </td>
-                                        <td width="120px">{promotion.discount_percent}%</td>
-                                        <td width="170px">{promotion.loyalty_points_cost ? t("adminPromotions.loyaltyPointsReward", promotion.loyalty_points_cost) : t("adminPromotions.noLoyaltyCost")}</td>
-                                        <td width="140px">{formatCurrency(promotion.min_order_value)}</td>
-                                        <td width="260px">
+                                        <td>{promotion.discount_percent}%</td>
+                                        <td>{promotion.loyalty_points_cost ? t("adminPromotions.loyaltyPointsReward", promotion.loyalty_points_cost) : t("adminPromotions.noLoyaltyCost")}</td>
+                                        <td>{formatCurrency(promotion.min_order_value)}</td>
+                                        <td>
                                             <div className="admin__table__stack">
                                                 <span>{promotion.starts_at ? new Date(promotion.starts_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("Starts now")}</span>
                                                 <span>{promotion.expires_at ? new Date(promotion.expires_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("No expiry")}</span>
                                             </div>
                                         </td>
-                                        <td width="130px">
-                                            {promotion.usage_count || 0} {tx("used")}{promotion.usage_limit === null ? "" : ` / ${promotion.usage_limit}`}
-                                            {promotion.remaining_uses === null ? null : <small>{promotion.remaining_uses} {tx("remaining")}</small>}
+                                        <td className="admin__promotion-usage-cell">
+                                            <div className="admin__promotion-usage">
+                                                <div className="admin__promotion-usage__summary">
+                                                    <strong>{formatUsageCount(usageCount)}</strong>
+                                                    {usageLimit === null
+                                                        ? <span>{tx("used")}</span>
+                                                        : <span>/ {formatUsageCount(usageLimit)}</span>}
+                                                </div>
+                                                {usageLimit !== null && usageLimit > 0 ? (
+                                                    <div
+                                                        className="admin__promotion-usage__meter"
+                                                        role="progressbar"
+                                                        aria-label={`${tx("Usage")} ${promotion.discount_code}`}
+                                                        aria-valuemin={0}
+                                                        aria-valuemax={usageLimit}
+                                                        aria-valuenow={Math.min(usageCount, usageLimit)}
+                                                        aria-valuetext={`${tx("Usage")}: ${formatUsageCount(usageCount)} ${tx("used")}; ${tx("Usage limit")}: ${formatUsageCount(usageLimit)}`}
+                                                    >
+                                                        <span style={{ width: `${usagePercent}%` }} />
+                                                    </div>
+                                                ) : null}
+                                                {promotion.remaining_uses == null ? null : (
+                                                    <small>{formatUsageCount(promotion.remaining_uses)} {tx("remaining")}</small>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td width="120px">
+                                        <td>
                                             <span className={promotion.active ? "admin__pill admin__pill--success" : "admin__pill admin__pill--muted"}>
                                                 {tx(promotion.active ? "Active" : "Inactive")}
                                             </span>
                                         </td>
-                                        <td width="180px">
-                                            <div className="admin__table__actions">
-                                                <button type="button" className="admin__button admin__button--ghost" onClick={() => handleEdit(promotion)}>
+                                        <td>
+                                            <div className="admin__table__actions admin__promotion-actions">
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--ghost"
+                                                    aria-label={`${tx("Edit")} ${promotion.discount_code}`}
+                                                    onClick={() => handleEdit(promotion)}
+                                                >
                                                     {tx("Edit")}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className="admin__button admin__button--danger"
+                                                    aria-label={`${tx("Deactivate promotion")}: ${promotion.discount_code}`}
                                                     onClick={() => setPendingDeactivatePromotion(promotion)}
                                                 >
                                                     {tx("Deactivate")}
@@ -326,7 +367,8 @@ const AdminPromotionsPage = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </Table>
                         </AdminTableScrollHint>

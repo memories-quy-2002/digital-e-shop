@@ -9,6 +9,8 @@ import { ReviewsModule } from "./reviews/reviews.module";
 import { OrdersModule } from "./orders/orders.module";
 import { ProductsModule } from "./products/products.module";
 import { InventoryModule } from "./inventory/inventory.module";
+import { StockCountsModule } from "./inventory/stock-counts/stock-counts.module";
+import { ProcurementModule } from "./procurement/procurement.module";
 import { PromotionsModule } from "./promotions/promotions.module";
 import { CartModule } from "./cart/cart.module";
 import { UsersModule } from "./users/users.module";
@@ -51,6 +53,8 @@ import { LoyaltyModule } from "./loyalty/loyalty.module";
         OrdersModule,
         ProductsModule,
         InventoryModule,
+        ProcurementModule,
+        StockCountsModule,
         PromotionsModule,
         CartModule,
         UsersModule,

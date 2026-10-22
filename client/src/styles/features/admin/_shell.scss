@@ -71,6 +71,11 @@
 .admin__status-panel--empty { border-style: dashed; }
 .admin__pill--success { background: var(--de-color-success-soft) !important; color: var(--de-color-success-strong) !important; } .admin__pill--danger { background: var(--de-color-danger-soft) !important; color: var(--de-color-danger-strong) !important; } .admin__pill--warning { background: var(--de-color-warning-soft) !important; color: var(--de-color-warning-strong) !important; } .admin__pill--info { background: var(--de-color-info-soft) !important; color: var(--de-color-info-strong) !important; }
 .admin input, .admin textarea, .admin select { border-color: var(--de-color-border-strong) !important; border-radius: 4px !important; background: var(--de-color-bg-muted) !important; color: var(--de-color-text) !important; }
+.admin input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+}
 
 @media (max-width: 880px) { .admin__layout { flex-direction: column; } .admin__layout__sidebar { position: relative; width: 100%; min-height: auto; flex-basis: auto; } .admin__layout__sidebar__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin__layout__sidebar__navigation__caption { grid-column: 1 / -1; } }
 

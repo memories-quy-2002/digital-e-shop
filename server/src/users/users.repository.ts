@@ -188,10 +188,10 @@ export class UsersRepository {
         });
     }
 
-    async createRegisteredFirebaseUserInTransaction(tx: TransactionContext, input: { uid: string; username: string; email: string; password: string; emailVerified: boolean }): Promise<UserRow | null> {
+    async createRegisteredFirebaseUserInTransaction(tx: TransactionContext, input: { uid: string; username: string; email: string; password: string; emailVerified: boolean; firstName: string | null; lastName: string | null }): Promise<UserRow | null> {
         await tx.query(
-            "INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, 'Customer', '')",
-            [input.uid, input.username, input.email, input.password],
+            "INSERT INTO users (id, username, email, password, first_name, last_name, role, token) VALUES (?, ?, ?, ?, ?, ?, 'Customer', '')",
+            [input.uid, input.username, input.email, input.password, input.firstName, input.lastName],
         );
         await tx.query("UPDATE users SET auth_provider = 'firebase', provider_user_id = ? WHERE id = ?", [input.uid, input.uid]);
         if (input.emailVerified) {

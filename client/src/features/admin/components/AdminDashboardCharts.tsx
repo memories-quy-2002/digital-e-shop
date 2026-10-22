@@ -64,6 +64,19 @@ type DashboardStats = {
     latestUsers: DashboardUser[];
 };
 
+type AccessibleChartDataProps = {
+    id: string;
+    caption: string;
+    headers: string[];
+    rows: string[][];
+};
+
+const AccessibleChartData = ({ id, caption, headers, rows }: AccessibleChartDataProps) => (
+    <p id={id} className="admin__sr-only">
+        {caption}. {rows.map((row) => headers.map((header, index) => `${header}: ${row[index]}`).join(", ")).join(". ")}
+    </p>
+);
+
 type AdminDashboardChartsProps = {
     availability: DashboardAvailability;
     analyticsSummary: AdminAnalyticsSummary | null;
@@ -196,7 +209,11 @@ const AdminDashboardCharts = ({
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={260}>
-                                <AreaChart data={analyticsTrend}>
+                                <AreaChart
+                                    data={analyticsTrend}
+                                    aria-label={`${rangeLabel} ${tx("revenue pulse")}`}
+                                    aria-describedby="admin-dashboard-revenue-data"
+                                >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                     <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                     <YAxis
@@ -215,6 +232,12 @@ const AdminDashboardCharts = ({
                                     <Area type="monotone" dataKey="orders" stroke="var(--de-color-success)" fill="var(--de-color-success-soft)" strokeWidth={3} />
                                 </AreaChart>
                             </ResponsiveContainer>
+                            <AccessibleChartData
+                                id="admin-dashboard-revenue-data"
+                                caption={`${rangeLabel} ${tx("revenue pulse")}`}
+                                headers={[tx("Date"), tx("Revenue"), tx("Orders")]}
+                                rows={analyticsTrend.map((point) => [point.name, formatCurrency(point.revenue), String(point.orders)])}
+                            />
                         </div>
                     </div>
 
@@ -236,7 +259,11 @@ const AdminDashboardCharts = ({
                     </div>
                     <div className="admin__card__body">
                         <ResponsiveContainer width="100%" height={260}>
-                            <LineChart data={monthlyTrends}>
+                            <LineChart
+                                data={monthlyTrends}
+                                aria-label={tx("Sales momentum")}
+                                aria-describedby="admin-dashboard-sales-data"
+                            >
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
@@ -244,6 +271,12 @@ const AdminDashboardCharts = ({
                                 <Line type="monotone" dataKey="sales" stroke="var(--de-color-primary-emphasis)" strokeWidth={3} dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
+                        <AccessibleChartData
+                            id="admin-dashboard-sales-data"
+                            caption={tx("Sales momentum")}
+                            headers={[tx("Month"), tx("Sales")]}
+                            rows={monthlyTrends.map((point) => [point.name, String(point.sales)])}
+                        />
                     </div>
                 </div>
             </section>
@@ -258,7 +291,7 @@ const AdminDashboardCharts = ({
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={220}>
-                                <PieChart>
+                                <PieChart aria-label={tx("Payment mix")} aria-describedby="admin-dashboard-payment-data">
                                     <Pie
                                         data={analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix}
                                         dataKey="value"
@@ -276,6 +309,12 @@ const AdminDashboardCharts = ({
                                     <Tooltip formatter={(value) => [Number(value || 0), tx("Orders")]} />
                                 </PieChart>
                             </ResponsiveContainer>
+                            <AccessibleChartData
+                                id="admin-dashboard-payment-data"
+                                caption={tx("Payment mix")}
+                                headers={[tx("Payment method"), tx("Orders")]}
+                                rows={(analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix).map((entry) => [entry.name, String(entry.value)])}
+                            />
                             <div className="admin__chart-legend">
                                 {(analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix).map((entry, index) => (
                                     <span key={entry.name}>
@@ -294,7 +333,7 @@ const AdminDashboardCharts = ({
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={220}>
-                                <PieChart>
+                                <PieChart aria-label={tx("Order status")} aria-describedby="admin-dashboard-status-data">
                                     <Pie
                                         data={analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix}
                                         dataKey="value"
@@ -312,6 +351,12 @@ const AdminDashboardCharts = ({
                                     <Tooltip formatter={(value) => [Number(value || 0), tx("Orders")]} />
                                 </PieChart>
                             </ResponsiveContainer>
+                            <AccessibleChartData
+                                id="admin-dashboard-status-data"
+                                caption={tx("Order status")}
+                                headers={[tx("Status"), tx("Orders")]}
+                                rows={(analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix).map((entry) => [entry.name, String(entry.value)])}
+                            />
                             <div className="admin__chart-legend">
                                 {(analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix).map((entry, index) => (
                                     <span key={entry.name}>
@@ -345,6 +390,8 @@ const AdminDashboardCharts = ({
                                 data={analyticsCategoryRevenue.length > 0 ? analyticsCategoryRevenue : categoryRevenue}
                                 layout="vertical"
                                 margin={{ left: 18 }}
+                                aria-label={tx("Revenue by category")}
+                                aria-describedby="admin-dashboard-category-data"
                             >
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--de-color-border-strong)" />
                                 <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(value) => formatCurrency(Number(value || 0))} />
@@ -361,6 +408,14 @@ const AdminDashboardCharts = ({
                             </BarChart>
                         </ResponsiveContainer>
                         )}
+                        {availability.orderItems !== "error" ? (
+                            <AccessibleChartData
+                                id="admin-dashboard-category-data"
+                                caption={tx("Revenue by category")}
+                                headers={[tx("Category"), tx("Revenue")]}
+                                rows={(analyticsCategoryRevenue.length > 0 ? analyticsCategoryRevenue : categoryRevenue).map((entry) => [entry.name, formatCurrency(entry.value)])}
+                            />
+                        ) : null}
                     </div>
                 </div>
 

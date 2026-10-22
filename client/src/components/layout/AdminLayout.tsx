@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
 import { useT } from "../../hooks/useT";
+import { useLocale } from "../../context/LocaleContext";
 import { useLocation } from "react-router-dom";
 import "../../styles/features/admin/_shell.scss";
 
@@ -22,7 +23,10 @@ const getVisibleSidebarControls = (sidebar: HTMLElement | null) =>
 
 function AdminLayout({ children }: LayoutProps) {
     const t = useT();
+    const { locale, loadAdminTranslations } = useLocale();
     const location = useLocation();
+    const [translationsState, setTranslationsState] = useState<{ locale: string; status: "loading" | "ready" | "error" }>({ locale, status: "loading" });
+    const [translationRetry, setTranslationRetry] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isMobileNavigation, setIsMobileNavigation] = useState(() =>
         window.matchMedia("(max-width: 1024px)").matches,
@@ -36,6 +40,19 @@ function AdminLayout({ children }: LayoutProps) {
     }, [isMobileNavigation, isSidebarOpen]);
     const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
     const toggleSidebarCollapsed = useCallback(() => setIsSidebarCollapsed((current) => !current), []);
+
+    useEffect(() => {
+        let active = true;
+        setTranslationsState({ locale, status: "loading" });
+        void loadAdminTranslations()
+            .then(() => {
+                if (active) setTranslationsState({ locale, status: "ready" });
+            })
+            .catch(() => {
+                if (active) setTranslationsState({ locale, status: "error" });
+            });
+        return () => { active = false; };
+    }, [loadAdminTranslations, locale, translationRetry]);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia("(max-width: 1024px)");
@@ -93,6 +110,20 @@ function AdminLayout({ children }: LayoutProps) {
         const activeNavigationLink = focusableElements.find((element) => element.getAttribute("aria-current") === "page");
         (activeNavigationLink ?? focusableElements[0])?.focus();
     }, [isMobileNavigation, isSidebarOpen]);
+
+    if (translationsState.locale !== locale || translationsState.status === "loading") {
+        return <div role="status" aria-busy="true">{t("common.loading")}</div>;
+    }
+    if (translationsState.status === "error") {
+        return (
+            <div role="alert">
+                <p>{t("common.adminTranslationsLoadError")}</p>
+                <button type="button" onClick={() => setTranslationRetry((count) => count + 1)}>
+                    {t("common.retry")}
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="admin admin__shell">

@@ -19,11 +19,13 @@ import {
     fetchCustomerNotifications,
     markAllCustomerNotificationsRead,
     markCustomerNotificationRead,
+    syncCurrentCustomerEmailVerification,
 } from "../api";
 import { CustomerOrder, fetchCustomerOrders } from "../../orders/api";
 import {
     sendFirebaseEmailChangeVerification,
     sendFirebaseEmailVerification,
+    refreshFirebaseUserVerification,
 } from "../../../services/firebase";
 import { getFirebaseAuthErrorMessage } from "../../auth/authErrors";
 import { formatCurrency } from "../../../utils/currency";
@@ -141,6 +143,8 @@ const CustomerAccountPage = () => {
     const [isRequestingEmailChange, setIsRequestingEmailChange] = useState(false);
     const [emailChangeMessage, setEmailChangeMessage] = useState("");
     const [emailChangeError, setEmailChangeError] = useState(false);
+    const [verificationReturnStatus, setVerificationReturnStatus] = useState<"idle" | "checking" | "verified" | "pending" | "error" | "needsSignIn">("idle");
+    const [verificationRefreshCount, setVerificationRefreshCount] = useState(0);
 
     const resendVerification = async () => {
         if (isSendingVerification) return;
@@ -235,6 +239,39 @@ const CustomerAccountPage = () => {
     }, [addToast, t, uid]);
 
     useEffect(() => {
+        if (new URLSearchParams(location.search).get("verification") !== "complete" || !uid) return;
+
+        let active = true;
+        const syncVerifiedIdentity = async () => {
+            setVerificationReturnStatus("checking");
+            try {
+                const refreshedFirebaseUser = await refreshFirebaseUserVerification();
+                if (!refreshedFirebaseUser) {
+                    if (active) setVerificationReturnStatus("needsSignIn");
+                    return;
+                }
+
+                await syncCurrentCustomerEmailVerification(refreshedFirebaseUser.idToken);
+                const currentCustomer = await fetchCurrentCustomer();
+                if (!active) return;
+                setCustomer(currentCustomer);
+                const isVerified = currentCustomer?.email_verified === true && refreshedFirebaseUser.emailVerified;
+                setVerificationReturnStatus(isVerified ? "verified" : "pending");
+                if (isVerified) {
+                    const searchParams = new URLSearchParams(location.search);
+                    searchParams.delete("verification");
+                    navigate({ pathname: location.pathname, search: searchParams.toString() ? `?${searchParams}` : "", hash: location.hash }, { replace: true });
+                }
+            } catch {
+                if (active) setVerificationReturnStatus("error");
+            }
+        };
+
+        void syncVerifiedIdentity();
+        return () => { active = false; };
+    }, [location.hash, location.pathname, location.search, navigate, uid, verificationRefreshCount]);
+
+    useEffect(() => {
         const notificationsRouteActive = location.pathname === CUSTOMER_ROUTES.notifications || location.hash === "#notifications";
         if (loading || !notificationsRouteActive) return;
 
@@ -310,14 +347,17 @@ const CustomerAccountPage = () => {
         () => addresses.find((address) => address.is_default) || addresses[0] || null,
         [addresses],
     );
-    const emailIsUnverified = (userData?.email_verified ?? customer?.email_verified) === false;
+    const emailVerified = verificationReturnStatus === "verified"
+        ? true
+        : customer?.email_verified ?? userData?.email_verified;
+    const emailIsUnverified = emailVerified === false;
     return (
         <Layout>
             <Helmet>
                 <title>{t("account.metaTitle")}</title>
                 <meta name="description" content={t("account.metaDescription")} />
             </Helmet>
-            <main className="customer-account-page">
+            <div className="customer-account-page">
                 <CustomerAccountShell
                     eyebrow={t("account.eyebrow")}
                     title={t("account.title")}
@@ -371,17 +411,15 @@ const CustomerAccountPage = () => {
                     <>
                         <section className="customer-account-page__hero">
                             <div className="customer-account-page__identity">
+                                <span className="customer-account-page__avatar" aria-hidden="true">
+                                    {getDisplayName(customer, t("account.customerFallback")).charAt(0).toUpperCase()}
+                                </span>
                                 <span className="customer-account-page__identity__badge">
                                     <PersonIcon size={16} />
                                     {t("account.customerBadge")}
                                 </span>
                                 <h2>{getDisplayName(customer, t("account.customerFallback"))}</h2>
                                 <p>{customer?.email || userData?.email || t("account.noEmail")}</p>
-                                {emailIsUnverified ? (
-                                    <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
-                                        {isSendingVerification ? t("account.sendingVerification") : t("account.resendVerification")}
-                                    </button>
-                                ) : null}
                                 <small>{t("account.lastActive", customer?.last_login ? formatUtcDateTime(customer.last_login) : t("account.recently"))}</small>
                                 <form className="customer-account-page__email-change" onSubmit={requestEmailChange}>
                                     <label htmlFor="customer-account-new-email">{t("account.newEmail")}</label>
@@ -414,6 +452,57 @@ const CustomerAccountPage = () => {
                                     <span>{t("account.addressesLabel")}</span>
                                     <strong>{addresses.length}</strong>
                                 </article>
+                            </div>
+                        </section>
+
+                        <section
+                            className={`customer-account-page__verification customer-account-page__verification--${emailVerified === true ? "verified" : emailIsUnverified ? "unverified" : "unknown"}`}
+                            aria-labelledby="account-verification-title"
+                            aria-live="polite"
+                        >
+                            <div className="customer-account-page__verification__copy">
+                                <span className="customer-account-page__verification__eyebrow">{t("account.verificationEyebrow")}</span>
+                                <h2 id="account-verification-title">
+                                    {emailVerified === true ? t("account.verifiedTitle") : emailIsUnverified ? t("account.unverifiedTitle") : t("account.verificationUnknownTitle")}
+                                </h2>
+                                <p>
+                                    {verificationReturnStatus === "checking"
+                                        ? t("account.verificationChecking")
+                                        : verificationReturnStatus === "needsSignIn"
+                                            ? t("account.verificationSignInRequired")
+                                        : verificationReturnStatus === "verified"
+                                            ? t("account.verificationComplete")
+                                            : verificationReturnStatus === "pending"
+                                                ? t("account.verificationPending")
+                                                : verificationReturnStatus === "error"
+                                                    ? t("account.verificationRefreshError")
+                                                    : emailVerified === true
+                                                        ? t("account.verifiedDescription")
+                                                        : emailIsUnverified
+                                                            ? t("account.unverifiedDescription")
+                                                            : t("account.verificationUnknownDescription")}
+                                </p>
+                            </div>
+                            <div className="customer-account-page__verification__actions">
+                                {verificationReturnStatus === "needsSignIn" ? (
+                                    <Link className="customer-account-page__verification__login" to={`/login?redirect=${encodeURIComponent("/account?verification=complete")}`}>
+                                        {t("account.verificationSignInAction")}
+                                    </Link>
+                                ) : null}
+                                {emailIsUnverified && verificationReturnStatus !== "needsSignIn" ? (
+                                    <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
+                                        {isSendingVerification ? t("account.sendingVerification") : t("account.resendVerification")}
+                                    </button>
+                                ) : null}
+                                {verificationReturnStatus === "error" || verificationReturnStatus === "pending" ? (
+                                    <button
+                                        type="button"
+                                        className="customer-account-page__verification__refresh"
+                                        onClick={() => setVerificationRefreshCount((count) => count + 1)}
+                                    >
+                                        {t("account.refreshVerification")}
+                                    </button>
+                                ) : null}
                             </div>
                         </section>
 
@@ -620,7 +709,7 @@ const CustomerAccountPage = () => {
                         </section>
                     </>
                 )}
-            </main>
+            </div>
         </Layout>
     );
 };

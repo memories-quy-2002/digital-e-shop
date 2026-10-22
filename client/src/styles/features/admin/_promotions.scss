@@ -164,6 +164,14 @@
     min-height: 2.75rem;
 }
 
+.admin__page.admin__page--promotions .admin__promotion-list-title {
+    margin: 0;
+    color: var(--de-color-text);
+    font-size: 1.125rem;
+    font-weight: 750;
+    line-height: 1.3;
+}
+
 .admin__page.admin__page--promotions #promotion-search {
     box-sizing: border-box;
     min-height: 2.75rem;
@@ -171,6 +179,95 @@
 
 .admin__page.admin__page--promotions .admin__table--promotions .admin__promotion-code,
 .admin__page.admin__page--promotions .admin__table--promotions .admin__promotion-code strong {
+    white-space: nowrap;
+}
+
+.admin__page.admin__page--promotions .admin__table--promotions {
+    min-width: 1241px;
+    table-layout: fixed;
+}
+
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(1),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(1) { width: 150px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(2),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(2) { width: 92px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(3),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(3) { width: 200px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(4),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(4) { width: 130px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(5),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(5) { width: 220px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(6),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(6) { width: 155px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(7),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(7) { width: 105px; }
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(8),
+.admin__page.admin__page--promotions .admin__table--promotions td:nth-child(8) { width: 186px; }
+
+.admin__page.admin__page--promotions .admin__table--promotions th:nth-child(3) {
+    white-space: normal;
+    line-height: 1.25;
+}
+
+.admin__page.admin__page--promotions .admin__table--promotions .admin__promotion-code strong {
+    font-size: 0.82rem;
+}
+
+.admin__page.admin__page--promotions .admin__table--promotions td {
+    vertical-align: middle;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage__summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    color: var(--de-color-text-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage__summary strong {
+    color: var(--de-color-text);
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage__meter {
+    height: 0.35rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--de-color-surface-hover);
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage__meter span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--de-color-electric);
+}
+
+.admin__page.admin__page--promotions .admin__promotion-usage small {
+    color: var(--de-color-text-muted);
+    font-size: 0.72rem;
+    line-height: 1.3;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-actions {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+}
+
+.admin__page.admin__page--promotions .admin__promotion-actions .admin__button {
+    min-height: 2.45rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.76rem;
     white-space: nowrap;
 }
 

@@ -18,6 +18,10 @@ export async function fetchCurrentCustomer(): Promise<CustomerIdentity | null> {
     return response.data.userData || null;
 }
 
+export async function syncCurrentCustomerEmailVerification(idToken: string): Promise<void> {
+    await http.post("/api/users/me/email-verification/sync", { idToken });
+}
+
 export async function logoutCurrentCustomer(): Promise<Record<string, unknown>> {
     const response = await http.post("/api/users/logout");
     return response.data;

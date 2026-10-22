@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeliveryQuoteForm from "./DeliveryQuoteForm";
 import * as shippingApi from "../api";
 import type { DeliveryMapConfig, InternalDeliveryQuote } from "../types";
-import { dictionaries } from "../../../i18n";
+import { dictionaries } from "../../../i18n/dictionaries";
 
 const mocks = vi.hoisted(() => ({ translate: (key: string) => key }));
 vi.mock("../api", () => ({ fetchDeliveryMapConfig: vi.fn(), findDeliveryAddressLocations: vi.fn(), requestInternalDeliveryQuote: vi.fn() }));

@@ -58,6 +58,12 @@ const AdminCodSettlementsPage = lazy(() => import("../features/admin/pages/Admin
 const AdminEmailOperationsPage = lazy(() => import("../features/admin/pages/AdminEmailOperationsPage"));
 const AdminAuditPage = lazy(() => import("../features/admin/pages/AdminAuditPage"));
 const AdminNotificationsPage = lazy(() => import("../features/admin/pages/AdminNotificationsPage"));
+// Procurement is a cohesive, rarely visited admin workspace. Load its three
+// linked screens as one on-demand feature chunk to avoid duplicated chunk overhead.
+const loadProcurement = () => import("../features/admin/procurement");
+const AdminSuppliersPage = lazy(() => loadProcurement().then(({ AdminSuppliersPage }) => ({ default: AdminSuppliersPage })));
+const AdminPurchaseOrdersPage = lazy(() => loadProcurement().then(({ AdminPurchaseOrdersPage }) => ({ default: AdminPurchaseOrdersPage })));
+const AdminStockCountsPage = lazy(() => loadProcurement().then(({ AdminStockCountsPage }) => ({ default: AdminStockCountsPage })));
 
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
@@ -131,6 +137,9 @@ const AppRouter = () => {
                     }
                 />
                 <Route path="/admin/audit" element={<RequireAdmin><AdminAuditPage /></RequireAdmin>} />
+                <Route path="/admin/suppliers" element={<RequireAdmin><AdminSuppliersPage /></RequireAdmin>} />
+                <Route path="/admin/purchase-orders" element={<RequireAdmin><AdminPurchaseOrdersPage /></RequireAdmin>} />
+                <Route path="/admin/stock-counts" element={<RequireAdmin><AdminStockCountsPage /></RequireAdmin>} />
                 <Route
                     path="/admin/after-sales"
                     element={

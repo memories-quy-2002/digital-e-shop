@@ -4,11 +4,11 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target. Internal delivery includes admin-managed store pins and distance fees, scheduled staff assignments, employee status updates, and customer-visible delivery progress without GPS tracking.
 
-**Last updated:** 2026-10-20
+**Last updated:** 2026-10-22
 
 The current implementation includes authenticated and guest carts, transactional idempotent cart merging, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, guest order email-OTP access recovery, exact UTC return deadlines, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, internal road-distance checkout quotes with configurable fees and stable stale-quote errors, scheduled internal delivery assignments with employee-scoped status updates and exactly-once order completion, COD settlement and evidence-backed manual refunds, loyalty points and reward vouchers, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Historical GHN shipment/address data remains readable only; it no longer triggers provider calls or delivery state changes.
 
-The local demo seed creates a linked graph with 120 products across 8 categories and 16 brands. All four seeded accounts (three customers and one admin) have at least 25 orders, including completed and canceled orders; every product has an image, a successful customer purchase, a customer review, and a wishlist link. Verification checks plan-derived counts, account order/status coverage, order totals, image coverage, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
+The demo seed creates a linked graph with 120 products across 8 categories and 16 brands. All four seeded accounts (three customers and one admin) have at least 25 orders, including completed and canceled orders; every product has an image, a successful customer purchase, a customer review, and a wishlist link. Local seeding uses deterministic Auth Emulator UIDs; the protected production reset resolves existing Firebase UIDs and verification state before changing MySQL. Verification checks plan-derived counts, account order/status coverage, order totals, image coverage, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
 ## Start here
 
@@ -23,7 +23,7 @@ The local demo seed creates a linked graph with 120 products across 8 categories
 - [[payos-checkout-reliability]]: persistent PayOS attempts, verified status recovery, cancellation, and admin exception handling
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
-- [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
+- [[0003-payment-ledger-and-usd-canonical-currency]]: archived USD-canonical decision; current checkout is PayOS/COD in VND
 - [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
 - [[0005-vietnam-first-vnd-catalog-and-mock-payos]]: VND-first demo pricing and explicit local PayOS simulation
 - [[0006-customer-account-routes-and-localization]]: canonical customer account routes and bilingual storefront localization
@@ -49,6 +49,7 @@ The local demo seed creates a linked graph with 120 products across 8 categories
 Domain objects and their relationships belong under `entities/`. Current pages cover:
 
 - [[product]]: catalog identity, pricing, inventory, and historical snapshots
+- [[supplier-and-procurement]]: supplier identity, purchase-order snapshots, partial receiving, and receipt costs
 - [[order]]: customer and guest identity, lifecycle, order items, and reporting
 - [[payment]]: payment ledger, provider boundary, webhooks, and reconciliation
 - [[support-ticket]]: support ownership and the current after-sales boundary
@@ -66,6 +67,7 @@ Cross-cutting behavior belongs under `concepts/`, such as authentication, valida
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
 - [[loyalty-rewards]]: point earning/redemption rules, owner-bound vouchers, and checkout/payment integration
+- [[procurement-and-stock-counts]]: source-linked receipts, revision-based stock safety, active checkout holds, and audited count approval
 
 ### Decisions
 

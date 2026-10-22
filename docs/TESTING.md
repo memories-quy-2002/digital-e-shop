@@ -69,7 +69,7 @@ pnpm --dir server prisma:migrate:status
 pnpm --dir server demo:verify
 ```
 
-Checkout, inventory, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior.
+Checkout, inventory, procurement, stock counts, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior. Procurement and count concurrency checks must target an isolated MySQL database with the four forward migrations applied; never use a shared or production database. Browser acceptance should exercise admin receipt retries, count conflicts, selected-line recount, both locales/themes, and desktop/mobile layouts.
 
 Authentication changes should cover Firebase ID-token payloads, Firebase signup delivery and account-page resend behavior, the absence of server-owned verification endpoints, synchronization from a verified Firebase ID-token claim, public-user redaction, unverified-session login, and `VerifiedEmailGuard` behavior. The disposable MySQL database is still required for repository and guard checks; the legacy email-verification columns are compatibility state, not a prerequisite for Firebase email delivery.
 
@@ -97,9 +97,10 @@ continue to the client `/reset-password` action-code page. With both apps
 running on localhost:
 
 1. Register a disposable account and confirm it is unverified in the Emulator UI and the account state.
-2. Open its verification link from the Emulator UI, return to localhost, sign in again, and confirm the API user becomes verified.
-3. Request password reset, open the reset link, set a new password, and confirm login with the new password.
-4. Request an email change, open the Firebase action link, sign in again, and confirm the Firebase email and API user email match.
+2. Open its verification link from the Emulator UI. Firebase should complete the action and continue to `/account`; confirm the account UI reports verified and the API user is verified without a manual sign-in when the Firebase session is available.
+3. Open a verification link in a browser without a Firebase session. Account should offer sign-in and preserve `/account?verification=complete` as the return path; after sign-in, confirm the status is verified.
+4. Request password reset, open the reset link, set a new password, and confirm login with the new password.
+5. Request an email change, open the Firebase action link, sign in again, and confirm the Firebase email and API user email match.
 
 Use only disposable emulator accounts. Do not use production credentials or
 run the seeder with `NODE_ENV=production`. For real-inbox preview testing,

@@ -12,6 +12,9 @@ export type UserLoginInput = z.infer<typeof firebaseLoginSchema>;
 
 const registrationUserSchema = z.object({
     username: requiredText("Username").min(3, "Username must be at least 3 characters").max(50, "Username is too long"),
+    firstName: requiredText("First name").max(100, "First name is too long").optional(),
+    lastName: requiredText("Last name").max(100, "Last name is too long").optional(),
+    displayName: requiredText("Display name").min(2, "Display name must be at least 2 characters").max(100, "Display name is too long").optional(),
 }).strict();
 
 const firebaseRegisterSchema = z.object({

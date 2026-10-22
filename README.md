@@ -27,7 +27,7 @@ Digital-E is a full-stack e-commerce project for electronic devices and componen
 
 | Discover & shop | Checkout & track | Operate & improve |
 | :--- | :--- | :--- |
-| Search, facets, product details, comparisons, reviews, and recommendations | Guest and authenticated carts, stock-aware checkout, PayOS and cash on delivery, order tracking | Product and inventory management, promotions, order operations, support, notifications, and analytics |
+| Search, facets, product details, comparisons, reviews, and recommendations | Guest and authenticated carts, stock-aware checkout, PayOS and cash on delivery, order tracking | Product and inventory management, supplier purchasing, partial receiving, stock counts, promotions, order operations, support, notifications, and analytics |
 
 > **For reviewers:** The [guided local demo](./docs/DEMO.md) follows one synthetic guest order from the catalog to COD confirmation and secure order lookup. It also points to the project's test and observability evidence.
 
@@ -62,7 +62,7 @@ Digital-E is a full-stack e-commerce project for electronic devices and componen
 
 ### Admin workspace
 
-- **Catalog & stock:** Maintain products, availability, and inventory movements.
+- **Catalog & stock:** Maintain products, availability, and inventory movements; record supplier orders and partial receipts; review stock counts against live checkout holds.
 - **Order operations:** Review order state, payment reconciliation, and fulfillment-related workflows.
 - **Customer operations:** Manage promotions, support workflows, notifications, and operational analytics.
 
