@@ -119,7 +119,7 @@ digital-e-shop/
 
 Use pnpm only. Do not add npm or yarn lockfiles.
 
-Use Node.js `24.20.0` and pnpm `12.4.2`. The repository pins the Node
+Use Node.js `24.22.1` and pnpm `12.4.2`. The repository pins the Node
 version in `.node-version`; each package manifest also pins pnpm.
 
 Install each package independently from the repository root:

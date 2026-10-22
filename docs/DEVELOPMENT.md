@@ -4,7 +4,7 @@ Use this guide to run Digital-E locally, understand package boundaries, and make
 
 ## Runtime and package versions
 
-- Node.js `24.20.0`, selected by `.node-version`
+- Node.js `24.22.1`, selected by `.node-version`
 - pnpm `12.4.2`, declared by the client and server manifests
 - Client package root: `client/`
 - Server package root: `server/`
