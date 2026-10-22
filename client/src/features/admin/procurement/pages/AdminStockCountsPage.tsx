@@ -10,6 +10,7 @@ import { fetchAdminProductsPage } from "../../api";
 import { getAdminRequestError } from "../../utils/adminRequestError";
 import { createStockCount, fetchStockCount, fetchStockCounts, transitionStockCount, updateStockCount } from "../api";
 import { procurementCopy as copy } from "../copy";
+import ProcurementPageHeader from "../components/ProcurementPageHeader";
 import type { ProductChoice, StockCount, StockCountConflictItem, StockCountItem } from "../types";
 import { formatDate, safeInteger, statusClassName } from "../utils";
 import "../procurement.scss";
@@ -114,7 +115,7 @@ const AdminStockCountsPage = () => {
     return <AdminLayout>
         <Helmet><title>{copy(locale, "Stock counts", "Kiểm kê kho")} | Digital-E</title></Helmet>
         <main className="admin__page admin__page--procurement">
-            <header className="admin__page__header"><div><span className="admin__page__eyebrow">{copy(locale, "Inventory operations", "Vận hành kho")}</span><h1 className="admin__page__title">{copy(locale, "Stock counts", "Kiểm kê kho")}</h1><p className="admin__page__subtitle">{copy(locale, "Count against a saved stock baseline and review changes before they affect inventory.", "Đối chiếu với mốc tồn đã lưu và duyệt chênh lệch trước khi cập nhật kho.")}</p></div><nav className="procurement__tabs" aria-label={copy(locale, "Inventory operations", "Vận hành kho")}><a href="/admin/suppliers">{copy(locale, "Suppliers", "Nhà cung cấp")}</a><a href="/admin/purchase-orders">{copy(locale, "Purchase orders", "Đơn mua hàng")}</a><a href="/admin/stock-counts" aria-current="page">{copy(locale, "Stock counts", "Kiểm kê kho")}</a></nav></header>
+            <ProcurementPageHeader locale={locale} page="stock-counts" />
             {error ? <AdminStatusPanel variant="error" title={copy(locale, "Stock count needs attention", "Cần kiểm tra phiên kiểm kê")} description={error} onRetry={() => void load(1)} retryLabel={tx("Retry")} /> : null}
             {conflicts.length ? <div className="procurement__count-conflict" role="alert"><strong>{copy(locale, "Live stock conflicts", "Xung đột tồn kho hiện tại")}</strong><p>{copy(locale, "The captured baseline is no longer safe to apply. Reopen these items to capture a fresh baseline, then recount them.", "Mốc kiểm kê đã cũ hoặc không đủ cho lượng đang giữ. Mở lại các dòng này để lấy mốc mới rồi kiểm đếm lại.")}</p><ul>{conflicts.map((item) => <li key={item.productId}><strong>{item.sku ?? `#${item.productId}`} · {item.productName ?? ""}</strong>: {item.reason === "STALE_STOCK" ? copy(locale, `Stock changed (revision ${item.expectedRevision} → ${item.currentRevision}).`, `Tồn kho đã đổi (phiên bản ${item.expectedRevision} → ${item.currentRevision}).`) : item.reason === "RESERVATION_SHORTFALL" ? copy(locale, `${item.activeReservedQuantity} units are reserved against a lower count.`, `${item.activeReservedQuantity} đơn vị đang được giữ, nhiều hơn số đếm.`) : copy(locale, "Product is no longer active.", "Sản phẩm không còn hoạt động.")}</li>)}</ul></div> : null}
             <div className="procurement__split">

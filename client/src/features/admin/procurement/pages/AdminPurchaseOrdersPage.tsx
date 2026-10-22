@@ -19,6 +19,7 @@ import {
     updatePurchaseOrder,
 } from "../api";
 import { procurementCopy as copy } from "../copy";
+import ProcurementPageHeader from "../components/ProcurementPageHeader";
 import type { ProductChoice, PurchaseOrder, PurchaseOrderInput, PurchaseReceipt, ReceiptLineInput, Supplier } from "../types";
 import { formatDate, formatVnd, safeInteger, statusClassName, reuseOrCreateIdempotencyKey, type IdempotencyState } from "../utils";
 import "../procurement.scss";
@@ -208,7 +209,7 @@ const AdminPurchaseOrdersPage = () => {
     return <AdminLayout>
         <Helmet><title>{copy(locale, "Purchase orders", "Đơn mua hàng")} | Digital-E</title></Helmet>
         <main className="admin__page admin__page--procurement">
-            <header className="admin__page__header"><div><span className="admin__page__eyebrow">{copy(locale, "Inventory operations", "Vận hành kho")}</span><h1 className="admin__page__title">{copy(locale, "Purchase orders", "Đơn mua hàng")}</h1><p className="admin__page__subtitle">{copy(locale, "Track supplier commitments, deliveries, and actual acquisition cost.", "Theo dõi cam kết với nhà cung cấp, các lần giao hàng và giá nhập thực tế.")}</p></div><nav className="procurement__tabs" aria-label={copy(locale, "Inventory operations", "Vận hành kho")}><a href="/admin/suppliers">{copy(locale, "Suppliers", "Nhà cung cấp")}</a><a href="/admin/purchase-orders" aria-current="page">{copy(locale, "Purchase orders", "Đơn mua hàng")}</a><a href="/admin/stock-counts">{copy(locale, "Stock counts", "Kiểm kê kho")}</a></nav></header>
+            <ProcurementPageHeader locale={locale} page="purchase-orders" />
             <div className="procurement__split">
                 <section className="admin__card procurement__panel">
                     <div className="admin__card__header admin__card__header--stacked"><div><h2>{copy(locale, "Purchase order queue", "Danh sách đơn mua")}</h2><span>{copy(locale, "Orders are drafts until confirmed.", "Đơn hàng ở trạng thái nháp cho đến khi xác nhận.")}</span></div><div className="procurement__toolbar"><label className="procurement__sr-only" htmlFor="purchase-order-search">{copy(locale, "Search purchase orders", "Tìm đơn mua hàng")}</label><input id="purchase-order-search" type="search" value={orderSearch} placeholder={copy(locale, "Search ID, supplier, or SKU…", "Tìm mã đơn, nhà cung cấp hoặc SKU…")} onChange={(event) => { setPage(1); setOrderSearch(event.target.value); }} /><label className="procurement__sr-only" htmlFor="purchase-order-status">{copy(locale, "Filter by order status", "Lọc trạng thái đơn")}</label><select id="purchase-order-status" value={statusFilter} onChange={(event) => { setPage(1); setStatusFilter(event.target.value); }}><option value="">{copy(locale, "All statuses", "Tất cả trạng thái")}</option>{["DRAFT", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED", "CANCELED"].map((status) => <option key={status} value={status}>{copy(locale, status.replaceAll("_", " "), ({ DRAFT: "Nháp", ORDERED: "Đã đặt", PARTIALLY_RECEIVED: "Nhận một phần", RECEIVED: "Đã nhận đủ", CLOSED: "Đã đóng", CANCELED: "Đã hủy" } as Record<string, string>)[status])}</option>)}</select></div></div>

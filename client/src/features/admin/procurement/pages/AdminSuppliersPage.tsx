@@ -9,6 +9,7 @@ import { useAdminCopy } from "../../../../hooks/useAdminCopy";
 import { getAdminRequestError } from "../../utils/adminRequestError";
 import { archiveSupplier, createSupplier, fetchSuppliers, updateSupplier } from "../api";
 import { procurementCopy as copy } from "../copy";
+import ProcurementPageHeader from "../components/ProcurementPageHeader";
 import type { Supplier, SupplierInput } from "../types";
 import "../procurement.scss";
 
@@ -92,12 +93,7 @@ const AdminSuppliersPage = () => {
     return <AdminLayout>
         <Helmet><title>{copy(locale, "Suppliers", "Nhà cung cấp")} | Digital-E</title></Helmet>
         <main className="admin__page admin__page--procurement">
-            <header className="admin__page__header">
-                <div><span className="admin__page__eyebrow">{copy(locale, "Inventory operations", "Vận hành kho")}</span><h1 className="admin__page__title">{copy(locale, "Suppliers", "Nhà cung cấp")}</h1><p className="admin__page__subtitle">{copy(locale, "Keep supplier contacts ready for purchasing and receiving.", "Quản lý liên hệ nhà cung cấp cho việc đặt và nhận hàng.")}</p></div>
-                <nav className="procurement__tabs" aria-label={copy(locale, "Inventory operations", "Vận hành kho")}>
-                    <a href="/admin/suppliers" aria-current="page">{copy(locale, "Suppliers", "Nhà cung cấp")}</a><a href="/admin/purchase-orders">{copy(locale, "Purchase orders", "Đơn mua hàng")}</a><a href="/admin/stock-counts">{copy(locale, "Stock counts", "Kiểm kê kho")}</a>
-                </nav>
-            </header>
+            <ProcurementPageHeader locale={locale} page="suppliers" />
 
             <div className="procurement__grid procurement__grid--suppliers">
                 <section className="admin__card procurement__panel">
