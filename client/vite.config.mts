@@ -50,6 +50,11 @@ export default defineConfig(async () => {
         build: {
             outDir: 'dist',
             manifest: true,
+            // Oxc may safely shorten top-level names in emitted ES modules.
+            // Keep browser targets and the existing bundle budget unchanged.
+            rolldownOptions: {
+                output: { minify: { mangle: { toplevel: true } } },
+            },
         },
     };
 });
