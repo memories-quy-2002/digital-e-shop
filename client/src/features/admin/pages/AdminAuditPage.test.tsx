@@ -1,11 +1,25 @@
+import React, { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminAuditPage from "./AdminAuditPage";
 import { fetchAdminAuditPage } from "../api";
-import { LocaleProvider } from "../../../context/LocaleContext";
+import { LocaleProvider, useLocale } from "../../../context/LocaleContext";
 
 vi.mock("../api", () => ({ fetchAdminAuditPage: vi.fn() }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+
+const LoadAdminTranslations = () => {
+    const { loadAdminTranslations } = useLocale();
+    useEffect(() => { void loadAdminTranslations(); }, [loadAdminTranslations]);
+    return null;
+};
+
+const renderAdminPage = () => render(
+    <LocaleProvider>
+        <LoadAdminTranslations />
+        <AdminAuditPage />
+    </LocaleProvider>,
+);
 
 describe("AdminAuditPage", () => {
     beforeEach(() => vi.clearAllMocks());
@@ -25,7 +39,7 @@ describe("AdminAuditPage", () => {
             pagination: { page: 1, limit: 25, total: 1, totalPages: 1 },
         });
 
-        render(<LocaleProvider><AdminAuditPage /></LocaleProvider>);
+        renderAdminPage();
 
         expect(await screen.findByText("Inventory stock adjusted")).toBeInTheDocument();
         expect(screen.getByText("Restock from supplier")).toBeInTheDocument();
@@ -35,7 +49,7 @@ describe("AdminAuditPage", () => {
 
     it("shows a retryable error rather than a false empty state", async () => {
         vi.mocked(fetchAdminAuditPage).mockRejectedValue({ response: { status: 500 } });
-        render(<LocaleProvider><AdminAuditPage /></LocaleProvider>);
+        renderAdminPage();
 
         await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Unable to load admin data"));
         expect(screen.queryByText("No audit events found")).not.toBeInTheDocument();

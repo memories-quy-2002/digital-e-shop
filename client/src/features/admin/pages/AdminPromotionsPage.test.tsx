@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LocaleProvider } from "../../../context/LocaleContext";
+import { LocaleProvider, useLocale } from "../../../context/LocaleContext";
 import AdminPromotionsPage from "./AdminPromotionsPage";
 
 const mocks = vi.hoisted(() => ({
@@ -27,6 +27,19 @@ vi.mock("../api", () => ({
 }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
+const LoadAdminTranslations = () => {
+    const { loadAdminTranslations } = useLocale();
+    useEffect(() => { void loadAdminTranslations(); }, [loadAdminTranslations]);
+    return null;
+};
+
+const renderAdminPage = () => render(
+    <LocaleProvider>
+        <LoadAdminTranslations />
+        <AdminPromotionsPage />
+    </LocaleProvider>,
+);
+
 describe("AdminPromotionsPage loyalty reward cost", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -35,7 +48,7 @@ describe("AdminPromotionsPage loyalty reward cost", () => {
     });
 
     it("groups promotion fields by discount, redemption rules, and schedule", async () => {
-        render(<LocaleProvider><AdminPromotionsPage /></LocaleProvider>);
+        renderAdminPage();
 
         const discountGroup = await screen.findByRole("group", { name: "Discount setup" });
         const rewardsGroup = screen.getByRole("group", { name: "Usage and rewards" });
@@ -50,7 +63,7 @@ describe("AdminPromotionsPage loyalty reward cost", () => {
     });
 
     it("saves a positive integer point cost with the promotion", async () => {
-        render(<LocaleProvider><AdminPromotionsPage /></LocaleProvider>);
+        renderAdminPage();
 
         fireEvent.change(await screen.findByLabelText(/code/i), { target: { value: "MEMBER20" } });
         fireEvent.change(screen.getByLabelText(/discount %/i), { target: { value: "20" } });
@@ -65,7 +78,7 @@ describe("AdminPromotionsPage loyalty reward cost", () => {
     });
 
     it("rejects fractional point costs before saving", async () => {
-        render(<LocaleProvider><AdminPromotionsPage /></LocaleProvider>);
+        renderAdminPage();
 
         fireEvent.change(await screen.findByLabelText(/code/i), { target: { value: "MEMBER20" } });
         fireEvent.change(screen.getByLabelText(/discount %/i), { target: { value: "20" } });

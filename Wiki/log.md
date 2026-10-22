@@ -136,3 +136,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 
 - 2026-10-21 - Codex - Implemented admin supplier purchasing, idempotent partial receipts, source-linked inventory history, revision-checked stock counts and reservation-aware approval; documented contracts and current verification limits in [[supplier-and-procurement]] and [[procurement-and-stock-counts]].
 - 2026-10-21 - Codex - Exercised supplier, PO confirmation/receipt and stock-count approval in the local browser; fixed numeric route-param coercion for procurement and count IDs and added validator coverage. Isolated MySQL concurrency acceptance remains pending.
+- 2026-10-22 - Codex - Split Admin-only EN/VI dictionaries into locale-keyed lazy chunks and gated AdminLayout on the matching copy; documented the client loading strategy in [[architecture]].
+- 2026-10-22 - Codex - Deferred Header search suggestions, account/notification popovers, and mobile menu content; traced Vite `index.esm` output to Firebase modules and documented the existing viewport-gated Recharts boundary in [[architecture]].

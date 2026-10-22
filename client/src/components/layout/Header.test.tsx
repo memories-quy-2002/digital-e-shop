@@ -105,6 +105,35 @@ describe("Header navigation controls", () => {
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith("Login required", expect.anything());
     });
 
+    it("loads product suggestions after the storefront search is used", async () => {
+        mocks.products.searchProducts.mockResolvedValue([{
+            id: 42,
+            name: "Bose QuietComfort Headphones",
+            sku: "BOSE-QC",
+            manufacturerPartNumber: null,
+            warrantyMonths: 12,
+            category: "Audio",
+            brand: "Bose",
+            price: 180000,
+            sale_price: null,
+            rating: 0,
+            reviews: 0,
+            main_image: "bose.jpg",
+            stock: 5,
+            description: "Wireless noise-cancelling headphones.",
+            specifications: null,
+        }]);
+        renderHeader();
+
+        expect(mocks.products.searchProducts).not.toHaveBeenCalled();
+        fireEvent.change(screen.getByRole("textbox", { name: "Search" }), { target: { value: "Bose" } });
+
+        fireEvent.click(await screen.findByRole("button", { name: /Bose QuietComfort Headphones/ }));
+
+        expect(mocks.products.searchProducts).toHaveBeenCalledWith("bose", 6);
+        expect(screen.getByTestId("location")).toHaveTextContent("/product?id=42");
+    });
+
     it("opens the notification preview and navigates to the full page from View all", async () => {
         mocks.auth.userData = { id: "customer-1", role: "Customer", username: "demo_customer" };
         mocks.notifications.fetchCustomerNotifications.mockResolvedValue({
@@ -173,11 +202,11 @@ describe("Header navigation controls", () => {
         expect(screen.queryByRole("dialog", { name: "Your cart" })).not.toBeInTheDocument();
     });
 
-    it("lets a guest open the cart from the profile menu", () => {
+    it("lets a guest open the cart from the profile menu", async () => {
         renderHeader();
 
         fireEvent.click(screen.getByRole("button", { name: "Open profile menu" }));
-        const cartButtons = screen.getAllByRole("button", { name: "Cart" });
+        const cartButtons = await screen.findAllByRole("button", { name: "Cart" });
         fireEvent.click(cartButtons[cartButtons.length - 1]);
 
         expect(screen.getByTestId("location")).toHaveTextContent("/cart");
@@ -200,12 +229,12 @@ describe("Header navigation controls", () => {
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Login required", "You need to login to use this feature");
     });
 
-    it("shows admins a desktop shortcut back to the admin panel", () => {
+    it("shows admins a desktop shortcut back to the admin panel", async () => {
         mocks.auth.userData = { id: "admin-1", role: "Admin", username: "demo_admin" };
         renderHeader();
 
         fireEvent.click(screen.getByRole("button", { name: "Open profile menu" }));
-        fireEvent.click(screen.getByRole("button", { name: "Back to Admin" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Back to Admin" }));
 
         expect(screen.getByTestId("location")).toHaveTextContent("/admin");
     });

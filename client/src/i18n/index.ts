@@ -1,7 +1,9 @@
 import en, { type Dictionary } from "./en";
 import { cartTranslations } from "./cart";
+import type adminEN from "./admin-en";
 
 export type Locale = "en" | "vi";
+export type AdminDictionary = typeof adminEN;
 
 export const SUPPORTED_LOCALES: Locale[] = ["en", "vi"];
 export const DEFAULT_LOCALE: Locale = "en";
@@ -36,6 +38,32 @@ export const loadDictionary = (locale: Locale): Promise<Dictionary> => {
     dictionaryLoads.set(locale, loading);
     return loading;
 };
+
+const adminDictionaryLoads = new Map<Locale, Promise<AdminDictionary>>();
+
+/** Load Admin-only translation namespaces after an Admin surface is entered. */
+export const loadAdminDictionary = (locale: Locale): Promise<AdminDictionary> => {
+    const cached = adminDictionaryLoads.get(locale);
+    if (cached) return cached;
+
+    const loading = (locale === "en" ? import("./admin-en") : import("./admin-vi"))
+        .then(({ default: dictionary }) => dictionary)
+        .catch((error: unknown) => {
+            adminDictionaryLoads.delete(locale);
+            throw error;
+        });
+    adminDictionaryLoads.set(locale, loading);
+    return loading;
+};
+
+export const withAdminDictionary = <T extends Dictionary>(
+    dictionary: T,
+    adminDictionary: AdminDictionary,
+) => ({
+    ...dictionary,
+    ...adminDictionary,
+    shipping: { ...dictionary.shipping, ...adminDictionary.shipping },
+});
 
 export const isLocale = (value: string | null | undefined): value is Locale =>
     value === "en" || value === "vi";

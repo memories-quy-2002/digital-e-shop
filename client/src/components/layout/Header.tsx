@@ -1,5 +1,5 @@
-import React, { JSX, Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
+import React, { JSX, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, PersonIcon, SearchIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -11,20 +11,25 @@ import { useToast } from "../../context/ToastContext";
 import { fetchCustomerNotifications, logoutCurrentCustomer } from "../../features/users/api";
 import type { CustomerNotification } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
-import { Product } from "../../utils/interface";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
 import { useLocale } from "../../context/LocaleContext";
 import { useT } from "../../hooks/useT";
-import { formatUtcDateTime } from "../../utils/dateTime";
-import { formatCurrency } from "../../utils/currency";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
-import { searchProducts } from "../../features/products/api";
 
 const MiniCartDrawer = lazy(() => import("../common/MiniCartDrawer"));
 const HeaderMobileSheet = lazy(() => import("./HeaderMobileSheet"));
+const loadHeaderContent = () => import("./HeaderDeferredContent");
+const HeaderMobileContent = lazy(() =>
+    loadHeaderContent().then(({ HeaderMobileContent: MobileContent }) => ({ default: MobileContent })),
+);
+const HeaderAccountMenus = lazy(() =>
+    loadHeaderContent().then(({ HeaderAccountMenus: AccountMenus }) => ({ default: AccountMenus })),
+);
+const HeaderSearchPanel = lazy(() =>
+    loadHeaderContent().then(({ HeaderSearchPanel: SearchPanel }) => ({ default: SearchPanel })),
+);
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -48,8 +53,7 @@ export const Header = (): JSX.Element => {
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [hasOpenedMenu, setHasOpenedMenu] = useState(false);
-    const [searchResults, setSearchResults] = useState<Product[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
+    const [shouldFocusMobileSearch, setShouldFocusMobileSearch] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
     const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
@@ -61,21 +65,20 @@ export const Header = (): JSX.Element => {
     const [hasOpenedCartPreview, setHasOpenedCartPreview] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
-    const mobileSearchId = "header_mobile_search";
     const mobileMenuId = "header-mobile-menu";
-    const deferredSearchTerm = useDeferredValue(searchTerm);
+    const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(RECENT_SEARCH_KEY, []);
+    const normalizedSearchTerm = searchTerm.trim();
+    const shouldShowSearchPanel = isSearchOpen && (
+        normalizedSearchTerm.length > 1 ||
+        (normalizedSearchTerm.length === 0 && recentSearches.length > 0)
+    );
     const searchRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
     const notificationMenuRef = useRef<HTMLDivElement | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
-    const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(RECENT_SEARCH_KEY, []);
 
     const activePath = useMemo(() => location.pathname, [location.pathname]);
-    const normalizedDeferredSearchTerm = deferredSearchTerm.trim();
-    const shouldShowSearchResults = isSearchOpen && normalizedDeferredSearchTerm.length > 1;
-    const hasSearchResults = shouldShowSearchResults && searchResults.length > 0;
-    const shouldShowRecent = isSearchOpen && normalizedDeferredSearchTerm.length < 2 && recentSearches.length > 0;
     const accountDisplayName = useMemo(() => {
         if (!userData) return t("common.account");
 
@@ -98,7 +101,6 @@ export const Header = (): JSX.Element => {
             });
 
             navigate(`/shops?term=${encodeURIComponent(value)}`);
-            setSearchResults([]);
             setIsSearchOpen(false);
             setIsMenuOpen(false);
         },
@@ -111,7 +113,7 @@ export const Header = (): JSX.Element => {
             if (window.matchMedia("(max-width: 780px)").matches) {
                 setHasOpenedMenu(true);
                 setIsMenuOpen(true);
-                window.setTimeout(() => mobileSearchInputRef.current?.focus(), 0);
+                setShouldFocusMobileSearch(true);
                 return;
             }
             searchInputRef.current?.focus();
@@ -253,28 +255,6 @@ export const Header = (): JSX.Element => {
     }, [userData?.id, userData?.role]);
 
     useEffect(() => {
-        const normalizedTerm = normalizedDeferredSearchTerm.toLowerCase();
-
-        if (normalizedTerm.length < 2) {
-            setSearchResults([]);
-            setIsSearching(false);
-            return;
-        }
-
-        setIsSearching(true);
-        const timer = window.setTimeout(() => {
-            searchProducts(normalizedTerm, 6)
-                .then(setSearchResults)
-                .catch(() => {
-                    setSearchResults([]);
-                })
-                .finally(() => setIsSearching(false));
-        }, 220);
-
-        return () => window.clearTimeout(timer);
-    }, [normalizedDeferredSearchTerm]);
-
-    useEffect(() => {
         const handlePointerDown = (event: MouseEvent) => {
             if (!searchRef.current?.contains(event.target as Node)) {
                 setIsSearchOpen(false);
@@ -403,90 +383,23 @@ export const Header = (): JSX.Element => {
                         >
                             <SearchIcon size={18} />
                         </button>
-                        {shouldShowSearchResults ? (
-                            <div className="header__search__results">
-                                {hasSearchResults ? (
-                                    searchResults.map((product) => {
-                                        const hasSale =
-                                            product.sale_price !== null &&
-                                            product.sale_price !== undefined &&
-                                            product.sale_price < product.price;
-                                        const activePrice = hasSale ? product.sale_price : product.price;
-                                        return (
-                                            <button
-                                                key={product.id}
-                                                type="button"
-                                                className="header__search__result"
-                                                onMouseDown={(event) => event.preventDefault()}
-                                                onClick={() => {
-                                                    navigate(`/product?id=${product.id}`);
-                                                    setSearchResults([]);
-                                                    setIsSearchOpen(false);
-                                                }}
-                                            >
-                                                <span className="header__search__result__image">
-                                                    <img
-                                                        src={getProductImageUrl(
-                                                            normalizeProductImageName(product.main_image),
-                                                        )}
-                                                        alt=""
-                                                        width={44}
-                                                        height={44}
-                                                        loading="lazy"
-                                                    />
-                                                </span>
-                                                <span className="header__search__result__body">
-                                                    <span className="header__search__result__top">
-                                                        <strong>{product.name}</strong>
-                                                        {hasSale ? (
-                                                            <span className="header__search__result__badge">{t("header.sale")}</span>
-                                                        ) : null}
-                                                    </span>
-                                                    <span>
-                                                        {product.brand} - {product.category}
-                                                    </span>
-                                                </span>
-                                                <span className="header__search__result__price">
-                                                    {formatCurrency(activePrice)}
-                                                </span>
-                                            </button>
-                                        );
-                                    })
-                                ) : isSearching ? (
-                                    <div className="header__search__empty">{t("header.searching")}</div>
-                                ) : (
-                                    <div className="header__search__empty">{t("header.searchNoResults")}</div>
-                                )}
-                                <div className="header__search__shortcut">{t("header.searchShortcutHint")}</div>
-                            </div>
-                        ) : shouldShowRecent ? (
-                            <div className="header__search__results">
-                                <div className="header__search__history">
-                                    <span>{t("header.recentSearches")}</span>
-                                    <button
-                                        type="button"
-                                        className="header__search__history-clear"
-                                        onClick={() => setRecentSearches([])}
-                                    >
-                                        {t("header.clearRecentSearches")}
-                                    </button>
-                                </div>
-                                <div style={{ padding: "0.5rem 0.6rem" }}>
-                                    {recentSearches.map((entry) => (
-                                        <button
-                                            key={entry}
-                                            type="button"
-                                            className="header__search__history-chip"
-                                            onClick={() => {
-                                                setSearchTerm(entry);
-                                                submitSearch(entry);
-                                            }}
-                                        >
-                                            {entry}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                        {shouldShowSearchPanel ? (
+                            <Suspense fallback={null}>
+                                <HeaderSearchPanel
+                                    searchTerm={searchTerm}
+                                    recentSearches={recentSearches}
+                                    onClearRecent={() => setRecentSearches([])}
+                                    onSubmitSearch={(term) => {
+                                        setSearchTerm(term);
+                                        submitSearch(term);
+                                    }}
+                                    onSelectProduct={(product) => {
+                                        navigate(`/product?id=${product.id}`);
+                                        setIsSearchOpen(false);
+                                    }}
+                                    t={t}
+                                />
+                            </Suspense>
                         ) : null}
                     </div>
 
@@ -524,53 +437,26 @@ export const Header = (): JSX.Element => {
                                 {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
                             </button>
                             {isNotificationMenuOpen ? (
-                                <div
-                                    id="header-notifications-menu"
-                                    className="header__notifications__menu"
-                                    role="dialog"
-                                    aria-label={t("common.notifications")}
-                                >
-                                    <div className="header__notifications__header">
-                                        <div>
-                                            <strong>{t("common.notifications")}</strong>
-                                            {unreadNotifications > 0 ? (
-                                                <span>{t("header.unreadNotifications", unreadNotifications)}</span>
-                                            ) : null}
-                                        </div>
-                                        <Link
-                                            to={CUSTOMER_NOTIFICATIONS_TARGET}
-                                            onClick={() => setIsNotificationMenuOpen(false)}
-                                        >
-                                            {t("common.viewAll")}
-                                        </Link>
-                                    </div>
-                                    <div className="header__notifications__list">
-                                        {isNotificationsLoading ? (
-                                            <p className="header__notifications__status">{t("header.loadingNotifications")}</p>
-                                        ) : notifications.length > 0 ? (
-                                            notifications.slice(0, 5).map((notification) => (
-                                                <Link
-                                                    key={notification.id}
-                                                    to={notification.link || CUSTOMER_NOTIFICATIONS_TARGET}
-                                                    className={
-                                                        notification.is_read
-                                                            ? "header__notifications__item"
-                                                            : "header__notifications__item is-unread"
-                                                    }
-                                                    onClick={() => setIsNotificationMenuOpen(false)}
-                                                >
-                                                    <span className="header__notifications__item__topline">
-                                                        <strong>{notification.title}</strong>
-                                                        <small>{formatUtcDateTime(notification.created_at)}</small>
-                                                    </span>
-                                                    <p>{notification.message}</p>
-                                                </Link>
-                                            ))
-                                        ) : (
-                                            <p className="header__notifications__status">{t("header.noNotifications")}</p>
-                                        )}
-                                    </div>
-                                </div>
+                                <Suspense fallback={null}>
+                                    <HeaderAccountMenus
+                                        isNotificationMenuOpen
+                                        isProfileMenuOpen={false}
+                                        isNotificationsLoading={isNotificationsLoading}
+                                        notifications={notifications}
+                                        unreadNotifications={unreadNotifications}
+                                        hasUserData={Boolean(userData)}
+                                        isAuthenticated={Boolean(userData && !loading)}
+                                        isAdmin={isAdmin}
+                                        t={t}
+                                        onCloseNotifications={() => setIsNotificationMenuOpen(false)}
+                                        onCloseProfile={() => setIsProfileMenuOpen(false)}
+                                        onAdminNavigation={handleAdminNavigation}
+                                        onAccountAction={handleAccountAction}
+                                        onRequireLogin={handleRequireLogin}
+                                        onCartNavigation={handleCartNavigation}
+                                        onLogout={handleLogout}
+                                    />
+                                </Suspense>
                             ) : null}
                         </div>
                         <LanguageDropdown />
@@ -590,63 +476,26 @@ export const Header = (): JSX.Element => {
                             </button>
 
                             {isProfileMenuOpen ? (
-                                <div className="header__profile__menu">
-                                    {isAdmin ? (
-                                        <button
-                                            type="button"
-                                            className="header__profile__item header__profile__item--admin"
-                                            onClick={handleAdminNavigation}
-                                        >
-                                            <SpeedometerIcon size={18} />
-                                            <span>{t("header.backToAdmin")}</span>
-                                        </button>
-                                    ) : null}
-                                    <button
-                                        type="button"
-                                        className="header__profile__item"
-                                        onClick={() => {
-                                            handleAccountAction();
-                                            setIsProfileMenuOpen(false);
-                                        }}
-                                    >
-                                        <PersonIcon size={18} />
-                                        <span>{userData ? t("common.account") : t("common.login")}</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="header__profile__item"
-                                        onClick={() => {
-                                            handleRequireLogin("/wishlist");
-                                            setIsProfileMenuOpen(false);
-                                        }}
-                                    >
-                                        <HeartIcon size={18} />
-                                        <span>{t("common.wishlist")}</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="header__profile__item"
-                                        onClick={() => {
-                                            handleCartNavigation();
-                                            setIsProfileMenuOpen(false);
-                                        }}
-                                    >
-                                        <CartIcon size={18} />
-                                        <span>{t("common.cart")}</span>
-                                    </button>
-                                    {userData && !loading ? (
-                                        <button
-                                            type="button"
-                                            className="header__profile__item header__profile__item--danger"
-                                            onClick={() => {
-                                                handleLogout();
-                                                setIsProfileMenuOpen(false);
-                                            }}
-                                        >
-                                            <span>{t("common.logout")}</span>
-                                        </button>
-                                    ) : null}
-                                </div>
+                                <Suspense fallback={null}>
+                                    <HeaderAccountMenus
+                                        isNotificationMenuOpen={false}
+                                        isProfileMenuOpen
+                                        isNotificationsLoading={isNotificationsLoading}
+                                        notifications={notifications}
+                                        unreadNotifications={unreadNotifications}
+                                        hasUserData={Boolean(userData)}
+                                        isAuthenticated={Boolean(userData && !loading)}
+                                        isAdmin={isAdmin}
+                                        t={t}
+                                        onCloseNotifications={() => setIsNotificationMenuOpen(false)}
+                                        onCloseProfile={() => setIsProfileMenuOpen(false)}
+                                        onAdminNavigation={handleAdminNavigation}
+                                        onAccountAction={handleAccountAction}
+                                        onRequireLogin={handleRequireLogin}
+                                        onCartNavigation={handleCartNavigation}
+                                        onLogout={handleLogout}
+                                    />
+                                </Suspense>
                             ) : null}
                         </div>
                         <button
@@ -671,109 +520,28 @@ export const Header = (): JSX.Element => {
             {hasOpenedMenu ? (
                 <Suspense fallback={null}>
                     <HeaderMobileSheet open={isMenuOpen} onOpenChange={setIsMenuOpen} id={mobileMenuId} closeLabel={t("header.closeMenu")}>
-                <div className="header__mobile__search" role="search">
-                    <label className="header__sr-only" htmlFor={mobileSearchId}>
-                        {t("common.search")}
-                    </label>
-                    <input
-                        ref={mobileSearchInputRef}
-                        type="text"
-                        id={mobileSearchId}
-                        placeholder={t("header.searchMobilePlaceholder")}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                submitSearch();
-                                closeMenu();
-                            }
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => {
-                            submitSearch();
-                            closeMenu();
-                        }}
-                    >
-                        {t("common.search")}
-                    </button>
-                </div>
-
-                <nav className="header__mobile__links" aria-label={t("header.mobileNavigation")}>
-                    {primaryLinks.map((link) => (
-                        <Link key={link.to} to={link.to} onClick={closeMenu}>
-                            {t(`header.nav.${link.label.toLowerCase()}`)}
-                        </Link>
-                    ))}
-                </nav>
-
-                <div className="header__mobile__actions">
-                    {isAdmin ? (
-                        <button
-                            type="button"
-                            className="header__profile__item--admin header__mobile__admin-link"
-                            onClick={handleAdminNavigation}
-                        >
-                            <SpeedometerIcon size={18} />
-                            {t("header.backToAdmin")}
-                        </button>
-                    ) : null}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleAccountAction();
-                            closeMenu();
-                        }}
-                    >
-                        <PersonIcon size={18} />
-                        {userData && !loading ? t("common.account") : t("common.login")}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleRequireLogin("/wishlist");
-                            closeMenu();
-                        }}
-                    >
-                        <HeartIcon size={18} />
-                        {t("common.wishlist")}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleNotificationsPageNavigation();
-                            closeMenu();
-                        }}
-                    >
-                        <BellIcon size={18} />
-                        {t("common.notifications")}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleCartNavigation();
-                            closeMenu();
-                        }}
-                    >
-                        <CartIcon size={18} />
-                        {t("common.cart")}
-                        {cartItems.length > 0 ? ` (${cartItems.length})` : ""}
-                    </button>
-                    <LanguageDropdown />
-                    <ColorSchemeDropdown />
-                    {userData && !loading ? (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                handleLogout();
-                                closeMenu();
-                            }}
-                        >
-                            {t("common.logout")}
-                        </button>
-                    ) : null}
-                </div>
+                        <Suspense fallback={null}>
+                            <HeaderMobileContent
+                                links={primaryLinks}
+                                searchInputRef={mobileSearchInputRef}
+                                searchTerm={searchTerm}
+                                focusSearchOnMount={shouldFocusMobileSearch}
+                                isAdmin={isAdmin}
+                                isAuthenticated={Boolean(userData && !loading)}
+                                cartItemCount={cartItems.length}
+                                t={t}
+                                onSearchTermChange={setSearchTerm}
+                                onMobileSearchFocused={() => setShouldFocusMobileSearch(false)}
+                                onSubmitSearch={() => submitSearch()}
+                                onClose={closeMenu}
+                                onAdminNavigation={handleAdminNavigation}
+                                onAccountAction={handleAccountAction}
+                                onRequireLogin={handleRequireLogin}
+                                onNotificationsNavigation={handleNotificationsPageNavigation}
+                                onCartNavigation={handleCartNavigation}
+                                onLogout={handleLogout}
+                            />
+                        </Suspense>
                     </HeaderMobileSheet>
                 </Suspense>
             ) : null}

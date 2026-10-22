@@ -86,6 +86,16 @@ install command. Each package owns its dependencies and lockfile.
 - Vite uses its default dependency-aware production chunking. Avoid broad
   manual vendor chunks that pull route-only libraries such as Recharts into
   the storefront's initial module-preload graph.
+- The English storefront dictionary is part of the default client graph;
+  Vietnamese loads when the locale changes. Admin-only EN/VI namespaces load by
+  locale on entry to `AdminLayout`, which waits for the matching copy.
+- Header keeps its search field, notification badge, and account triggers in the
+  shared shell; search suggestions, account/notification popovers, and mobile
+  menu content load only after interaction. Customer notification polling stays
+  in the shell so the badge remains current.
+- Firebase Auth and Firebase App produce `index.esm` chunks through their
+  upstream ESM entry points. Recharts remains in a separate lazy dashboard
+  chunk, requested only when the chart region enters the viewport.
 - Check the generated `client/dist/index.html` preload list and production
   chunk sizes after changing route or dependency imports.
 

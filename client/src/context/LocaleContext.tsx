@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import { DEFAULT_LOCALE, englishDictionary, isLocale, loadDictionary, type Locale, type Dictionary } from "../i18n";
+import { DEFAULT_LOCALE, englishDictionary, isLocale, loadAdminDictionary, loadDictionary, withAdminDictionary, type AdminDictionary, type Locale, type Dictionary } from "../i18n";
 
 const STORAGE_KEY = "digital-e:locale:v1";
 
@@ -8,7 +8,10 @@ type LocaleContextValue = {
     locale: Locale;
     setLocale: (next: Locale) => void;
     toggleLocale: () => void;
-    t: Dictionary;
+    t: Omit<Dictionary, "shipping"> & Partial<Omit<AdminDictionary, "shipping">> & {
+        shipping: Dictionary["shipping"] & Partial<AdminDictionary["shipping"]>;
+    };
+    loadAdminTranslations: () => Promise<void>;
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
@@ -31,6 +34,12 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [dictionary, setDictionary] = useState<Dictionary | null>(() =>
         locale === "en" ? englishDictionary : null,
     );
+    const [adminTranslations, setAdminTranslations] = useState<{ locale: Locale; dictionary: AdminDictionary } | null>(null);
+
+    const loadAdminTranslations = useCallback(async () => {
+        const loaded = await loadAdminDictionary(locale);
+        setAdminTranslations({ locale, dictionary: loaded });
+    }, [locale]);
 
     useEffect(() => {
         if (dictionary) return;
@@ -86,8 +95,19 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, [locale, setLocale]);
 
     const value = useMemo<LocaleContextValue>(
-        () => ({ locale, setLocale, toggleLocale, t: dictionary ?? englishDictionary }),
-        [dictionary, locale, setLocale, toggleLocale],
+        () => {
+            const baseDictionary = dictionary ?? englishDictionary;
+            return {
+                locale,
+                setLocale,
+                toggleLocale,
+                loadAdminTranslations,
+                t: adminTranslations?.locale === locale
+                    ? withAdminDictionary(baseDictionary, adminTranslations.dictionary)
+                    : baseDictionary,
+            };
+        },
+        [adminTranslations, dictionary, locale, loadAdminTranslations, setLocale, toggleLocale],
     );
 
     if (!dictionary) {
