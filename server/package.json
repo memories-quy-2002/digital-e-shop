@@ -5,7 +5,7 @@
     "main": "dist/src/server.js",
     "packageManager": "pnpm@12.4.2",
     "engines": {
-        "node": ">=24.20.0 <25"
+        "node": ">=24.22.1 <25"
     },
     "scripts": {
         "prepare": "cd .. && husky server/.husky",
@@ -58,6 +58,7 @@
         "perf:setup": "node scripts/setup-k6-config.mjs",
         "perf:readonly": "node scripts/run-k6.mjs readonly",
         "perf:smoke": "node scripts/run-k6.mjs smoke",
+        "perf:load": "node scripts/run-k6.mjs load",
         "perf:catalog": "node scripts/run-k6.mjs catalog",
         "perf:admin-readonly": "node scripts/run-k6.mjs admin-readonly",
         "perf:customer-readonly": "node scripts/run-k6.mjs customer-readonly",

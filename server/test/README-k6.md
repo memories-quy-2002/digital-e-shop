@@ -31,6 +31,7 @@ The default target is `http://127.0.0.1:4000`. Make sure the API is running and 
 | Script | Command | Coverage |
 | --- | --- | --- |
 | `k6-api-smoke.js` | `pnpm --dir server perf:smoke` | Low-load health, catalog list/search/facets, product detail, and same-category comparison |
+| `k6-api-load.js` | `pnpm --dir server perf:load` | Fixed-arrival public catalog workflow: list, search, detail, and facets; exports a JSON summary |
 | `performance-test.js` | `pnpm --dir server perf:readonly` | Health, CSRF, catalog listing, product detail, reviews, search, and facets |
 | `k6-catalog-test.js` | `pnpm --dir server perf:catalog` | Public catalog listing, detail, search, facets, related products, reviews, CSRF, and optional recommendations |
 | `k6-admin-readonly.js` | `pnpm --dir server perf:admin-readonly` | Admin orders, order items, users, profiles, analytics, inventory movements, and promotions |
@@ -43,11 +44,49 @@ Run the smoke profile from any supported shell:
 pnpm --dir server perf:smoke
 ```
 
-It defaults to one virtual user for 20 seconds, checks that fewer than 1% of HTTP requests fail, requires p95 response time below 1.2 seconds, and requires at least 99% of assertions to pass. The seeded catalog needs two products in the same category to exercise comparison. Keep smoke settings within the bounded profile:
+The smoke profile defaults to one virtual user for 20 seconds, checks that
+fewer than 1% of HTTP requests fail, requires p95 response time below 1.2
+seconds, and requires at least 99% of assertions to pass. The seeded catalog
+needs two products in the same category to exercise comparison. Keep smoke
+settings within the bounded profile:
 
 ```dotenv
 SMOKE_VUS=2
 SMOKE_DURATION=30s
+```
+
+Run a bounded, read-only catalog load profile against the local API:
+
+```text
+pnpm --dir server perf:load
+```
+
+The load profile models one catalog workflow per second by default. Each
+workflow makes four sequential `GET` requests, so the default load is about four
+API requests per second. It ramps up for 30 seconds, holds the configured rate
+for two minutes, then ramps down for 30 seconds. `LOAD_RATE` can be set from 1
+to 5 workflows per second and `LOAD_DURATION` from 10 seconds to 5 minutes.
+Thresholds include per-endpoint p95 latency, failed-request and check rates,
+and zero dropped iterations. A timestamped JSON summary is written under
+`server/test-results/k6/`, which is ignored by Git.
+
+Example bounded override:
+
+```dotenv
+LOAD_RATE=1
+LOAD_DURATION=30s
+```
+
+Use `BASE_URL=http://127.0.0.1:4000` for a host-installed k6 CLI. If k6 runs in
+Docker, target the host API with `BASE_URL=http://host.docker.internal:4000` and
+set `ALLOW_REMOTE_TEST_TARGET=true`; this explicit flag is needed because the
+container sees the host name as a remote target. Keep this pointed at a local
+or disposable test API. From PowerShell, the container can run the bounded
+load profile without installing k6 on the host:
+
+```powershell
+New-Item -ItemType Directory -Path server/test-results/k6 -Force | Out-Null
+docker run --rm -v "${PWD}/server/test:/work/test" -v "${PWD}/server/test-results/k6:/work/test-results/k6" -w /work --add-host host.docker.internal:host-gateway -e BASE_URL=http://host.docker.internal:4000 -e ALLOW_REMOTE_TEST_TARGET=true -e LOAD_RATE=1 -e LOAD_DURATION=30s grafana/k6:1.5.0 run test/k6-api-load.js
 ```
 
 Put optional values in `server/.env.k6`:

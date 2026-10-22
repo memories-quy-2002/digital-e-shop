@@ -41,6 +41,7 @@ The screenshot keeps the confirmation visible and obscures the order summary, gu
 | --- | --- | --- |
 | Real browser | Product discovery, guest cart, server-validated COD checkout, confirmation, and token-protected lookup | One synthetic order in the disposable local database |
 | [k6 smoke profile](../server/test/k6-api-smoke.js) | Health and public catalog response contracts, request failures, and p95 latency | Read-only GET requests; capped at five virtual users |
+| [k6 catalog load profile](../server/test/k6-api-load.js) | Fixed-arrival public catalog load, endpoint p95, dropped iterations, and JSON summary | Read-only GET workflow; default one workflow/second, maximum five |
 | [OpenTelemetry runtime](../server/src/observability/telemetry.ts) | HTTP and Express spans, MySQL2 spans, API metrics, and trace IDs in correlated request logs | Opt-in OTLP/HTTP export to a local or approved test collector |
 
 Run the bounded k6 smoke profile from the repository root:
