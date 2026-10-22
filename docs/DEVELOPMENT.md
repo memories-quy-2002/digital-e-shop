@@ -293,6 +293,8 @@ pnpm --dir client analyze
 
 The report is written to `client/node_modules/.cache/digital-e-bundle-analysis.html` and includes gzip and Brotli sizes. Every client production build also checks the route and chunk baselines in `client/bundle-size-baseline.json`; the build fails if a measurement grows by more than the configured allowance. Route totals follow Vite's static import graph, with the deferred Admin charts included in the full Dashboard route total.
 
+The aggregate `allProductionJavaScriptGzipBytes` budget baseline is intentionally set to 1,183,570 bytes, twice its previous measured baseline of 591,785 bytes, to reserve capacity for future lazy-loaded features. With the 10% growth allowance, the aggregate ceiling is 1,301,927 bytes (about 1.30 MB). This is budget headroom, not the current measured bundle size; route and chunk baselines remain unchanged to keep customer entry routes and individual chunks guarded.
+
 ## Frontend boundaries
 
 - Put domain-owned pages, API calls, types, utilities, and tests under `client/src/features/<domain>/`
