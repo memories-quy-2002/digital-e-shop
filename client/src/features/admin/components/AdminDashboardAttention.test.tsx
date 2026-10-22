@@ -43,4 +43,29 @@ describe("AdminDashboardAttention", () => {
         fireEvent.click(screen.getByRole("link", { name: "Open orders" }));
         expect(onOpenAlerts).toHaveBeenCalledWith(expect.objectContaining({ alertIds: ["order-1", "order-2"] }));
     });
+
+    it("translates priority labels in Vietnamese", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        renderWithLocale(
+            <MemoryRouter>
+                <AdminDashboardAttention
+                    status="success"
+                    groups={[{
+                        type: "order",
+                        count: 2,
+                        alertIds: ["order-1", "order-2"],
+                        priority: "High",
+                        title: "Pending orders",
+                        description: "Two orders need review.",
+                        actionLabel: "Open orders",
+                        route: "/admin/orders",
+                    }]}
+                    onRetry={vi.fn()}
+                    onOpenAlerts={vi.fn()}
+                />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByText("Ưu tiên cao")).toBeTruthy();
+    });
 });
