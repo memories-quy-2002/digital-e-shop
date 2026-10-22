@@ -43,6 +43,7 @@ import { useRecentlyViewed } from "../../../hooks/useRecentlyViewed";
 import { getApiErrorCode, getApiErrorMessage } from "../../../lib/api-contract";
 import { useT } from "../../../hooks/useT";
 import ProductAlertControls from "../../productAlerts/components/ProductAlertControls";
+import ProductReviewLoginPrompt from "../components/ProductReviewLoginPrompt";
 import { fetchProductAlert, updateProductAlert } from "../../productAlerts/api";
 import type { ProductAlertKey, ProductAlertPreference } from "../../productAlerts/types";
 
@@ -963,9 +964,7 @@ const ProductPage = () => {
                                 </section>
 
                                 {!uid ? (
-                                    <div className="product-page__reviews-state">
-                                        {t("product.loginToReview")}
-                                    </div>
+                                    <ProductReviewLoginPrompt />
                                 ) : (
                                     <form action={submitReviewAction} className="product-page__reviews-form">
                                         <h2>{t("product.writeReview")}</h2>

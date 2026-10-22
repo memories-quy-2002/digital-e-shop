@@ -106,7 +106,7 @@ The API uses NestJS on the Express adapter. MySQL repositories handle most runti
 
 ## Getting started
 
-**Requirements:** Node.js `24.20.0`, pnpm `12.4.2`, and Docker for an isolated local MySQL database. The client and server are separate packages: there is no root `package.json` or root `pnpm` workspace.
+**Requirements:** Node.js `24.22.1`, pnpm `12.4.2`, and Docker for an isolated local MySQL database. The client and server are separate packages: there is no root `package.json` or root `pnpm` workspace.
 
 **1. Create local environment files**
 

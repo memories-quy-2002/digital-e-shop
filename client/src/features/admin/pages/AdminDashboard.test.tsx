@@ -93,6 +93,33 @@ describe("AdminDashboard mixed request results", () => {
         expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(3);
     }, 30000);
 
+    it("starts observing the lazy chart section after the dashboard finishes loading", async () => {
+        let intersectionCallback: IntersectionObserverCallback | undefined;
+        const observe = vi.fn();
+        const disconnect = vi.fn();
+        vi.stubGlobal("IntersectionObserver", class {
+            constructor(callback: IntersectionObserverCallback) {
+                intersectionCallback = callback;
+            }
+            observe = observe;
+            disconnect = disconnect;
+        });
+        vi.mocked(fetchAnalyticsSummary).mockResolvedValue({ summary: { kpis: {} } });
+        vi.mocked(fetchAdminProducts).mockResolvedValue([] as never);
+        vi.mocked(fetchAdminOrders).mockResolvedValue([] as never);
+        vi.mocked(fetchAdminUsers).mockResolvedValue([] as never);
+
+        renderDashboard();
+
+        await waitFor(() => expect(observe).toHaveBeenCalled());
+        act(() => intersectionCallback?.(
+            [{ isIntersecting: true } as IntersectionObserverEntry],
+            {} as IntersectionObserver,
+        ));
+
+        expect(await screen.findByText("Last 30 days revenue pulse")).toBeTruthy();
+    });
+
     it("marks preserved analytics KPIs unavailable after an analytics refresh failure", async () => {
         vi.mocked(fetchAnalyticsSummary)
             .mockResolvedValueOnce({
@@ -231,6 +258,16 @@ describe("AdminDashboard mixed request results", () => {
 
         await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith("90d"));
         expect(screen.getByTestId("location")).toHaveTextContent("/admin?range=90d");
+    });
+
+    it("localizes the revenue KPI range description in Vietnamese", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        vi.mocked(fetchAnalyticsSummary).mockResolvedValue({ summary: { kpis: {} } });
+
+        renderDashboard();
+
+        expect(await screen.findByText("30 ngày gần đây · sau giảm giá")).toBeTruthy();
+        expect(await screen.findByText("30 ngày gần đây biến động doanh thu")).toBeTruthy();
     });
 
     it("refreshes operational signals periodically without reloading analytics aggregates", async () => {

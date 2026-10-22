@@ -5,7 +5,7 @@ Codex reads that file only after the repository is trusted. Local `npx` servers
 download their packages on first launch; MarkItDown uses `uvx`, so install `uv`
 on each device first. Remote servers do not need a local package install.
 
-This setup requires Node.js 24.20.0 and network access to npm/PyPI and the
+This setup requires Node.js 24.22.1 and network access to npm/PyPI and the
 configured remote MCP hosts. Sign in to Composio and Mem0 separately on
 each device. Keep API tokens and other credentials in the
 machine's environment or the provider's sign-in store; never add them to the
