@@ -212,7 +212,7 @@ const AdminDashboard = () => {
 
         observer.observe(chartsContainer);
         return () => observer.disconnect();
-    }, [shouldLoadCharts]);
+    }, [loading, shouldLoadCharts]);
 
     const fetchDashboardData = useCallback(async (showToast = false) => {
         try {
@@ -473,7 +473,7 @@ const AdminDashboard = () => {
         {
             label: "Net revenue",
             value: formatCurrency(selectedPeriodMetrics.currentRevenue),
-            description: `${rangeLabel} · after discounts`,
+            description: `${tx(rangeLabel)} · ${tx("after discounts")}`,
             status: availability.analytics,
             delta: { value: selectedPeriodMetrics.revenueDelta },
         },
@@ -499,7 +499,7 @@ const AdminDashboard = () => {
             status: availability.analytics === "success" ? "success" : availability.products,
             href: "/admin/products",
         },
-    ], [analyticsSummary, availability.analytics, availability.orders, availability.products, dashboardStats.lowStockProducts.length, dashboardStats.pendingOrders, orders, rangeLabel, selectedPeriodMetrics]);
+    ], [analyticsSummary, availability.analytics, availability.orders, availability.products, dashboardStats.lowStockProducts.length, dashboardStats.pendingOrders, orders, rangeLabel, selectedPeriodMetrics, tx]);
 
     const handleDownloadReport = () => {
         const reportKpisAvailable = availability.analytics === "success";

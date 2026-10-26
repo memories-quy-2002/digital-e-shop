@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ if (existsSync(configPath)) {
 const profiles = {
     readonly: "performance-test.js",
     smoke: "k6-api-smoke.js",
+    load: "k6-api-load.js",
     catalog: "k6-catalog-test.js",
     "admin-readonly": "k6-admin-readonly.js",
     "customer-readonly": "k6-customer-readonly.js",
@@ -38,12 +40,24 @@ if (!scriptName) {
 
     if (forwardedArguments[0] === "--") forwardedArguments.shift();
 
+    const childEnvironment = { ...process.env };
+    if (profile === "load") {
+        const outputDirectory = path.join(serverDirectory, "test-results", "k6");
+        await mkdir(outputDirectory, { recursive: true });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        childEnvironment.K6_SUMMARY_PATH = path.join(
+            "test-results",
+            "k6",
+            `catalog-load-${timestamp}.json`,
+        );
+    }
+
     const child = spawn(
         executable,
         ["run", ...forwardedArguments, scriptPath],
         {
             cwd: serverDirectory,
-            env: process.env,
+            env: childEnvironment,
             stdio: "inherit",
         },
     );

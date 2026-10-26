@@ -4,7 +4,7 @@ Back to [[index]].
 
 ## Runtime baseline
 
-- Node.js `24.20.0` is selected by `.node-version`.
+- Node.js `24.22.1` is selected by `.node-version`.
 - pnpm `12.4.2` is declared by both package manifests and CI.
 - `client/` and `server/` are independent pnpm packages. The repository root
   is not a workspace and has no supported root install or filter command.

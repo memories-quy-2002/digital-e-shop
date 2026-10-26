@@ -204,14 +204,14 @@ const AdminDashboardCharts = ({
                 <section className="admin__dashboard__analysis">
                     <div className="admin__card">
                         <div className="admin__card__header">
-                            <h3>{rangeLabel} {tx("revenue pulse")}</h3>
+                            <h3>{tx(rangeLabel)} {tx("revenue pulse")}</h3>
                             <span>{tx("Orders and revenue for the selected period")}</span>
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={260}>
                                 <AreaChart
                                     data={analyticsTrend}
-                                    aria-label={`${rangeLabel} ${tx("revenue pulse")}`}
+                                    aria-label={`${tx(rangeLabel)} ${tx("revenue pulse")}`}
                                     aria-describedby="admin-dashboard-revenue-data"
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
@@ -234,7 +234,7 @@ const AdminDashboardCharts = ({
                             </ResponsiveContainer>
                             <AccessibleChartData
                                 id="admin-dashboard-revenue-data"
-                                caption={`${rangeLabel} ${tx("revenue pulse")}`}
+                                caption={`${tx(rangeLabel)} ${tx("revenue pulse")}`}
                                 headers={[tx("Date"), tx("Revenue"), tx("Orders")]}
                                 rows={analyticsTrend.map((point) => [point.name, formatCurrency(point.revenue), String(point.orders)])}
                             />
