@@ -132,6 +132,8 @@ pnpm --dir server perf:readonly
 pnpm --dir server perf:catalog
 pnpm --dir server perf:capacity
 pnpm --dir server perf:stress
+pnpm --dir server perf:soak
+pnpm --dir server perf:spike
 pnpm --dir server perf:admin-readonly
 pnpm --dir server perf:customer-readonly
 pnpm --dir server perf:auth-readonly
@@ -170,6 +172,20 @@ iterations are dropped, checks fall to 99% or below, or endpoint p95 reaches
 1.2 seconds. Run it only against the isolated Docker database with the API in
 `NODE_ENV=test`; the first
 failing stage is the measured local breakpoint, not a production capacity claim.
+
+The `perf:soak` profile ramps to 20 read-only catalog workflows per second and
+holds that rate for 30 minutes by default. `SOAK_RATE` can be set from 1 to 20
+workflows per second and `SOAK_DURATION` from 10 to 60 minutes. It checks the
+same request, dropped-iteration, check, and endpoint p95 SLOs as stress. Use it
+to look for degradation over time; it still requires the isolated Docker DB and
+`NODE_ENV=test`.
+
+The `perf:spike` profile measures a 10-workflow/s baseline, a sudden 40/s peak
+for one minute, then a 10/s recovery period. `SPIKE_BASELINE_RATE` accepts 1-20
+and `SPIKE_RATE` accepts a higher rate up to 80 workflows/s. It reports
+baseline, spike, and recovery separately, checks the same SLOs in each phase,
+and leaves a short quiet gap between phases to let in-flight iterations drain.
+It uses the same isolated DB and test-mode API requirements as stress.
 
 ## Write safety
 

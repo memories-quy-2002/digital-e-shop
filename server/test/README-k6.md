@@ -34,6 +34,8 @@ The default target is `http://127.0.0.1:4000`. Make sure the API is running and 
 | `k6-api-load.js` | `pnpm --dir server perf:load` | Fixed-arrival public catalog workflow: list, search, detail, and facets; exports a JSON summary |
 | `k6-vu-capacity.js` | `pnpm --dir server perf:capacity` | Concurrent catalog users ramp through 10, 25, 50, and 100 VUs; exports a JSON summary |
 | `k6-api-stress.js` | `pnpm --dir server perf:stress` | Bounded arrival-rate stress stages from 10 to 80 catalog workflows/second; aborts when an SLO fails |
+| `k6-api-soak.js` | `pnpm --dir server perf:soak` | Holds a bounded catalog arrival rate for 10-60 minutes; defaults to 20 workflows/second for 30 minutes |
+| `k6-api-spike.js` | `pnpm --dir server perf:spike` | Separately measures 10/s baseline, a one-minute 40/s spike, and recovery at 10/s |
 | `performance-test.js` | `pnpm --dir server perf:readonly` | Health, CSRF, catalog listing, product detail, reviews, search, and facets |
 | `k6-catalog-test.js` | `pnpm --dir server perf:catalog` | Public catalog listing, detail, search, facets, related products, reviews, CSRF, and optional recommendations |
 | `k6-admin-readonly.js` | `pnpm --dir server perf:admin-readonly` | Admin orders, order items, users, profiles, analytics, inventory movements, and promotions |
@@ -124,6 +126,33 @@ based on the previous local 100-VU result of about 298 requests/second. Increase
 it only after reviewing
 the API/database and k6-generator resource metrics. The timestamped JSON summary
 is written under `server/test-results/k6/`.
+
+Run the long-duration soak profile against the isolated test API and database:
+
+```text
+pnpm --dir server perf:soak
+```
+
+`SOAK_RATE` accepts 1-20 catalog workflows/s and `SOAK_DURATION` accepts 10m-
+60m. Defaults are 20 workflows/s for 30 minutes. The profile ramps for 30
+seconds, holds the configured rate, then ramps down. It checks failed request
+rate below 1%, zero dropped iterations, checks above 99%, and endpoint p95 below
+1.2 seconds. The runner writes a timestamped JSON summary under
+`server/test-results/k6/`.
+
+Run the baseline, sudden-spike, and recovery profile against the same isolated
+target:
+
+```text
+pnpm --dir server perf:spike
+```
+
+`SPIKE_BASELINE_RATE` defaults to 10 workflows/s (range 1-20), and `SPIKE_RATE`
+defaults to 40/s (must exceed baseline and stay at or below 80/s). The profile
+runs a two-minute baseline, one-minute spike, and two-minute recovery, with a
+10-second quiet gap between phases so in-flight iterations can drain. Each
+phase has separate error, dropped-iteration, check, and endpoint p95 thresholds.
+The runner writes a timestamped JSON summary under `server/test-results/k6/`.
 
 Arrival-rate profiles also require enough k6 VUs to start each iteration on
 schedule. Review `dropped_iterations` separately: drops can indicate a VU pool

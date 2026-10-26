@@ -21,6 +21,8 @@ const profiles = {
     load: "k6-api-load.js",
     capacity: "k6-vu-capacity.js",
     stress: "k6-api-stress.js",
+    soak: "k6-api-soak.js",
+    spike: "k6-api-spike.js",
     catalog: "k6-catalog-test.js",
     "admin-readonly": "k6-admin-readonly.js",
     "customer-readonly": "k6-customer-readonly.js",
@@ -43,14 +45,20 @@ if (!scriptName) {
     if (forwardedArguments[0] === "--") forwardedArguments.shift();
 
     const childEnvironment = { ...process.env };
-    if (profile === "load" || profile === "capacity" || profile === "stress") {
-        const outputDirectory = path.join(serverDirectory, "test-results", "k6");
+    if (["load", "capacity", "stress", "soak", "spike"].includes(profile)) {
+        const outputDirectory = path.join(
+            serverDirectory,
+            "test-results",
+            "k6",
+        );
         await mkdir(outputDirectory, { recursive: true });
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const summaryNames = {
             load: "catalog-load",
             capacity: "catalog-vu-capacity",
             stress: "catalog-stress",
+            soak: "catalog-soak",
+            spike: "catalog-spike",
         };
         childEnvironment.K6_SUMMARY_PATH = path.join(
             "test-results",
