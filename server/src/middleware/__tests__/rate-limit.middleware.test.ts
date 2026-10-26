@@ -98,7 +98,7 @@ describe("createRateLimitMiddleware", () => {
         redisLimiterMock.mockClear();
     });
 
-    async function loadMiddleware(nodeEnv: "development" | "production", redisUrl = "") {
+    async function loadMiddleware(nodeEnv: "development" | "test" | "production", redisUrl = "") {
         vi.resetModules();
         vi.doMock("#src/config/env.config", () => ({
             env: { nodeEnv, redisUrl },
@@ -119,6 +119,18 @@ describe("createRateLimitMiddleware", () => {
         expect(redisLimiterMock).not.toHaveBeenCalled();
         expect(rateLimitMock).toHaveBeenCalledWith(expect.objectContaining({
             max: 10_000,
+            standardHeaders: true,
+            legacyHeaders: false,
+        }));
+    });
+
+    it("uses configured route ceilings in test mode for capacity testing", async () => {
+        const { createRateLimitMiddleware } = await loadMiddleware("test");
+
+        createRateLimitMiddleware(100_000);
+
+        expect(rateLimitMock).toHaveBeenCalledWith(expect.objectContaining({
+            max: 100_000,
             standardHeaders: true,
             legacyHeaders: false,
         }));

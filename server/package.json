@@ -59,6 +59,8 @@
         "perf:readonly": "node scripts/run-k6.mjs readonly",
         "perf:smoke": "node scripts/run-k6.mjs smoke",
         "perf:load": "node scripts/run-k6.mjs load",
+        "perf:capacity": "node scripts/run-k6.mjs capacity",
+        "perf:stress": "node scripts/run-k6.mjs stress",
         "perf:catalog": "node scripts/run-k6.mjs catalog",
         "perf:admin-readonly": "node scripts/run-k6.mjs admin-readonly",
         "perf:customer-readonly": "node scripts/run-k6.mjs customer-readonly",

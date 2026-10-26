@@ -32,6 +32,8 @@ The default target is `http://127.0.0.1:4000`. Make sure the API is running and 
 | --- | --- | --- |
 | `k6-api-smoke.js` | `pnpm --dir server perf:smoke` | Low-load health, catalog list/search/facets, product detail, and same-category comparison |
 | `k6-api-load.js` | `pnpm --dir server perf:load` | Fixed-arrival public catalog workflow: list, search, detail, and facets; exports a JSON summary |
+| `k6-vu-capacity.js` | `pnpm --dir server perf:capacity` | Concurrent catalog users ramp through 10, 25, 50, and 100 VUs; exports a JSON summary |
+| `k6-api-stress.js` | `pnpm --dir server perf:stress` | Bounded arrival-rate stress stages from 10 to 80 catalog workflows/second; aborts when an SLO fails |
 | `performance-test.js` | `pnpm --dir server perf:readonly` | Health, CSRF, catalog listing, product detail, reviews, search, and facets |
 | `k6-catalog-test.js` | `pnpm --dir server perf:catalog` | Public catalog listing, detail, search, facets, related products, reviews, CSRF, and optional recommendations |
 | `k6-admin-readonly.js` | `pnpm --dir server perf:admin-readonly` | Admin orders, order items, users, profiles, analytics, inventory movements, and promotions |
@@ -76,6 +78,57 @@ Example bounded override:
 LOAD_RATE=1
 LOAD_DURATION=30s
 ```
+
+Run the staged concurrent-user capacity profile against the local API:
+
+```text
+pnpm --dir server perf:capacity
+```
+
+Run the API in `NODE_ENV=test` against the isolated Docker database for this
+profile. Test mode uses the configured route ceilings so the local development
+rate limit of 10,000 requests per IP per 15 minutes does not reject the load
+profile before its capacity is measured. Do not use test mode with production
+data or services.
+
+The capacity profile runs four sequential stages at 10, 25, 50, and 100 virtual
+users. Each stage ramps for 30 seconds, holds for one minute, and ramps down for
+30 seconds. Each VU performs catalog list, search, product detail, and facets
+requests, then waits one second before repeating. The profile requires request
+errors below 1%, checks above 99%, and p95 below 1.2 seconds for each endpoint
+at each load level. Its timestamped JSON summary is written under
+`server/test-results/k6/`.
+
+`dropped_iterations` applies to arrival-rate executors, not the `ramping-vus`
+executor used by this profile. Use `perf:load` for the fixed-arrival-rate test,
+which also requires zero dropped iterations.
+
+Run the bounded catalog stress profile against the local API:
+
+```text
+pnpm --dir server perf:stress
+```
+
+Use `NODE_ENV=test` and the isolated Docker database. The profile starts five
+sequential stages at 10, 20, 40, 60, and 80 catalog workflows per second. Each
+workflow makes four read-only API requests, so the target rates correspond to
+about 40–320 requests per second. Each stage ramps for 30 seconds, holds for
+one minute, and ramps down for 10 seconds. The full profile is bounded to about
+9 minutes and a maximum rate of 80 workflows/second.
+
+Each stage aborts the run after 30 seconds of evidence if request errors reach
+1%, any iterations are dropped, checks fall to 99% or below, or any endpoint
+p95 reaches 1.2 seconds. The first failing stage identifies the current local
+breaking point; later stages will not run after an SLO breach. This ceiling is
+based on the previous local 100-VU result of about 298 requests/second. Increase
+it only after reviewing
+the API/database and k6-generator resource metrics. The timestamped JSON summary
+is written under `server/test-results/k6/`.
+
+Arrival-rate profiles also require enough k6 VUs to start each iteration on
+schedule. Review `dropped_iterations` separately: drops can indicate a VU pool
+that is too small or an overloaded system, so they are not interchangeable
+with HTTP errors.
 
 Use `BASE_URL=http://127.0.0.1:4000` for a host-installed k6 CLI. If k6 runs in
 Docker, target the host API with `BASE_URL=http://host.docker.internal:4000` and
