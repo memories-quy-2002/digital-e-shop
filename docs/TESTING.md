@@ -130,6 +130,10 @@ pnpm --dir server perf:setup
 pnpm --dir server perf:smoke
 pnpm --dir server perf:readonly
 pnpm --dir server perf:catalog
+pnpm --dir server perf:capacity
+pnpm --dir server perf:stress
+pnpm --dir server perf:soak
+pnpm --dir server perf:spike
 pnpm --dir server perf:admin-readonly
 pnpm --dir server perf:customer-readonly
 pnpm --dir server perf:auth-readonly
@@ -149,6 +153,39 @@ to one virtual user for 20 seconds, limits the run to five virtual users, and
 checks request errors, p95 latency, and response assertions. It refuses remote
 targets unless `ALLOW_REMOTE_TEST_TARGET=true`; use that override only with an
 approved test deployment.
+
+The `perf:capacity` profile runs a read-only catalog workflow in sequential
+stages at 10, 25, 50, and 100 virtual users. Each level ramps for 30 seconds,
+holds for one minute, and ramps down for 30 seconds. It checks request errors
+below 1%, assertions above 99%, and p95 below 1.2 seconds per catalog endpoint
+at each load level. Since `ramping-vus` does not emit
+`dropped_iterations`, use `perf:load` when validating a fixed arrival rate and
+the zero-dropped-iterations threshold. Run the API with `NODE_ENV=test` and the
+isolated Docker database for this profile; development rate limiting is lower
+than the test/production route ceilings and would reject the high-volume run.
+
+The `perf:stress` profile uses bounded arrival-rate stages at 10, 20, 40, 60,
+and 80 catalog workflows per second (about 40–320 read requests per second).
+Each stage ramps for 30 seconds, holds for one minute, and ramps down for 10
+seconds. It aborts after 30 seconds of evidence if request errors reach 1%,
+iterations are dropped, checks fall to 99% or below, or endpoint p95 reaches
+1.2 seconds. Run it only against the isolated Docker database with the API in
+`NODE_ENV=test`; the first
+failing stage is the measured local breakpoint, not a production capacity claim.
+
+The `perf:soak` profile ramps to 20 read-only catalog workflows per second and
+holds that rate for 30 minutes by default. `SOAK_RATE` can be set from 1 to 20
+workflows per second and `SOAK_DURATION` from 10 to 60 minutes. It checks the
+same request, dropped-iteration, check, and endpoint p95 SLOs as stress. Use it
+to look for degradation over time; it still requires the isolated Docker DB and
+`NODE_ENV=test`.
+
+The `perf:spike` profile measures a 10-workflow/s baseline, a sudden 40/s peak
+for one minute, then a 10/s recovery period. `SPIKE_BASELINE_RATE` accepts 1-20
+and `SPIKE_RATE` accepts a higher rate up to 80 workflows/s. It reports
+baseline, spike, and recovery separately, checks the same SLOs in each phase,
+and leaves a short quiet gap between phases to let in-flight iterations drain.
+It uses the same isolated DB and test-mode API requirements as stress.
 
 ## Write safety
 
