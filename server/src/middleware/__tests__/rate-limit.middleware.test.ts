@@ -137,15 +137,18 @@ describe("createRateLimitMiddleware", () => {
         }));
     });
 
-    it("selects the Redis store in production when Redis is configured", async () => {
-        const { createRateLimitMiddleware } = await loadMiddleware("production", "redis://configured");
+    it.each([
+        { nodeEnv: "development", expectedLimit: 10_000 },
+        { nodeEnv: "production", expectedLimit: 5 },
+    ] as const)("selects the Redis store in $nodeEnv when Redis is configured", async ({ nodeEnv, expectedLimit }) => {
+        const { createRateLimitMiddleware } = await loadMiddleware(nodeEnv, "redis://configured");
 
         createRateLimitMiddleware(5);
 
         expect(redisLimiterMock).toHaveBeenCalledWith("redis://configured");
         expect(rateLimitMock).toHaveBeenCalledWith(expect.objectContaining({
-            max: 5,
-            store: expect.objectContaining({ windowMs: 15 * 60 * 1000 }),
+            max: expectedLimit,
+            store: expect.objectContaining({ limit: expectedLimit, windowMs: 15 * 60 * 1000 }),
             keyGenerator: expect.any(Function),
         }));
     });

@@ -44,6 +44,8 @@ export function buildDockerPlan(operation, env, root = serverRoot) {
     switch (operation) {
         case "up":
             return [{ command: "docker", args: [...compose, "up", "-d", "--wait"] }];
+        case "observability:up":
+            return [{ command: "docker", args: [...compose, "--profile", "observability", "up", "-d", "--wait", "otel-lgtm"] }];
         case "down":
             return [{ command: "docker", args: [...compose, "down"] }];
         case "import": {

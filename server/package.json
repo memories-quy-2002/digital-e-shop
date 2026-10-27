@@ -47,6 +47,7 @@
         "firebase:seed:emulator": "node src/database/seeders/seed-firebase-emulator-users.js",
         "seed:mock": "node src/database/seeders/seed-mock-orders-reviews.js",
         "docker:up": "node docker/run.mjs up",
+        "docker:observability:up": "node docker/run.mjs observability:up",
         "docker:down": "node docker/run.mjs down",
         "docker:import": "node docker/run.mjs import",
         "docker:migrate": "node docker/run.mjs migrate",

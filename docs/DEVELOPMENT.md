@@ -56,12 +56,16 @@ available to the API runtime.
 | Server Firebase Admin | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Use the production Firebase project. Keep the service-account private key server-side; production must not use the Firebase Auth Emulator. |
 | Server payments | `PAYMENT_PROVIDER_MODE=live`, `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | Keep PayOS credentials server-side. Production rejects mock mode. |
 | Server origins | `CLIENT_URL`, `SERVER_URL` | Set the deployed client and API origins used by CORS and callback generation. |
+| Server scheduled operations | `CRON_SECRET` | Set a high-entropy secret in Vercel Production. Vercel sends it as a bearer token to the daily task runner. Hobby schedules run once per day in UTC with up to 59 minutes of timing variance. |
 
 The client also accepts optional `VITE_FIREBASE_MEASUREMENT_ID`. Do not set
 `VITE_FIREBASE_AUTH_EMULATOR_URL` or `FIREBASE_AUTH_EMULATOR_HOST` in
 production. `BLOB_READ_WRITE_TOKEN` is needed for Blob-backed image upload
 operations. `REDIS_URL` enables shared rate-limit counters across server
-instances; without it, counters are process-local. `PAYOS_BASE_URL` defaults to
+instances; without it, counters are process-local. Local Compose Redis binds
+only to loopback. A Vercel deployment must use a Redis endpoint reachable from
+Vercel; a Redis container on a developer machine cannot be used by the hosted
+API. `PAYOS_BASE_URL` defaults to
 PayOS's production endpoint; `PAYOS_PARTNER_CODE` is optional. Set
 `OTEL_ENABLED` and `OTEL_EXPORTER_OTLP_ENDPOINT` only when using a collector;
 `OTEL_EXPORTER_OTLP_HEADERS` is needed only when that collector requires
@@ -127,11 +131,17 @@ customer confirms a suggested result before its coordinates are saved.
 Resend credentials are server-only and use `RESEND_API_KEY`,
 `RESEND_WEBHOOK_SECRET`, and
 `TRANSACTIONAL_EMAIL_FROM`. Configure these only after provider staging
-verification, webhook registration, and an external scheduler have been
-reviewed. Internal delivery uses the allowlisted routing and tile settings
+verification, webhook registration, and the Vercel Cron setup have been
+verified. Internal delivery uses the allowlisted routing and tile settings
 managed by an admin; historical GHN shipment and address records are read-only.
-The API runner endpoint is authenticated by the server-only
-`OPERATIONS_RUNNER_SECRET`; no hosted scheduler is activated by this change.
+The bounded task runner is invoked daily by Vercel Cron at
+`/api/operations/run`, authenticated with Vercel's `CRON_SECRET` bearer header.
+The existing `POST /api/operations/run` remains separately protected by
+`OPERATIONS_RUNNER_SECRET`. Vercel Hobby supports only daily cron schedules;
+this repository schedules the Hobby-compatible job at midnight UTC. Hobby may
+invoke it any time during that hour. Pro or Enterprise is required for a
+one-minute schedule with per-minute precision. Cron execution is enabled only
+on production deployments.
 Vietnam-first payments use PayOS payment links and whole-number VND catalog
 values, plus cash on delivery. Keep `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and
 `PAYOS_CHECKSUM_KEY` server-side. New runtime records use VND without an FX
@@ -231,6 +241,23 @@ Environment ownership is intentionally separated:
 Never reuse production Firebase or production database variables in a local or
 preview profile. Service-account credentials belong only in untracked local
 files or managed deployment secrets.
+
+### Local Redis and telemetry
+
+Start Redis with `pnpm --dir server docker:up`; set
+`REDIS_URL=redis://127.0.0.1:6379` in `server/.env` for shared local rate
+limits. Redis is bound to loopback and its rate-limit keys expire, so no data
+volume is needed.
+
+Start the optional Grafana/OTel-LGTM stack with
+`pnpm --dir server docker:observability:up`. Set `OTEL_ENABLED=true` and
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318` in `server/.env`, then
+restart the API. Grafana is at `http://localhost:3000`; the provisioned
+**Digital-E Operations** dashboard shows task throughput, runner outcomes, and
+p95 duration. Use Explore for Prometheus queries and Tempo traces. The task
+runner emits bounded labels (no task IDs or customer data). The local stack is
+loopback-bound and optional; production needs an externally reachable OTLP
+endpoint and its provider-specific credentials.
 
 The client reads `VITE_API_BASE_URL`. Development uses `http://localhost:4000` when no override is supplied. Production builds require an explicit API base URL. Do not put `/api` in the client variable because request modules add that prefix.
 
