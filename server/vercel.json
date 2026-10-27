@@ -9,5 +9,11 @@
             "source": "/(.*)",
             "destination": "/api/index.ts"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/operations/run",
+            "schedule": "0 0 * * *"
+        }
     ]
 }

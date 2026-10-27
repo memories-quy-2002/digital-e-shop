@@ -139,3 +139,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-22 - Codex - Split Admin-only EN/VI dictionaries into locale-keyed lazy chunks and gated AdminLayout on the matching copy; documented the client loading strategy in [[architecture]].
 - 2026-10-22 - Codex - Deferred Header search suggestions, account/notification popovers, and mobile menu content; traced Vite `index.esm` output to Firebase modules and documented the existing viewport-gated Recharts boundary in [[architecture]].
 - 2026-10-22 - Codex - Updated the project runtime baseline, package engine constraints, CI workflows, and maintained setup guides to Node.js 24.22.1 LTS.
+- 2026-10-26 - Codex - Added a CRON_SECRET-protected Vercel task schedule, local Docker Redis and OTLP-LGTM services, bounded operations metrics, and setup guidance.
+- 2026-10-27 - Codex - Set the Vercel Cron schedule to daily UTC for Hobby Free and documented its timing window.

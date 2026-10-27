@@ -1,9 +1,21 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
+import { metrics } from "@opentelemetry/api";
 import { EmailService } from "../transactional-email/email.service";
 import { TasksService } from "./tasks.service";
 import type { TaskLease, TaskResult } from "./tasks.types";
 
 export const PAYOS_TASK_PROCESSOR = Symbol("PAYOS_TASK_PROCESSOR");
+const runnerMeter = metrics.getMeter("digital-e.operations");
+const runnerTasks = runnerMeter.createCounter("digital_e.operations.runner.tasks", {
+    description: "Durable operations tasks completed by the bounded runner",
+});
+const runnerRuns = runnerMeter.createCounter("digital_e.operations.runner.runs", {
+    description: "Bounded operations runner invocations",
+});
+const runnerDuration = runnerMeter.createHistogram("digital_e.operations.runner.duration", {
+    description: "Duration of a bounded operations runner invocation",
+    unit: "ms",
+});
 export interface PayOSTaskProcessor { process(lease: TaskLease): Promise<TaskResult> }
 export type TaskRunnerInput = { limit?: number; budgetMs?: number };
 export type TaskRunnerSummary = { claimed: number; succeeded: number; retried: number; failed: number; reviewRequired: number; elapsedMs: number };
@@ -23,19 +35,30 @@ export class TaskRunnerService {
         if (!Number.isSafeInteger(budgetMs) || budgetMs < 1 || budgetMs > 20000) throw new Error("Runner budget must be an integer from 1 to 20000 ms");
         const startedAt = Date.now();
         const summary: TaskRunnerSummary = { claimed: 0, succeeded: 0, retried: 0, failed: 0, reviewRequired: 0, elapsedMs: 0 };
-        // Leave time for one bounded provider request and its persistence transaction.
-        while (summary.claimed < limit && budgetMs - (Date.now() - startedAt) >= 9000) {
-            const [lease] = await this.tasks.claimDue(1, new Date());
-            if (!lease) break;
-            summary.claimed += 1;
-            const result = await this.process(lease);
-            const finished = await this.tasks.finish(lease, result, new Date());
-            if (finished) {
-                if (result.kind === "success") summary.succeeded += 1;
-                else if (result.kind === "retryable") summary.retried += 1;
-                else if (result.kind === "permanent" && lease.kind !== "PAYOS_RECONCILE") summary.failed += 1;
-                else summary.reviewRequired += 1;
+        let runOutcome = "success";
+        try {
+            // Leave time for one bounded provider request and its persistence transaction.
+            while (summary.claimed < limit && budgetMs - (Date.now() - startedAt) >= 9000) {
+                const [lease] = await this.tasks.claimDue(1, new Date());
+                if (!lease) break;
+                summary.claimed += 1;
+                const result = await this.process(lease);
+                const finished = await this.tasks.finish(lease, result, new Date());
+                if (finished) {
+                    runnerTasks.add(1, { task_kind: lease.kind, outcome: result.kind });
+                    if (result.kind === "success") summary.succeeded += 1;
+                    else if (result.kind === "retryable") summary.retried += 1;
+                    else if (result.kind === "permanent" && lease.kind !== "PAYOS_RECONCILE") summary.failed += 1;
+                    else summary.reviewRequired += 1;
+                }
             }
+        } catch (error) {
+            runOutcome = "error";
+            throw error;
+        } finally {
+            const elapsedMs = Math.max(0, Date.now() - startedAt);
+            runnerRuns.add(1, { outcome: runOutcome });
+            runnerDuration.record(elapsedMs, { outcome: runOutcome });
         }
         summary.elapsedMs = Math.max(0, Date.now() - startedAt);
         return summary;

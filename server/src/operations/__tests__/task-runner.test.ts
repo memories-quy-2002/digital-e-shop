@@ -133,10 +133,30 @@ describe("operations runner authentication", () => {
     });
 
     it("keeps scheduler auth separate from guarded admin drain", () => {
+        const cron = TaskRunnerController.prototype.runScheduledCron;
         const scheduler = TaskRunnerController.prototype.runScheduled;
         const admin = TaskRunnerController.prototype.runAdmin;
         expect(Reflect.getMetadata(GUARDS_METADATA, admin)).toEqual([AuthGuard, RolesGuard]);
         expect(Reflect.getMetadata(ROLES_KEY, admin)).toEqual(["admin"]);
+        expect(Reflect.getMetadata(GUARDS_METADATA, cron)).toBeUndefined();
         expect(Reflect.getMetadata(GUARDS_METADATA, scheduler)).toBeUndefined();
+    });
+
+    it("authorizes Vercel cron requests with CRON_SECRET and uses the fixed runner bounds", async () => {
+        const previousSecret = process.env.CRON_SECRET;
+        process.env.CRON_SECRET = "cron-secret";
+        const run = vi.fn().mockResolvedValue({ claimed: 0 });
+        const controller = new TaskRunnerController({ run } as never);
+
+        try {
+            await expect(controller.runScheduledCron(undefined)).rejects.toThrow("Unauthorized");
+            await expect(controller.runScheduledCron("Bearer wrong")).rejects.toThrow("Unauthorized");
+            await expect(controller.runScheduledCron("Bearer cron-secret")).resolves.toEqual({ claimed: 0 });
+            expect(run).toHaveBeenCalledTimes(1);
+            expect(run).toHaveBeenCalledWith({ limit: 20, budgetMs: 20000 });
+        } finally {
+            if (previousSecret === undefined) delete process.env.CRON_SECRET;
+            else process.env.CRON_SECRET = previousSecret;
+        }
     });
 });

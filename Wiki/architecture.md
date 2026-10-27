@@ -316,6 +316,13 @@ application has not been converted to Prisma.
 - `server/src/observability/telemetry.ts` starts OpenTelemetry before Nest and
   Express modules load. It exports HTTP traces/metrics and Express/MySQL2 spans
   to an OTLP/HTTP collector when `OTEL_ENABLED=true`.
+- The operations runner records bounded task outcome and run-duration metrics.
+  A provisioned local Grafana dashboard shows task throughput, runner outcomes,
+  and p95 duration. Local Redis and Grafana/OTel-LGTM are available through
+  Docker Compose; production needs endpoints reachable from Vercel.
+- Vercel Hobby Cron invokes `GET /api/operations/run` once daily at midnight
+  UTC with `CRON_SECRET`; invocation may occur any time in that hour. The
+  existing POST runner remains protected by `OPERATIONS_RUNNER_SECRET`.
 - HTTP URL query strings and credentials are removed, optional header capture is
   disabled, and MySQL statement literals are masked before export.
 - Request logs keep the existing `requestId` field and add `trace_id` and `span_id`
