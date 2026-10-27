@@ -3,7 +3,7 @@ import type { IncrementResponse, Store } from "express-rate-limit";
 import type { Request, RequestHandler } from "express";
 import { createHash } from "node:crypto";
 import jwt from "jsonwebtoken";
-import { env, isProduction } from "#src/config/env.config";
+import { env } from "#src/config/env.config";
 import { getRouteLimit } from "#src/shared/utils/rate-limit";
 import { RedisFixedWindowLimiter } from "#src/shared/rate-limit/redis-rate-limit";
 
@@ -31,7 +31,7 @@ class RedisRateLimitStore implements Store {
 }
 
 const getRedisLimiter = () => {
-    if (!isProduction || !env.redisUrl) return null;
+    if (!env.redisUrl) return null;
     let limiter = redisLimiters.get(env.redisUrl);
     if (!limiter) {
         limiter = new RedisFixedWindowLimiter(env.redisUrl);
@@ -82,7 +82,7 @@ export function createAttemptRateLimitKey(request: Request, policyName: string):
 export function createRateLimitMiddleware(productionLimit: number, scopedPolicy?: ScopedRateLimitPolicy): RequestHandler {
     const redisLimiter = getRedisLimiter();
     const windowMs = scopedPolicy?.windowMs || RATE_LIMIT_WINDOW_MS;
-    const limit = scopedPolicy?.limit || productionLimit;
+    const limit = scopedPolicy?.limit || getRouteLimit(productionLimit);
     return rateLimit({
         windowMs,
         max: scopedPolicy ? limit : getRouteLimit(productionLimit),

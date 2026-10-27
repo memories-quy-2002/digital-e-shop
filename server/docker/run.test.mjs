@@ -32,6 +32,12 @@ test("Compose uses the checkout path and waits for database health", () => {
     assert.deepEqual(step.args, ["compose", "--env-file", path.join(root, ".env.docker"), "up", "-d", "--wait"]);
 });
 
+test("optional local observability stack is started through the profile and checkout path", () => {
+    const [step] = buildDockerPlan("observability:up", env, root);
+    assert.equal(step.command, "docker");
+    assert.deepEqual(step.args, ["compose", "--env-file", path.join(root, ".env.docker"), "--profile", "observability", "up", "-d", "--wait", "otel-lgtm"]);
+});
+
 test("baseline import preserves historical SQL order without exposing passwords in arguments", () => {
     const steps = buildDockerPlan("import", env, root);
     assert.equal(steps.length, 2);

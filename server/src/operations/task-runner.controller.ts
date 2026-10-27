@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Headers, Post, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, Post, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { timingSafeEqual } from "node:crypto";
 import { AuthGuard } from "../guards/auth.guard";
 import { RolesGuard, Roles } from "../guards/roles.guard";
@@ -15,6 +15,12 @@ export function authorizeRunnerSecret(authorization: string | undefined, secret:
 @Controller()
 export class TaskRunnerController {
     constructor(private readonly runner: TaskRunnerService) {}
+
+    @Get("operations/run")
+    async runScheduledCron(@Headers("authorization") authorization: string | undefined) {
+        if (!authorizeRunnerSecret(authorization, process.env.CRON_SECRET)) throw new UnauthorizedException("Unauthorized");
+        return this.runner.run({ limit: 20, budgetMs: 20000 });
+    }
 
     @Post("operations/run")
     async runScheduled(@Headers("authorization") authorization: string | undefined, @Body() body: unknown) {

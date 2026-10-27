@@ -22,6 +22,29 @@ services:
             --collation-server=utf8mb4_general_ci
             --default-authentication-plugin=mysql_native_password
             --default-time-zone=+00:00
+    redis:
+        image: redis:7-alpine
+        container_name: digital-e-redis
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+    otel-lgtm:
+        image: grafana/otel-lgtm:0.30.1
+        container_name: digital-e-otel-lgtm
+        profiles: ["observability"]
+        restart: unless-stopped
+        volumes:
+            - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/digital-e.yaml:ro
+            - ./observability/grafana/digital-e-operations.json:/otel-lgtm/grafana/conf/provisioning/dashboards/digital-e/digital-e-operations.json:ro
+        ports:
+            - "127.0.0.1:3000:3000"
+            - "127.0.0.1:4317:4317"
+            - "127.0.0.1:4318:4318"
 
 volumes:
     digital_e_shop_local_mysql_data:
