@@ -93,10 +93,12 @@ if (telemetryEnabled) {
                 url: getOtlpEndpoint("TRACES"),
                 headers: traceHeaders,
             }),
-            metricReader: new PeriodicExportingMetricReader({
-                exporter: metricExporter,
-                exportIntervalMillis: metricExportInterval(),
-            }),
+            metricReaders: [
+                new PeriodicExportingMetricReader({
+                    exporter: metricExporter,
+                    exportIntervalMillis: metricExportInterval(),
+                }),
+            ],
             instrumentations: [
                 new HttpInstrumentation({
                     headersToSpanAttributes: {
