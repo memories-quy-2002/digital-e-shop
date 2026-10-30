@@ -10,6 +10,8 @@ Discover products, compare options, place orders, and manage the operations behi
 
 [**Live Storefront**](https://digital-e.vercel.app) &nbsp;·&nbsp; [**Explore the Demo**](./docs/DEMO.md) &nbsp;·&nbsp; [**Architecture**](./docs/ARCHITECTURE.md) &nbsp;·&nbsp; [**API Guide**](./docs/API.md)
 
+**Behind the build:** [Read the Digital-E engineering case study ↗](https://www.nguyenmanhphuquy.info/case-studies/digital-e-shop/) &nbsp;·&nbsp; [Explore my software engineering portfolio ↗](https://www.nguyenmanhphuquy.info/)
+
 [![CI](https://github.com/memories-quy-2002/digital-e-shop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/memories-quy-2002/digital-e-shop/actions/workflows/ci.yml)
 [![Security checks](https://github.com/memories-quy-2002/digital-e-shop/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/memories-quy-2002/digital-e-shop/actions/workflows/security.yml)
 ![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
@@ -210,5 +212,5 @@ See the [testing guide](./docs/TESTING.md) and [k6 safety guidance](./server/tes
 <div align="center">
   <strong>Digital-E Shop</strong><br/>
   Built and maintained by <a href="https://github.com/memories-quy-2002">Nguyen Manh Phu Quy</a><br/>
-  <a href="https://digital-e.vercel.app">Explore the storefront</a> · <a href="https://github.com/memories-quy-2002/digital-e-shop/issues">Report an issue</a>
+  <a href="https://digital-e.vercel.app">Explore the storefront</a> · <a href="https://www.nguyenmanhphuquy.info/">My portfolio</a> · <a href="https://github.com/memories-quy-2002/digital-e-shop/issues">Report an issue</a>
 </div>
