@@ -49,6 +49,7 @@ const Footer = () => {
                                 <Link to="/support">{t("footer.helpCenter")}</Link>
                                 <Link to="/contact-us">{t("footer.contactUs")}</Link>
                                 <Link to={CUSTOMER_ROUTES.orders}>{t("footer.orderTracking")}</Link>
+                                <Link to="/guest-order">{t("footer.guestOrderLookup")}</Link>
                             </div>
 
                             <div className="footer__col">
@@ -63,10 +64,8 @@ const Footer = () => {
 
                 <div className="footer__bottom">
                     <span>{t("footer.copyright")}</span>
-                    <nav className="footer__bottom__links" aria-label={t("footer.legalNavigationLabel")}>
-                        <Link to="/support">{t("footer.terms")}</Link>
-                        <Link to="/support">{t("footer.privacy")}</Link>
-                        <Link to="/support">{t("footer.cookies")}</Link>
+                    <nav className="footer__bottom__links" aria-label={t("footer.customerCare")}>
+                        <Link to="/support">{t("footer.helpCenter")}</Link>
                     </nav>
                 </div>
             </div>

@@ -1292,7 +1292,7 @@
                 content: "";
             }
 
-            > span {
+            > .checkout__progress__number {
                 display: inline-grid;
                 width: 1.6rem;
                 height: 1.6rem;
@@ -1303,10 +1303,40 @@
                 font-size: 0.58rem;
             }
 
+            > button,
+            > .checkout__progress__label {
+                min-height: 2.75rem;
+                display: inline-flex;
+                align-items: center;
+                padding: 0.25rem 0;
+                border: 0;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+            }
+
+            > button {
+                cursor: pointer;
+                text-decoration: underline;
+                text-decoration-color: transparent;
+                text-underline-offset: 0.2em;
+
+                &:hover {
+                    text-decoration-color: currentColor;
+                }
+
+                &:focus-visible {
+                    border-radius: var(--de-radius-sm);
+                    outline: 2px solid var(--de-color-electric);
+                    outline-offset: 2px;
+                }
+            }
+
             &.is-complete {
                 color: var(--de-color-success-strong);
 
-                > span {
+                > .checkout__progress__number {
                     border-color: var(--de-color-circuit);
                     background: var(--de-color-success-soft);
                     color: var(--de-color-circuit);
@@ -1316,7 +1346,7 @@
             &.is-active {
                 color: var(--de-color-info-strong);
 
-                > span {
+                > .checkout__progress__number {
                     border-color: var(--de-color-electric);
                     background: var(--de-color-info-soft);
                     color: var(--de-color-info-strong);
@@ -3953,6 +3983,16 @@
 
     .cart__empty p {
         font-size: 0.9rem;
+    }
+
+    .checkout__progress {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+    }
+
+    .checkout__progress__step:not(:last-child)::after {
+        display: none;
     }
 }
 

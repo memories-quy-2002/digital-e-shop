@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { trackStorefrontEvent } from "../lib/storefrontAnalytics";
 import { Helmet } from "react-helmet-async";
 import { useLocation, useNavigate } from "react-router-dom";
 import AsideShops, {
@@ -61,6 +62,7 @@ export const parseShopPriceRange = (
 
 const ShopsPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const lastMeasuredSearch = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [productLoadError, setProductLoadError] = useState(false);
   const [productLoadAttempt, setProductLoadAttempt] = useState(0);
@@ -349,6 +351,16 @@ const ShopsPage = () => {
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        const searchKey = normalizedTerm ? JSON.stringify([
+          normalizedTerm, [...filters.categories].sort(), [...filters.brands].sort(), filters.priceRange,
+        ]) : null;
+        if (searchKey && searchKey !== lastMeasuredSearch.current) {
+          trackStorefrontEvent({
+            name: "Storefront Search Result",
+            properties: { outcome: (catalog.pagination?.total ?? catalog.products.length) > 0 ? "found" : "empty" },
+          });
+        }
+        lastMeasuredSearch.current = searchKey;
         setProducts(catalog.products);
         setPagination(
           catalog.pagination || {
@@ -575,6 +587,24 @@ const ShopsPage = () => {
                   >
                     {t("shops.retryProducts")}
                   </Button>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="app-empty-state">
+                  <p role="status">{t("shops.noProductsMatched")}</p>
+                  <div className="shops__active-filters-list">
+                    {activeFilterChips.filter((chip) => chip.key !== "term").map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        className="shops__active-filter-chip"
+                        aria-label={t("shops.removeFilter", chip.label)}
+                        onClick={chip.remove}
+                      >
+                        <span>{t("shops.removeFilter", chip.label)}</span>
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <PaginatedItems

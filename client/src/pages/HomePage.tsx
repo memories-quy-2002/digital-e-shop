@@ -15,6 +15,8 @@ import carousel3 from "../assets/images/carousel_3.webp";
 import carousel3Small from "../assets/images/carousel_3-420.webp";
 import carousel4 from "../assets/images/carousel_4.webp";
 import carousel4Small from "../assets/images/carousel_4-420.webp";
+import news1 from "../assets/images/news_1.jpg";
+import news2 from "../assets/images/news_2.jpg";
 import productPlaceholder from "../assets/images/product_placeholder.jpg";
 import {
     ArrowLeftIcon,
@@ -101,15 +103,15 @@ const categoryLinks = [
         key: "smartHome",
         labelKey: "home.categorySmartHome",
         categories: ["Smart Home"],
-        fallback: carousel2,
-        fallbackSmall: carousel2Small,
+        fallback: news1,
+        fallbackSmall: news1,
     },
     {
         key: "accessories",
         labelKey: "home.categoryAccessories",
         categories: ["Accessory", "Phone"],
-        fallback: carousel3,
-        fallbackSmall: carousel3Small,
+        fallback: news2,
+        fallbackSmall: news2,
     },
 ] as const;
 
@@ -369,17 +371,17 @@ const HomePage = () => {
             try {
                 if (await addItem(product_id, 1)) {
                     addToast(
-                        "Add cart item",
-                        "Product added to cart successfully",
+                        t("product.addToCart"),
+                        t("product.cartAddSuccess"),
                     );
                 } else {
-                    addToast("Add cart item", "Unable to add item to cart.");
+                    addToast(t("product.addToCart"), t("product.cartAddFailure"));
                 }
             } catch {
-                addToast("Add cart item", "Unable to add item to cart.");
+                addToast(t("product.addToCart"), t("product.cartAddFailure"));
             }
         },
-        [addItem, addToast],
+        [addItem, addToast, t],
     );
 
     useEffect(() => {

@@ -26,6 +26,17 @@ const product = (
 });
 
 describe("comparison matrix", () => {
+    it("puts GPU memory first while keeping other specifications", () => {
+        const gpu = {
+            ...product(1, [], "Ports: HDMI, Memory Type: GDDR7, VRAM GB: 12"),
+            category: "Graphics Card",
+        };
+
+        expect(buildComparisonRows([gpu]).map((row) => row.key)).toEqual([
+            "vram_gb", "memory_type", "ports",
+        ]);
+    });
+
     it("keeps first-seen order and represents missing values as an em dash", () => {
         expect(buildComparisonRows([
             product(12, [

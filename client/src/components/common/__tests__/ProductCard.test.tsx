@@ -52,7 +52,26 @@ describe("ProductCard", () => {
 
         expect(screen.getByRole("link", { name: product.name })).toHaveAttribute("href", "/product?id=190");
         expect(screen.getByRole("button", { name: "Save to wishlist" })).toHaveAttribute("aria-pressed", "false");
-        expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
+        expect(screen.getByRole("button", { name: "Add Demo Intel Core Ultra Kit to cart" })).toBeEnabled();
+    });
+
+    it("includes the product name in the Vietnamese add-to-cart accessible name", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        render(
+            <LocaleProvider>
+                <ComparisonProvider><MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter></ComparisonProvider>
+            </LocaleProvider>,
+        );
+
+        expect(await screen.findByRole("button", { name: "Thêm Demo Intel Core Ultra Kit vào giỏ hàng" })).toBeEnabled();
     });
 
     it("keeps the product media full-width without a hover border treatment", () => {
@@ -118,7 +137,7 @@ describe("ProductCard", () => {
         expect(screen.queryByText("In stock")).not.toBeInTheDocument();
         expect(screen.queryByText(/^-\d+%$/)).not.toBeInTheDocument();
         expect(screen.queryByTestId("product-card-stock")).not.toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
+        expect(screen.getByRole("button", { name: /Demo Intel Core Ultra Kit to cart/i })).toBeEnabled();
     });
 
     it("keeps the below-price unavailable message and disables cart when out of stock without a sale", () => {
@@ -139,7 +158,7 @@ describe("ProductCard", () => {
         expect(screen.queryByText("Out of stock")).not.toBeInTheDocument();
         expect(screen.queryByText(/^-\d+%$/)).not.toBeInTheDocument();
         expect(screen.getByTestId("product-card-stock")).toHaveTextContent("This item is currently unavailable");
-        expect(screen.getByRole("button", { name: /Add to cart/i })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /Demo Intel Core Ultra Kit to cart/i })).toBeDisabled();
     });
 
     it("toggles comparison selection with an accessible pressed state", () => {

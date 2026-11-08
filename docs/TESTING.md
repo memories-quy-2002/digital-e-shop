@@ -14,7 +14,7 @@ pnpm --dir client test:e2e
 pnpm --dir client build
 ```
 
-Client tests use Vitest with a `jsdom` environment and Testing Library. Place focused tests next to the feature or component they cover. Test route guards, API request contracts, loading and error states, checkout validation, cart source transitions, and responsive interaction behavior when those surfaces change.
+Client tests use Vitest with a `jsdom` environment and Testing Library. Place focused tests next to the feature or component they cover. Test route guards, API request contracts, loading and error states, checkout validation, cart source transitions, and responsive interaction behavior when those surfaces change. For the customer-facing purchase path and browser coverage, see [Storefront customer journey](storefront-customer-journey.md).
 
 ## Server checks
 

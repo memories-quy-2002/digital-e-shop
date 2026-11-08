@@ -90,7 +90,7 @@ describe("filtered product count queries", () => {
 
     it.each([
         [{ term: " gpu ", categories: ["Video"], brands: ["Acme"], minPrice: 10, maxPrice: 100 },
-            ["%gpu%", "%gpu%", "%gpu%", "%gpu%", "Video", "Acme", 10, 100]],
+            ["%gpu%", "%gpu%", "%gpu%", "%gpu%", "%gpu%", "%gpu%", "%gpu%", "Video", "Acme", 10, 100]],
         [{ attributeFilters: [{ key: "socket", textValues: ["AM5", "LGA1700"] }] }, ["socket", "AM5", "LGA1700"]],
         [{ attributeFilters: [{ key: "memory", min: 8, max: 32 }] }, ["memory", 8, 32]],
         [{ attributeFilters: [{ key: "memory", min: 8 }] }, ["memory", 8]],
@@ -124,6 +124,28 @@ describe("filtered product count queries", () => {
         const countFilters = count.indexOf("WHERE products.stock");
         const listingFilters = listing.indexOf("WHERE products.stock");
         expect(count.slice(countFilters).trim()).toEqual(listing.slice(listingFilters, listing.indexOf("ORDER BY", listingFilters)).trim());
+    });
+
+    it("normalizes Vietnamese terms and model separators while prioritizing exact SKU and model matches", async () => {
+        const repository = new NestProductsRepository();
+        const filters = { term: " Màn Hình RTX 4060 " };
+
+        await repository.getProductsByFilters(filters, 6, 0);
+
+        const sql = String(pool.query.mock.calls[0][0]);
+        const params = pool.query.mock.calls[0][1] as unknown[];
+        expect(params.slice(0, 7)).toEqual([
+            "%man hinh rtx 4060%", "%man hinh rtx 4060%", "%man hinh rtx 4060%", "%man hinh rtx 4060%",
+            "%manhinhrtx4060%", "%manhinhrtx4060%", "%manhinhrtx4060%",
+        ]);
+        expect(params.slice(7, 12)).toEqual([
+            "manhinhrtx4060", "manhinhrtx4060", "manhinhrtx4060%", "manhinhrtx4060%", "manhinhrtx4060%",
+        ]);
+        expect(sql).toContain("LOWER(COALESCE(products.sku, ''))");
+        expect(sql).toContain("LOWER(COALESCE(products.manufacturer_part_number, ''))");
+        expect(sql).toContain("ELSE 0 END\n                    + CASE WHEN REPLACE");
+        expect(sql.indexOf("THEN 1200 ELSE 0 END")).toBeLessThan(sql.indexOf("THEN 140 ELSE 0 END"));
+        expect(params.slice(-2)).toEqual([6, 0]);
     });
 
     it("propagates count query failures", async () => {

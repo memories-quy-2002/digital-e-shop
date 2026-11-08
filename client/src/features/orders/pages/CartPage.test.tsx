@@ -82,7 +82,7 @@ vi.mock("../../../components/ui/legacy", () => ({
 }));
 
 vi.mock("../components/CheckoutPaymentPage", () => ({
-    default: () => null,
+    default: () => <div data-testid="checkout-view" />,
 }));
 
 vi.mock("react-helmet-async", () => ({
@@ -188,6 +188,30 @@ describe("public cart states", () => {
         const listHeader = screen.getByRole("heading", { name: "1 item", level: 3 }).parentElement;
         expect(listHeader).toContainElement(screen.getByRole("button", { name: /continue shopping/i }));
         expect(screen.queryByText("Delivery fee is calculated at checkout")).not.toBeInTheDocument();
+    });
+
+    it("opens checkout directly after the server cart validation succeeds", async () => {
+        mocks.cart.items = [{
+            cartItemId: 1,
+            productId: 1,
+            productName: "Cart test item",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: null,
+            main_image: "",
+            quantity: 1,
+            stock: 5,
+            available_stock: 5,
+        }];
+        mocks.cart.status = "ready";
+        mocks.cart.validateBeforeCheckout.mockResolvedValue(true);
+
+        renderPage();
+        fireEvent.click(screen.getByRole("button", { name: "Proceed to checkout" }));
+
+        expect(await screen.findByTestId("checkout-view")).toBeInTheDocument();
+        expect(mocks.cart.validateBeforeCheckout).toHaveBeenCalledOnce();
     });
 
     it("surfaces a merge action when a signed-in user still has guest cart items", () => {

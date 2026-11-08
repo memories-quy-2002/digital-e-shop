@@ -1,4 +1,4 @@
-import React, { useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
+import React, { useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -42,6 +42,8 @@ import {
 import { useRecentlyViewed } from "../../../hooks/useRecentlyViewed";
 import { getApiErrorCode, getApiErrorMessage } from "../../../lib/api-contract";
 import { useT } from "../../../hooks/useT";
+import { ComponentCompatibility } from "../components/ComponentCompatibility";
+import { buildProductStructuredData, serializeStructuredData } from "../productStructuredData";
 import ProductAlertControls from "../../productAlerts/components/ProductAlertControls";
 import ProductReviewLoginPrompt from "../components/ProductReviewLoginPrompt";
 import { fetchProductAlert, updateProductAlert } from "../../productAlerts/api";
@@ -125,6 +127,19 @@ const ProductPage = () => {
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
     const [quantity, setQuantity] = useState<number>(1);
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const purchaseButton = useRef<HTMLButtonElement>(null);
+    const [purchaseScrolledPast, setPurchaseScrolledPast] = useState(false);
+
+    useEffect(() => {
+        setPurchaseScrolledPast(false);
+        const button = purchaseButton.current;
+        if (!button || typeof IntersectionObserver === "undefined") return;
+        const observer = new IntersectionObserver(([entry]) => {
+            setPurchaseScrolledPast(!entry.isIntersecting && entry.boundingClientRect.bottom <= 0);
+        });
+        observer.observe(button);
+        return () => observer.disconnect();
+    }, [pid, isLoadingProduct, productLoadError, productDetail.id]);
     const [activeImage, setActiveImage] = useState<string>("");
     const [loadedImageUrl, setLoadedImageUrl] = useState("");
     const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
@@ -430,12 +445,12 @@ const ProductPage = () => {
         try {
             setIsAddingToCart(true);
             if (await addItem(product.id, quantity)) {
-                addToast("Add cart item", "Product added to cart successfully.");
+                addToast(t("product.addToCart"), t("product.cartAddSuccess"));
             } else {
-                addToast("Add cart item", "Unable to add item to cart.");
+                addToast(t("product.addToCart"), t("product.cartAddFailure"));
             }
         } catch {
-            addToast("Add cart item", "Unable to add item to cart.");
+            addToast(t("product.addToCart"), t("product.cartAddFailure"));
         } finally {
             setIsAddingToCart(false);
         }
@@ -546,7 +561,7 @@ const ProductPage = () => {
             <Layout>
                 <div className="product-page app-page product-page--loading" aria-busy="true">
                     <div className="product-page__loading" role="status" aria-live="polite">
-                        <p>Loading product details...</p>
+                        <p>{t("product.loadingDetails")}</p>
                         <div className="product-page__loading-hero" aria-hidden="true">
                             <div className="product-page__loading-gallery">
                                 <div className="product-page__loading-meta">
@@ -584,9 +599,9 @@ const ProductPage = () => {
             <Layout>
                 <div className="product-page app-page">
                     <div className="product-page__state" role="alert">
-                        <strong>We could not find this product.</strong>
-                        <p>It may have been removed or is temporarily unavailable.</p>
-                        <Link to="/shops">Back to all products</Link>
+                        <strong>{t("product.notFoundTitle")}</strong>
+                        <p>{t("product.notFoundDescription")}</p>
+                        <Link to="/shops">{t("product.backToProducts")}</Link>
                     </div>
                 </div>
             </Layout>
@@ -620,6 +635,8 @@ const ProductPage = () => {
     const discountPercentage = hasDiscount
         ? Math.round(((productDetail.price - activePrice) / productDetail.price) * 100)
         : 0;
+    const productPageUrl = `${window.location.origin}/product?id=${productDetail.id}`;
+    const productStructuredData = buildProductStructuredData(productDetail, productPageUrl, activeImageUrl);
 
     return (
         <Layout>
@@ -631,6 +648,13 @@ const ProductPage = () => {
                         productDetail.description || "Explore product details, pricing, and availability on Digital-E."
                     }
                 />
+                <meta property="og:type" content="product" />
+                <meta property="og:title" content={`${productDetail.name} | Digital-E`} />
+                <meta property="og:description" content={productDetail.description || productDetail.specifications || productDetail.name} />
+                <meta property="og:image" content={activeImageUrl} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <link rel="canonical" href={productPageUrl} />
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeStructuredData(productStructuredData) }} />
                 {activeResponsiveImage ? (
                     <link
                         rel="preload"
@@ -824,6 +848,7 @@ const ProductPage = () => {
                                     disabled={availableStock <= 0 || isAddingToCart}
                                     aria-busy={isAddingToCart}
                                     data-testid="product-purchase-button"
+                                    ref={purchaseButton}
                                 >
                                     {t("product.addToCart")}
                                 </button>
@@ -926,6 +951,7 @@ const ProductPage = () => {
                                     <p>{t("product.noSpecifications")}</p>
                                 )}
                             </div>
+                            <ComponentCompatibility key={productDetail.id} product={productDetail} />
                         </div>
                 </section>
 
@@ -1060,6 +1086,21 @@ const ProductPage = () => {
                     </div>
                     <RecommendedProduct relevantProducts={relevantProducts} />
                 </section>
+
+                {purchaseScrolledPast && !isLightboxOpen ? (
+                    <div className="product-page__mobile-purchase">
+                        <strong>{formatCurrency(activePrice)}</strong>
+                        <button
+                            className="product-page__button product-page__button--primary"
+                            type="button"
+                            onClick={() => handleAddingCart(uid, productDetail)}
+                            disabled={availableStock <= 0 || isAddingToCart}
+                            aria-busy={isAddingToCart}
+                        >
+                            {availableStock > 0 ? t("product.addToCart") : t("product.stockOut")}
+                        </button>
+                    </div>
+                ) : null}
 
                 <ImageLightbox
                     show={isLightboxOpen}

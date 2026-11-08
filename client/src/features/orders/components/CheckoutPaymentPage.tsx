@@ -43,6 +43,7 @@ import type { CustomerAddress } from "../../users/types";
 import { fetchLoyaltyOverview } from "../../loyalty/api";
 import type { LoyaltyOverview } from "../../loyalty/types";
 import { takeCheckoutDraft, writeCheckoutDraft, type CheckoutFormDraft } from "../checkoutDraft";
+import { trackStorefrontEvent } from "../../../lib/storefrontAnalytics";
 
 type CheckoutSubmissionContext = {
     latestCart: CheckoutCartItem[];
@@ -118,6 +119,20 @@ const CheckoutPaymentPage = ({
     const [loyaltyLoadFailed, setLoyaltyLoadFailed] = useState(false);
     const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("0");
     const cartRef = useRef(cart);
+    const hasPriorBlockedAttemptRef = useRef(false);
+
+    const trackCheckoutBlocked = (reason: "stock" | "quote" | "validation" | "unavailable") => {
+        hasPriorBlockedAttemptRef.current = true;
+        trackStorefrontEvent({ name: "Storefront Checkout Attempt", properties: { outcome: "blocked", reason, recovered: false } });
+    };
+
+    const trackCheckoutReady = () => {
+        trackStorefrontEvent({
+            name: "Storefront Checkout Attempt",
+            properties: { outcome: "ready", reason: "none", recovered: hasPriorBlockedAttemptRef.current },
+        });
+        hasPriorBlockedAttemptRef.current = false;
+    };
 
     const applyValidationPayload = useCallback(
         (data?: { issues?: CartValidationIssue[]; cartItems?: unknown[] }) => {
@@ -201,8 +216,18 @@ const CheckoutPaymentPage = ({
             if (Array.isArray(response.data.cartItems)) {
                 const nextCart = normalizeCheckoutCartItems(response.data.cartItems);
                 cartRef.current = nextCart;
-                onValidationRefresh(nextCart, []);
-                if (response.status === HTTP_STATUS.OK && response.data.valid === true) return nextCart;
+                if (response.status === HTTP_STATUS.OK && response.data.valid === true) {
+                    onValidationRefresh(nextCart, []);
+                    return nextCart;
+                }
+                const issues = Array.isArray(response.data.issues) ? response.data.issues as CartValidationIssue[] : [];
+                onValidationRefresh(nextCart, issues);
+                setShippingQuote(null);
+                setQuoteResetKey((current) => current + 1);
+                const message = issues.length > 0 ? getCartValidationMessage(issues) : t("checkout.updateCartQuantities");
+                setErrors([message]);
+                addToast(t("checkout.title"), message);
+                return null;
             }
             return response.status === HTTP_STATUS.OK && response.data.valid === true ? cartRef.current : null;
         } catch (err: unknown) {
@@ -404,7 +429,7 @@ const CheckoutPaymentPage = ({
         navigate("/checkout-success", { state: { checkoutSuccess: payload } });
     };
 
-    const submitAuthenticatedOrder = async (submission: CheckoutSubmissionContext) => {
+    const submitAuthenticatedOrder = async (submission: CheckoutSubmissionContext): Promise<boolean> => {
         const response = await http.post(`/api/orders/purchase/${uid}`, {
             cart: submission.latestCart,
             totalPrice: submission.latestTotalPrice,
@@ -417,7 +442,7 @@ const CheckoutPaymentPage = ({
             deliveryAddress: deliveryAddress!,
             locale,
         });
-        if (response.status !== HTTP_STATUS.CREATED) return;
+        if (response.status !== HTTP_STATUS.CREATED) return false;
 
         const internalOrderId = Number(response.data?.order?.id ?? response.data?.orderId ?? response.data?.id);
         const orderId = String(response.data?.order?.public_id ?? response.data?.order?.id ?? response.data?.orderId ?? response.data?.id ?? `ORD-${Date.now()}`);
@@ -448,6 +473,7 @@ const CheckoutPaymentPage = ({
         writeCheckoutSuccess(payload);
         clearPendingCheckout();
         navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
+        return true;
     };
 
     const handlePurchaseFailure = (err: unknown) => {
@@ -455,6 +481,7 @@ const CheckoutPaymentPage = ({
             const payload = getApiErrorPayload(err);
             const status = (err as { response?: { status?: number } }).response?.status;
             if (["DELIVERY_QUOTE_EXPIRED", "DELIVERY_QUOTE_CHANGED", "DELIVERY_QUOTE_INVALID", "DELIVERY_SETTINGS_CHANGED"].includes(String(payload?.code || ""))) {
+                trackCheckoutBlocked("quote");
                 setShippingQuote(null);
                 setQuoteInvalidationKey((current) => current + 1);
                 const message = t("shipping.quoteInvalidated");
@@ -464,6 +491,7 @@ const CheckoutPaymentPage = ({
             }
             if (status === HTTP_STATUS.CONFLICT) clearPendingCheckout();
             const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
+            trackCheckoutBlocked(Array.isArray(payload?.issues) ? "stock" : requiresVerification ? "validation" : "unavailable");
             const authoritativeCart = Array.isArray(payload?.authoritativeCart)
                 ? payload.authoritativeCart
                 : Array.isArray(payload?.cartItems)
@@ -486,6 +514,7 @@ const CheckoutPaymentPage = ({
         }
 
         setErrors([t("checkout.unexpectedError")]);
+        trackCheckoutBlocked("unavailable");
         addToast(t("checkout.title"), t("checkout.unexpectedError"));
     };
 
@@ -495,33 +524,42 @@ const CheckoutPaymentPage = ({
         setIsEmailTouched(true);
         const validationErrors = validateCheckoutForm(formCheckout);
         if (validationErrors.length > 0) {
+            trackCheckoutBlocked("validation");
             setErrors(validationErrors);
             return;
         }
         if (validationIssues.length > 0) {
+            trackCheckoutBlocked("stock");
             const message = getCartValidationMessage(validationIssues);
             setErrors([message]);
             addToast(t("checkout.title"), t("checkout.updateCartQuantities"));
             return;
         }
         if (!quoteIsValid || !shippingQuote || !deliveryAddress) {
+            trackCheckoutBlocked("quote");
             setErrors([t("shipping.quoteRequired")]);
             return;
         }
         if (formCheckout.payment_method === PAYMENT_METHOD.PAYOS && totalAfterLoyalty <= 0) {
+            trackCheckoutBlocked("validation");
             setErrors([t("checkout.payosRequiresPositiveAmount")]);
             return;
         }
         if (invalidLoyaltyPoints) {
+            trackCheckoutBlocked("validation");
             setErrors([t("checkout.loyaltyPointsInvalid")]);
             return;
         }
 
         const latestCart = await validateCartStock();
-        if (!latestCart) return;
+        if (!latestCart) {
+            trackCheckoutBlocked("stock");
+            return;
+        }
 
         const latestSubtotal = Math.round(latestCart.reduce((sum, item) => sum + (item.sale_price ?? item.price) * item.quantity, 0));
         if (latestSubtotal !== shippingQuote.pricing.itemsSubtotal || discount !== shippingQuote.pricing.merchandiseDiscount) {
+            trackCheckoutBlocked("quote");
             setShippingQuote(null);
             setDeliveryAddress(null);
             setQuoteResetKey((current) => current + 1);
@@ -532,15 +570,15 @@ const CheckoutPaymentPage = ({
         try {
             setIsSubmitting(true);
             const submission = createSubmissionContext(latestCart);
+            let checkoutReady = true;
             if (formCheckout.payment_method === PAYMENT_METHOD.PAYOS) {
                 await submitPayOSCheckout(submission);
-                return;
-            }
-            if (!uid) {
+            } else if (!uid) {
                 await submitGuestOrder(submission);
-                return;
+            } else {
+                checkoutReady = await submitAuthenticatedOrder(submission);
             }
-            await submitAuthenticatedOrder(submission);
+            if (checkoutReady) trackCheckoutReady();
         } catch (err: unknown) {
             handlePurchaseFailure(err);
         } finally {
@@ -568,6 +606,22 @@ const CheckoutPaymentPage = ({
                     <p className="checkout__hero__eyebrow">{t("checkout.secureEyebrow")}</p>
                     <h1>{t("checkout.title")}</h1>
                     <p>{t("checkout.description")}</p>
+                    <nav aria-label={t("checkout.progressLabel")}>
+                        <ol className="checkout__progress">
+                            <li className="checkout__progress__step is-complete">
+                                <span className="checkout__progress__number" aria-hidden="true">01</span>
+                                <button type="button" onClick={() => setIsPayment(false)}>{t("checkout.progressCart")}</button>
+                            </li>
+                            <li className="checkout__progress__step is-active" aria-current="step">
+                                <span className="checkout__progress__number" aria-hidden="true">02</span>
+                                <span className="checkout__progress__label">{t("checkout.progressCheckout")}</span>
+                            </li>
+                            <li className="checkout__progress__step">
+                                <span className="checkout__progress__number" aria-hidden="true">03</span>
+                                <span className="checkout__progress__label">{t("checkout.progressComplete")}</span>
+                            </li>
+                        </ol>
+                    </nav>
                 </div>
                 <div className="checkout__hero__meta">
                     <div><strong>{itemsCount}</strong><span>{t("checkout.items")}</span></div>

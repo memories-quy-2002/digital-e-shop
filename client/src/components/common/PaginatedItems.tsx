@@ -144,14 +144,14 @@ const PaginatedItems = ({
                 return;
             }
             if (await addItem(product_id, 1)) {
-                addToast("Add cart item", "Product added to cart successfully");
+                addToast(t("product.addToCart"), t("product.cartAddSuccess"));
             } else {
-                addToast("Add cart item", "Unable to add item to cart.");
+                addToast(t("product.addToCart"), t("product.cartAddFailure"));
             }
         } catch {
-            addToast("Add cart item", "Unable to add item to cart.");
+            addToast(t("product.addToCart"), t("product.cartAddFailure"));
         }
-    }, [addItem, addToast, productById]);
+    }, [addItem, addToast, productById, t]);
 
     const handlePageClick = useCallback((event: { selected: number }) => {
         if (serverSide && onPageChange) {

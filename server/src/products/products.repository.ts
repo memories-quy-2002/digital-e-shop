@@ -27,6 +27,21 @@ type ProductListFilters = {
     attributeFilters?: AttributeFilter[];
 };
 
+const normalizeSearchText = (value?: string): string => (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .trim()
+    .toLowerCase();
+
+const normalizeSearchIdentifier = (value: string): string => value.replace(/[\s._/-]+/g, "");
+const escapeLikeValue = (value: string): string => value.replace(/[!%_]/g, "!$&");
+
+const foldedSearchSql = (expression: string): string => `REPLACE(LOWER(${expression}), 'đ', 'd')`;
+
+const canonicalSearchSql = (expression: string): string =>
+    `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${foldedSearchSql(`COALESCE(${expression}, '')`)}, ' ', ''), '-', ''), '_', ''), '.', ''), '/', '')`;
+
 const productRatingJoin = `
     LEFT JOIN (
         SELECT product_id, COUNT(*) AS reviews, ROUND(COALESCE(AVG(rating), 0), 1) AS rating
@@ -82,19 +97,27 @@ const productBaseFrom = `
 const getProductListWhere = (filters: ProductListFilters = {}) => {
     const conditions = ["products.stock >= 0"];
     const params: Array<string | number> = [];
-    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
+    const normalizedTerm = normalizeSearchText(filters.term);
+    const normalizedIdentifier = normalizeSearchIdentifier(normalizedTerm);
 
     if (normalizedTerm) {
-        const wildcard = `%${normalizedTerm}%`;
+        const wildcard = `%${escapeLikeValue(normalizedTerm)}%`;
         conditions.push(`
             (
-                LOWER(products.name) LIKE ?
-                OR LOWER(brands.name) LIKE ?
-                OR LOWER(categories.name) LIKE ?
-                OR LOWER(COALESCE(products.description, '')) LIKE ?
+                ${foldedSearchSql("products.name")} LIKE ? ESCAPE '!'
+                OR ${foldedSearchSql("brands.name")} LIKE ? ESCAPE '!'
+                OR ${foldedSearchSql("categories.name")} LIKE ? ESCAPE '!'
+                OR ${foldedSearchSql("COALESCE(products.description, '')")} LIKE ? ESCAPE '!'
+                ${normalizedIdentifier ? `OR ${canonicalSearchSql("products.sku")} LIKE ? ESCAPE '!'
+                OR ${canonicalSearchSql("products.manufacturer_part_number")} LIKE ? ESCAPE '!'
+                OR ${canonicalSearchSql("products.name")} LIKE ? ESCAPE '!'` : ""}
             )
         `);
         params.push(wildcard, wildcard, wildcard, wildcard);
+        if (normalizedIdentifier) {
+            const identifierWildcard = `%${escapeLikeValue(normalizedIdentifier)}%`;
+            params.push(identifierWildcard, identifierWildcard, identifierWildcard);
+        }
     }
 
     if (filters.categories && filters.categories.length > 0) {
@@ -151,7 +174,8 @@ const getProductListWhere = (filters: ProductListFilters = {}) => {
 };
 
 const getProductListOrderBy = (filters: ProductListFilters = {}) => {
-    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
+    const normalizedTerm = normalizeSearchText(filters.term);
+    const normalizedIdentifier = normalizeSearchIdentifier(normalizedTerm);
 
     if (filters.sortBy === "price-asc") {
         return "ORDER BY COALESCE(products.sale_price, products.price) ASC, products.id DESC";
@@ -169,11 +193,17 @@ const getProductListOrderBy = (filters: ProductListFilters = {}) => {
         return `
             ORDER BY
                 (
-                    CASE WHEN LOWER(products.name) = ? THEN 140 ELSE 0 END
-                    + CASE WHEN LOWER(products.name) LIKE ? THEN 80 ELSE 0 END
-                    + CASE WHEN LOWER(brands.name) = ? THEN 34 ELSE 0 END
-                    + CASE WHEN LOWER(categories.name) = ? THEN 26 ELSE 0 END
-                    + CASE WHEN LOWER(CONCAT_WS(' ', products.name, brands.name, categories.name)) LIKE ? THEN 20 ELSE 0 END
+                    ${normalizedIdentifier ? `CASE WHEN ${canonicalSearchSql("products.sku")} = ? THEN 1200 ELSE 0 END
+                    + CASE WHEN ${canonicalSearchSql("products.manufacturer_part_number")} = ? THEN 1150 ELSE 0 END
+                    + CASE WHEN ${canonicalSearchSql("products.sku")} LIKE ? ESCAPE '!' THEN 700 ELSE 0 END
+                    + CASE WHEN ${canonicalSearchSql("products.manufacturer_part_number")} LIKE ? ESCAPE '!' THEN 650 ELSE 0 END
+                    + CASE WHEN ${canonicalSearchSql("products.name")} LIKE ? ESCAPE '!' THEN 500 ELSE 0 END
+                    +` : ""}
+                    CASE WHEN ${foldedSearchSql("products.name")} = ? THEN 140 ELSE 0 END
+                    + CASE WHEN ${foldedSearchSql("products.name")} LIKE ? ESCAPE '!' THEN 80 ELSE 0 END
+                    + CASE WHEN ${foldedSearchSql("brands.name")} = ? THEN 34 ELSE 0 END
+                    + CASE WHEN ${foldedSearchSql("categories.name")} = ? THEN 26 ELSE 0 END
+                    + CASE WHEN ${foldedSearchSql("CONCAT_WS(' ', products.name, brands.name, categories.name)")} LIKE ? ESCAPE '!' THEN 20 ELSE 0 END
                     + COALESCE(review_summary.rating, 0) * 4
                     + LEAST(COALESCE(review_summary.reviews, 0), 40) * 0.2
                     + CASE WHEN products.sale_price IS NOT NULL AND products.sale_price < products.price THEN 3 ELSE 0 END
@@ -186,7 +216,8 @@ const getProductListOrderBy = (filters: ProductListFilters = {}) => {
 };
 
 const getProductListOrderParams = (filters: ProductListFilters = {}) => {
-    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
+    const normalizedTerm = normalizeSearchText(filters.term);
+    const normalizedIdentifier = normalizeSearchIdentifier(normalizedTerm);
     if (
         !normalizedTerm ||
         filters.sortBy === "price-asc" ||
@@ -196,7 +227,11 @@ const getProductListOrderParams = (filters: ProductListFilters = {}) => {
         return [];
     }
 
-    return [normalizedTerm, `${normalizedTerm}%`, normalizedTerm, normalizedTerm, `%${normalizedTerm}%`];
+    const escapedTerm = escapeLikeValue(normalizedTerm);
+    if (!normalizedIdentifier) return [normalizedTerm, `${escapedTerm}%`, normalizedTerm, normalizedTerm, `%${escapedTerm}%`];
+    const escapedIdentifier = escapeLikeValue(normalizedIdentifier);
+    return [normalizedIdentifier, normalizedIdentifier, `${escapedIdentifier}%`, `${escapedIdentifier}%`, `${escapedIdentifier}%`,
+        normalizedTerm, `${escapedTerm}%`, normalizedTerm, normalizedTerm, `%${escapedTerm}%`];
 };
 
 const getAdminProductWhere = (filters: { search?: string; stock?: "all" | "low" | "out" }) => {

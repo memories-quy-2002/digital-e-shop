@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CartIcon, HeartFillIcon, HeartIcon } from "./Icons";
 import { Badge } from "../ui/badge";
@@ -22,7 +22,7 @@ export type ProductCardProps = {
     imageEager?: boolean;
     imageFetchPriority?: "high" | "low" | "auto";
     onToggleWishlist: (user_id: string, product_id: number) => void;
-    onAddingCart: (user_id: string, product_id: number) => void;
+    onAddingCart: (user_id: string, product_id: number) => void | Promise<void>;
 };
 
 const ProductCard = ({
@@ -38,6 +38,7 @@ const ProductCard = ({
     const t = useT();
     const { addToast } = useToast();
     const { isSelected, toggle } = useComparison();
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
     const normalizedProduct = normalizeProduct(product);
     const hasSale =
         normalizedProduct.sale_price !== null &&
@@ -154,9 +155,17 @@ const ProductCard = ({
                 <Button
                     type="button"
                     className="product-card__add-to-cart"
-                    aria-label={t("product.addToCart")}
-                    onClick={() => onAddingCart(uid, normalizedProduct.id)}
-                    disabled={availableStock <= 0}
+                    aria-label={t("comparison.addToCart", normalizedProduct.name)}
+                    onClick={async () => {
+                        setIsAddingToCart(true);
+                        try {
+                            await onAddingCart(uid, normalizedProduct.id);
+                        } finally {
+                            setIsAddingToCart(false);
+                        }
+                    }}
+                    disabled={availableStock <= 0 || isAddingToCart}
+                    aria-busy={isAddingToCart}
                 >
                     <CartIcon size={16} color="currentColor" />
                     <span className="product-card__cart-label">{t("product.addToCart")}</span>

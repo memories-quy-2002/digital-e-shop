@@ -5,12 +5,16 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ShopsPage from "../ShopsPage";
+import { trackStorefrontEvent } from "../../lib/storefrontAnalytics";
 import { LocaleProvider } from "../../context/LocaleContext";
+
+vi.mock("../../lib/storefrontAnalytics", () => ({ trackStorefrontEvent: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
   fetchProductCatalog: vi.fn(),
@@ -205,6 +209,23 @@ describe("catalog request reliability", () => {
       await screen.findByText("No products match these filters."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("removes a filter from empty results without losing the search term", async () => {
+    arrange((_config, url) => {
+      const query = new URL(url, "http://localhost").searchParams;
+      return Promise.resolve(query.get("term") === "RTX 4060" && !query.get("brands")
+        ? response("Recovered GPU")
+        : response("", 0));
+    });
+    renderCatalog("en", "/shops?term=RTX+4060&brands=Example");
+    const results = within(screen.getByTestId("shops__container"));
+    await waitFor(() => expect(trackStorefrontEvent).toHaveBeenCalledWith({
+      name: "Storefront Search Result", properties: { outcome: "empty" },
+    }));
+    fireEvent.click(await results.findByRole("button", { name: "Remove Example filter" }));
+    expect(await results.findByText("Recovered GPU")).toBeInTheDocument();
+    expect(trackStorefrontEvent).toHaveBeenCalledWith({ name: "Storefront Search Result", properties: { outcome: "found" } });
   });
 
   it("aborts its pending request when unmounted", async () => {

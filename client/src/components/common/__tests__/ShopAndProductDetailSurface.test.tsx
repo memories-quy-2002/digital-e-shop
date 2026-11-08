@@ -8,6 +8,8 @@ import { LocaleProvider } from "../../../context/LocaleContext";
 
 const apiMocks = vi.hoisted(() => ({
     fetchProduct: vi.fn(),
+    fetchProductCatalog: vi.fn(),
+    normalizeAttributeKey: (value: unknown) => String(value ?? "").trim().toLowerCase(),
     fetchRelevantProducts: vi.fn(),
     fetchWishlist: vi.fn(),
     fetchReviews: vi.fn(),

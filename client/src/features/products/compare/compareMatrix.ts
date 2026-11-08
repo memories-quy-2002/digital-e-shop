@@ -5,6 +5,14 @@ import type { ComparisonMatrixRow } from "./types";
 
 export const COMPARISON_MISSING_VALUE = String.fromCharCode(0x2014);
 
+const categoryPriorities: Record<string, readonly string[]> = {
+    cpu: ["socket", "cores", "threads"],
+    processor: ["socket", "cores", "threads"],
+    motherboard: ["socket", "chipset", "memory_type", "form_factor"],
+    ram: ["memory_type", "capacity_gb", "speed_mhz"],
+    graphics_card: ["vram_gb", "memory_type"],
+};
+
 type MatrixValue = {
     key: string;
     label: string;
@@ -60,7 +68,14 @@ export const buildComparisonRows = (products: ProductWithAttributes[]): Comparis
         }
     }
 
-    return Array.from(rows.entries()).map(([key, row]) => {
+    const category = normalizeAttributeKey(products[0]?.category ?? "");
+    const priorities = Object.hasOwn(categoryPriorities, category) ? categoryPriorities[category] : [];
+    const rank = (key: string) => {
+        const index = priorities.indexOf(key);
+        return index < 0 ? priorities.length : index;
+    };
+
+    return Array.from(rows.entries()).sort(([left], [right]) => rank(left) - rank(right)).map(([key, row]) => {
         const values = products.reduce<Record<string, string>>((result, product) => {
             result[String(product.id)] = row.values[String(product.id)] ?? COMPARISON_MISSING_VALUE;
             return result;

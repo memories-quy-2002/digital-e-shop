@@ -417,7 +417,7 @@ export const Header = (): JSX.Element => {
                             aria-controls="mini-cart-drawer"
                         >
                             <CartIcon size={20} />
-                            {cartItems.length > 0 ? <span>{Math.min(cartItems.length, 99)}</span> : null}
+                            {cartItems.length > 0 ? <span aria-live="polite" aria-atomic="true">{Math.min(cartItems.length, 99)}</span> : null}
                         </button>
                         {hasOpenedCartPreview ? (
                             <Suspense fallback={null}>

@@ -4,6 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
 import { LocaleProvider } from "../../../context/LocaleContext";
+import { trackStorefrontEvent } from "../../../lib/storefrontAnalytics";
+
+vi.mock("../../../lib/storefrontAnalytics", () => ({ trackStorefrontEvent: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
     auth: { userData: null as { id: string; email?: string } | null, loading: false },
@@ -103,6 +106,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(screen.queryByRole("radio", { name: /card/i })).not.toBeInTheDocument();
     });
 
+    it("shows the customer journey with checkout marked as the current step", () => {
+        renderCheckout();
+
+        const progress = screen.getByRole("navigation", { name: "Checkout progress" });
+        expect(progress).toHaveTextContent("Cart");
+        expect(progress).toHaveTextContent("Delivery and payment");
+        expect(progress).toHaveTextContent("Order confirmation");
+        expect(progress.querySelector('[aria-current="step"]')).toHaveTextContent("Delivery and payment");
+        expect(screen.getByRole("button", { name: "Cart" })).toBeInTheDocument();
+    });
+
     it("shows authenticated account email as read-only and omits the inactive marketing option", () => {
         mocks.auth.userData = { id: "user-1", email: "account@example.com" };
         renderCheckout();
@@ -145,6 +159,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
         await waitFor(() => expect(screen.getByTestId("quote-invalidation-key")).toHaveTextContent("1"));
         expect(screen.getByText("The delivery fee needs to be recalculated. Your delivery details are still saved.")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /^Place order/ })).toBeDisabled();
+        expect(trackStorefrontEvent).toHaveBeenCalledTimes(1);
+        expect(trackStorefrontEvent).toHaveBeenLastCalledWith({
+            name: "Storefront Checkout Attempt", properties: { outcome: "blocked", reason: "quote", recovered: false },
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "Request test quote" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Place order/ }));
+        await waitFor(() => expect(trackStorefrontEvent).toHaveBeenLastCalledWith({
+            name: "Storefront Checkout Attempt", properties: { outcome: "ready", reason: "none", recovered: true },
+        }));
+        expect(trackStorefrontEvent).toHaveBeenCalledTimes(2);
     });
 
     it("redirects guest PayOS checkout through a server-created VND payment link", async () => {
@@ -266,6 +291,36 @@ describe("CheckoutPaymentPage guest checkout", () => {
             locale: "en",
         })));
         expect(sessionStorage.getItem("checkoutPending")).toBeNull();
+    });
+
+    it("does not record checkout as ready when the authenticated order API did not create an order", async () => {
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
+        mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{
+            cart_item_id: 7,
+            product_id: 10,
+            product_name: "Widget",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: 80,
+            main_image: "widget.jpg",
+            quantity: 2,
+            stock: 5,
+            available_stock: 5,
+        }] } });
+        mocks.httpPost.mockResolvedValue({ status: 200, data: { msg: "Order not created" } });
+
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.any(Object)));
+        expect(trackStorefrontEvent).not.toHaveBeenCalledWith({
+            name: "Storefront Checkout Attempt", properties: { outcome: "ready", reason: "none", recovered: false },
+        });
+        expect(mocks.navigate).not.toHaveBeenCalledWith("/checkout-success", expect.anything());
     });
 
     it("applies authenticated loyalty points to COD checkout and displays the updated total", async () => {

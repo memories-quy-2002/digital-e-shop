@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
         delete: vi.fn(),
     },
     productsApi: {
+        normalizeAttributeKey: (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, ""),
         fetchProduct: vi.fn(),
         fetchProductCatalog: vi.fn(),
         fetchProductRecommendations: vi.fn(),
@@ -172,6 +173,7 @@ const LocationProbe = () => {
 describe("guest cart entry points", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.clear();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
         mocks.cart.addItem.mockResolvedValue(true);
@@ -206,7 +208,7 @@ describe("guest cart entry points", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
 
         await waitFor(() => expect(mocks.cart.addItem).toHaveBeenCalledWith(1, 1));
-        expect(mocks.toast.addToast).toHaveBeenCalledWith("Add cart item", expect.stringContaining("success"));
+        expect(mocks.toast.addToast).toHaveBeenCalledWith("Add to cart", "Product added to cart successfully.");
     });
 
     it("shows an error instead of success when the home cart mutation fails", async () => {
@@ -223,13 +225,32 @@ describe("guest cart entry points", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
 
         await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             "Unable to add item to cart.",
         ));
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             expect.stringContaining("success"),
         );
+    });
+
+    it("localizes home add-to-cart success feedback in Vietnamese", async () => {
+        localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        render(<MemoryRouter><LocaleProvider><HomePage /></LocaleProvider></MemoryRouter>);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith("Thêm vào giỏ", "Đã thêm sản phẩm vào giỏ hàng."));
+    });
+
+    it("localizes home add-to-cart failure feedback in Vietnamese", async () => {
+        localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        mocks.cart.addItem.mockResolvedValue(false);
+        render(<MemoryRouter><LocaleProvider><HomePage /></LocaleProvider></MemoryRouter>);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith("Thêm vào giỏ", "Không thể thêm sản phẩm vào giỏ hàng."));
     });
 
     it("adds a signed-out catalog product through CartContext while keeping wishlist protected", async () => {
@@ -245,7 +266,7 @@ describe("guest cart entry points", () => {
             </LocaleProvider>,
         );
 
-        fireEvent.click(screen.getByRole("button", { name: "Add to cart" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
         await waitFor(() => expect(mocks.cart.addItem).toHaveBeenCalledWith(1, 1));
 
         fireEvent.click(screen.getByRole("button", { name: "Add to wishlist" }));
@@ -267,16 +288,35 @@ describe("guest cart entry points", () => {
             </LocaleProvider>,
         );
 
-        fireEvent.click(screen.getByRole("button", { name: "Add to cart" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
 
         await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             "Unable to add item to cart.",
         ));
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             expect.stringContaining("success"),
         );
+    });
+
+    it("localizes catalog add-to-cart success feedback in Vietnamese", async () => {
+        localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        render(<LocaleProvider><PaginatedItems itemsPerPage={6} items={[product]} uid="" wishlist={[]} isWishlistPage={false} /></LocaleProvider>);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith("Thêm vào giỏ", "Đã thêm sản phẩm vào giỏ hàng."));
+    });
+
+    it("localizes catalog add-to-cart failure feedback in Vietnamese", async () => {
+        localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        mocks.cart.addItem.mockResolvedValue(false);
+        render(<LocaleProvider><PaginatedItems itemsPerPage={6} items={[product]} uid="" wishlist={[]} isWishlistPage={false} /></LocaleProvider>);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith("Thêm vào giỏ", "Không thể thêm sản phẩm vào giỏ hàng."));
     });
 
     it("adds a signed-out product-detail item through CartContext", async () => {
@@ -291,7 +331,7 @@ describe("guest cart entry points", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
 
         await waitFor(() => expect(mocks.cart.addItem).toHaveBeenCalledWith(1, 1));
-        expect(mocks.toast.addToast).toHaveBeenCalledWith("Add cart item", expect.stringContaining("success"));
+        expect(mocks.toast.addToast).toHaveBeenCalledWith("Add to cart", "Product added to cart successfully.");
     });
 
     it("shows an error instead of success when the product-detail cart mutation fails", async () => {
@@ -308,11 +348,11 @@ describe("guest cart entry points", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
 
         await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             "Unable to add item to cart.",
         ));
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
-            "Add cart item",
+            "Add to cart",
             expect.stringContaining("success"),
         );
     });

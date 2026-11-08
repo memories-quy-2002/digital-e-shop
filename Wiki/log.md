@@ -141,3 +141,6 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-22 - Codex - Updated the project runtime baseline, package engine constraints, CI workflows, and maintained setup guides to Node.js 24.22.1 LTS.
 - 2026-10-26 - Codex - Added a CRON_SECRET-protected Vercel task schedule, local Docker Redis and OTLP-LGTM services, bounded operations metrics, and setup guidance.
 - 2026-10-27 - Codex - Set the Vercel Cron schedule to daily UTC for Hobby Free and documented its timing window.
+- 2026-11-01 - Codex - Removed the duplicate cart-review checkout step, added localized checkout progress, and documented the customer-facing purchase path and its evidence limits in [[commerce-journey]].
+- 2026-11-08 - Codex - Documented storefront search, mobile purchase, compatibility, guest lookup and journey measurement in [[commerce-journey]].
+- 2026-11-08 - Codex - Reviewed storefront flows with Playwright API fixtures, fixed the product-specific localized add-to-cart accessible name, and recorded MySQL/browser acceptance limits in the storefront guide and [[commerce-journey]].
