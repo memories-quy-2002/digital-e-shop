@@ -7,13 +7,14 @@ import { CartProvider } from "../context/CartContext";
 import { ComparisonProvider } from "../context/ComparisonContext";
 import { LocaleProvider } from "../context/LocaleContext";
 import ThemeSync from "../components/common/ThemeSync";
+import type { AnalyticsProps } from "@vercel/analytics";
 
 type AppProvidersProps = {
     children: ReactNode;
 };
 
 type ObservabilityComponents = {
-    Analytics: React.ComponentType;
+    Analytics: React.ComponentType<AnalyticsProps>;
     SpeedInsights: React.ComponentType;
 } | null;
 
@@ -64,7 +65,7 @@ const Observability = () => {
     return (
         <>
             <SpeedInsights />
-            <Analytics />
+            <Analytics beforeSend={(event) => ({ ...event, url: event.url.split(/[?#]/, 1)[0] })} />
         </>
     );
 };

@@ -119,6 +119,8 @@ before it runs. See [retail P0 acceptance](./backlog/README.md) and
 For local checkout work, `pnpm --dir server seed:delivery:local` seeds an
 idempotent demo pickup point and sample VND delivery fees only into the loopback
 `digital_e_shop_local` database. It refuses to overwrite existing settings.
+The current customer-facing cart and checkout flow is documented in
+[Storefront customer journey](./storefront-customer-journey.md).
 The public OSRM demo is for reasonable non-commercial testing only and has no
 uptime guarantee; configure a suitable routing provider and tile service for
 production. The local seed command requires the OSRM and HTTPS tile endpoints

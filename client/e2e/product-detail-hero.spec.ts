@@ -9,6 +9,14 @@ test("product detail hero prioritizes the image, price, stock and purchase actio
         localStorage.setItem("digital-e:color-scheme:v1", JSON.stringify(selectedTheme));
     }, { selectedLocale: locale, selectedTheme: theme });
     await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+    let stock = 20;
+    let rejectCart = false;
+    let submittedQuantity = 0;
+    await page.route("**/api/cart/guest/preview", (route) => {
+        const payload = route.request().postDataJSON() as { items: { quantity: number }[] };
+        submittedQuantity = payload.items[0]?.quantity ?? 0;
+        return route.fulfill({ json: { valid: !rejectCart, cartItems: [], issues: [] } });
+    });
     await page.route("**/api/products/42", (route) => route.fulfill({ json: { product: {
         id: 42,
         name: "Noise Cancelling Headphones",
@@ -20,8 +28,8 @@ test("product detail hero prioritizes the image, price, stock and purchase actio
         rating: 4.7,
         reviews: 28,
         main_image: "",
-        stock: 20,
-        available_stock: 20,
+        stock,
+        available_stock: stock,
         description: "Wireless noise cancelling headphones.",
         specifications: "",
     } } }));
@@ -73,4 +81,29 @@ test("product detail hero prioritizes the image, price, stock and purchase actio
         expect(frame!.width / frame!.height).toBeCloseTo(3 / 2, 1);
     }
     await expectNoHorizontalOverflow(page);
+
+    const mobilePurchase = page.locator(".product-page__mobile-purchase");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    if (viewport && viewport.width <= 560) {
+        await expect(mobilePurchase).toBeInViewport();
+        await expect(mobilePurchase.getByRole("button")).toBeEnabled();
+        await expectNoHorizontalOverflow(page);
+        await mobilePurchase.getByRole("button").click();
+        await expect(page.getByText(locale === "vi" ? "Đã thêm sản phẩm vào giỏ hàng." : "Product added to cart successfully.")).toBeVisible();
+        expect(submittedQuantity).toBe(2);
+        rejectCart = true;
+        await mobilePurchase.getByRole("button").click();
+        await expect(page.getByText(locale === "vi" ? "Không thể thêm sản phẩm vào giỏ hàng." : "Unable to add item to cart.").first()).toBeVisible();
+        await page.getByTestId("product-purchase-button").scrollIntoViewIfNeeded();
+        await expect(mobilePurchase).toHaveCount(0);
+        stock = 0;
+        await page.reload();
+        const purchase = page.getByTestId("product-purchase-button");
+        await expect(purchase).toBeDisabled();
+        await purchase.scrollIntoViewIfNeeded();
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        await expect(mobilePurchase.getByRole("button")).toBeDisabled();
+    } else {
+        await expect(mobilePurchase).toBeHidden();
+    }
 });

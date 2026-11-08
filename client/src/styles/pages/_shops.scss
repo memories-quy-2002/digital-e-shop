@@ -24,7 +24,7 @@
     &__filter-section { display: grid; gap: 0.6rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--de-color-border); &:last-of-type { border-bottom: 0; } }
     &__filter-section-header, &__price-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; h2 { font-size: 0.88rem; } span { color: var(--de-color-text-muted); font-family: var(--de-font-family-mono); font-size: 0.65rem; } p { color: var(--de-color-text-muted); font-size: 0.75rem; line-height: 1.45; } }
     &__filter-options { display: grid; max-height: 210px; gap: 0.35rem; overflow-y: auto; }
-    &__filter-option { display: flex; align-items: center; gap: 0.5rem; min-height: 32px; color: var(--de-color-text-muted); font-size: 0.8rem; cursor: pointer; input { accent-color: var(--de-color-signal); } &:hover { color: var(--de-color-text); } }
+    &__filter-option { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; color: var(--de-color-text-muted); font-size: 0.8rem; cursor: pointer; input { accent-color: var(--de-color-signal); } &:hover { color: var(--de-color-text); } }
     &__filter-checkmark { display: none; }
     &__price-summary { display: flex; justify-content: space-between; gap: 0.5rem; div { display: grid; gap: 0.1rem; } span { color: var(--de-color-text-muted); font-family: var(--de-font-family-mono); font-size: 0.6rem; text-transform: uppercase; } strong { color: var(--de-color-text); font-family: var(--de-font-family-mono); font-size: 0.75rem; } }
     &__filters-button { min-height: 42px; border: 0; border-radius: 4px; background: var(--de-color-circuit); color: var(--de-color-on-accent); font-weight: 900; cursor: pointer; &:hover { background: var(--de-color-circuit-hover); } }

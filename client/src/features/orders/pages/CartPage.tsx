@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Container, Modal } from "../../../components/ui/legacy";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { trackStorefrontEvent } from "../../../lib/storefrontAnalytics";
+import { Container } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
@@ -16,7 +17,6 @@ import "../../../styles/features/orders/_cart.scss";
 import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
 import { useT } from "../../../hooks/useT";
 import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
-import { formatCurrency } from "../../../utils/currency";
 import { clearCheckoutDraft, hasCheckoutDraft } from "../checkoutDraft";
 
 const CartPage = () => {
@@ -50,9 +50,10 @@ const CartPage = () => {
         mergeStatus,
         mergeGuestCart,
     } = useCart();
-    const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(() => searchParams.get("payment") === "cancelled" && hasCheckoutDraft());
     const [isValidatingCheckout, setIsValidatingCheckout] = useState(false);
+    const validatingCheckout = useRef(false);
+    const blockedCheckout = useRef(false);
 
     useEffect(() => {
         if (searchParams.get("payment") === "cancelled") {
@@ -65,8 +66,6 @@ const CartPage = () => {
         }
     }, [searchParams, setSearchParams]);
 
-    const handleClose = useCallback(() => setShow(false), []);
-    const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
 
     const handleQuantityChange = async (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
         const item = cart.find((cartItem) => cartItem.cartItemId === itemId);
@@ -143,29 +142,34 @@ const CartPage = () => {
     );
 
     const handleShow = useCallback(async () => {
+        if (validatingCheckout.current) return;
         if (localValidationIssues.length > 0) {
+            blockedCheckout.current = true;
+            trackStorefrontEvent({ name: "Storefront Cart Validation", properties: { outcome: "blocked", reason: "stock", recovered: false } });
             addToast(t("cart.checkoutNeedsUpdates"), getCartValidationMessage(localValidationIssues));
             return;
         }
 
+        validatingCheckout.current = true;
         setIsValidatingCheckout(true);
-        const valid = await validateBeforeCheckout();
-        setIsValidatingCheckout(false);
-
-        if (valid) {
-            setShow(true);
+        try {
+            const valid = await validateBeforeCheckout();
+            trackStorefrontEvent({ name: "Storefront Cart Validation", properties: {
+                outcome: valid ? "ready" : "blocked",
+                reason: valid ? "none" : "validation",
+                recovered: valid && blockedCheckout.current,
+            } });
+            blockedCheckout.current = !valid;
+            if (valid) setIsPayment(true);
+        } catch {
+            blockedCheckout.current = true;
+            trackStorefrontEvent({ name: "Storefront Cart Validation", properties: { outcome: "blocked", reason: "unavailable", recovered: false } });
+            addToast(t("cart.loadErrorTitle"), t("cart.loadError"));
+        } finally {
+            validatingCheckout.current = false;
+            setIsValidatingCheckout(false);
         }
     }, [addToast, localValidationIssues, t, validateBeforeCheckout]);
-
-    const handleClickPayment = useCallback(() => {
-        if (activeValidationIssues.length > 0) {
-            addToast(t("cart.checkoutNeedsUpdates"), getCartValidationMessage(activeValidationIssues));
-            setShow(false);
-            return;
-        }
-        togglePayment();
-        setShow(false);
-    }, [activeValidationIssues, addToast, t, togglePayment]);
 
     const handleRemoveCartItem = useCallback(
         (cartItemId: number) => {
@@ -351,62 +355,6 @@ const CartPage = () => {
                     </>
                 )}
 
-                <Modal show={show} onHide={handleClose} animation={false} size="lg" dialogClassName="cart__confirm-modal">
-                    <Modal.Header closeButton className="cart__confirm-modal-header">
-                        <Modal.Title>{t("cart.reviewOrder")}</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body className="cart__confirm-modal-body">
-                        <div className="cart__confirm">
-                            <div className="cart__confirm__summary">
-                                <div className="cart__confirm__summary-header">
-                                    <span className="cart__confirm__summary-label">{t("cart.orderSummary")}</span>
-                                    <span className="cart__confirm__summary-count">{t("cart.itemsCount", cart.length)}</span>
-                                </div>
-                                <div className="cart__confirm__rows">
-                                    <div className="cart__confirm__row">
-                                        <span>{t("cart.merchandise")}</span>
-                                        <strong>{formatCurrency(totalPrice)}</strong>
-                                    </div>
-                                    {discount > 0 ? (
-                                        <div className="cart__confirm__row cart__confirm__row--discount">
-                                            <span>{t("cart.discount")}</span>
-                                            <strong>−{formatCurrency(discount)}</strong>
-                                        </div>
-                                    ) : null}
-                                    <div className="cart__confirm__divider" />
-                                    <div className="cart__confirm__row cart__confirm__row--total">
-                                        <span>{t("shipping.merchandiseTotal")}</span>
-                                        <strong>{formatCurrency(subtotal)}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="cart__confirm__items">
-                                <span className="cart__confirm__items-label">{t("cart.itemsInOrder")}</span>
-                                <div className="cart__confirm__items-list">
-                                    {cart.map((item) => (
-                                        <div key={item.cartItemId} className="cart__confirm__item">
-                                            <div className="cart__confirm__item-info">
-                                                <strong className="cart__confirm__item-name">{item.productName}</strong>
-                                                <span className="cart__confirm__item-meta">{item.brand} &middot; {item.category}</span>
-                                            </div>
-                                            <div className="cart__confirm__item-qty">&times;{item.quantity}</div>
-                                            <div className="cart__confirm__item-price">{formatCurrency((item.sale_price ?? item.price) * item.quantity)}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <p className="cart__confirm__footnote">{t("cart.footnote")}</p>
-                        </div>
-                    </Modal.Body>
-                    <Modal.Footer className="cart__confirm-modal-footer">
-                        <Button variant="outline-secondary" onClick={handleClose}>
-                            {t("cart.cancelOrder")}
-                        </Button>
-                        <Button variant="primary" size="lg" onClick={handleClickPayment}>
-                            {t("cart.continueToCheckout")}
-                        </Button>
-                    </Modal.Footer>
-                </Modal>
                 <ConfirmActionModal
                     show={pendingRemoveItem !== null}
                     title={t("cart.remove")}
