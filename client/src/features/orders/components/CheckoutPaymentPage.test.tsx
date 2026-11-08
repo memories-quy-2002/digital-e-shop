@@ -293,6 +293,36 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(sessionStorage.getItem("checkoutPending")).toBeNull();
     });
 
+    it("does not record checkout as ready when the authenticated order API did not create an order", async () => {
+        mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
+        mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{
+            cart_item_id: 7,
+            product_id: 10,
+            product_name: "Widget",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: 80,
+            main_image: "widget.jpg",
+            quantity: 2,
+            stock: 5,
+            available_stock: 5,
+        }] } });
+        mocks.httpPost.mockResolvedValue({ status: 200, data: { msg: "Order not created" } });
+
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.any(Object)));
+        expect(trackStorefrontEvent).not.toHaveBeenCalledWith({
+            name: "Storefront Checkout Attempt", properties: { outcome: "ready", reason: "none", recovered: false },
+        });
+        expect(mocks.navigate).not.toHaveBeenCalledWith("/checkout-success", expect.anything());
+    });
+
     it("applies authenticated loyalty points to COD checkout and displays the updated total", async () => {
         mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
         mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{

@@ -429,7 +429,7 @@ const CheckoutPaymentPage = ({
         navigate("/checkout-success", { state: { checkoutSuccess: payload } });
     };
 
-    const submitAuthenticatedOrder = async (submission: CheckoutSubmissionContext) => {
+    const submitAuthenticatedOrder = async (submission: CheckoutSubmissionContext): Promise<boolean> => {
         const response = await http.post(`/api/orders/purchase/${uid}`, {
             cart: submission.latestCart,
             totalPrice: submission.latestTotalPrice,
@@ -442,7 +442,7 @@ const CheckoutPaymentPage = ({
             deliveryAddress: deliveryAddress!,
             locale,
         });
-        if (response.status !== HTTP_STATUS.CREATED) return;
+        if (response.status !== HTTP_STATUS.CREATED) return false;
 
         const internalOrderId = Number(response.data?.order?.id ?? response.data?.orderId ?? response.data?.id);
         const orderId = String(response.data?.order?.public_id ?? response.data?.order?.id ?? response.data?.orderId ?? response.data?.id ?? `ORD-${Date.now()}`);
@@ -473,6 +473,7 @@ const CheckoutPaymentPage = ({
         writeCheckoutSuccess(payload);
         clearPendingCheckout();
         navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
+        return true;
     };
 
     const handlePurchaseFailure = (err: unknown) => {
@@ -569,14 +570,15 @@ const CheckoutPaymentPage = ({
         try {
             setIsSubmitting(true);
             const submission = createSubmissionContext(latestCart);
+            let checkoutReady = true;
             if (formCheckout.payment_method === PAYMENT_METHOD.PAYOS) {
                 await submitPayOSCheckout(submission);
             } else if (!uid) {
                 await submitGuestOrder(submission);
             } else {
-                await submitAuthenticatedOrder(submission);
+                checkoutReady = await submitAuthenticatedOrder(submission);
             }
-            trackCheckoutReady();
+            if (checkoutReady) trackCheckoutReady();
         } catch (err: unknown) {
             handlePurchaseFailure(err);
         } finally {
