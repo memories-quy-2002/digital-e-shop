@@ -23,6 +23,7 @@
         "vercel-build": "corepack pnpm@12.4.2 build",
         "copy:assets": "node scripts/copy-assets.mjs",
         "typecheck": "tsc -p tsconfig.json --noEmit",
+        "typecheck:strict": "tsc -p tsconfig.strict.json --noEmit",
         "test": "node --test docker/run.test.mjs && vitest",
         "test:integration": "vitest run --config vitest.integration.config.ts --testNamePattern=integration",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --max-warnings=0 --format=stylish",
@@ -67,7 +68,9 @@
         "perf:catalog": "node scripts/run-k6.mjs catalog",
         "perf:admin-readonly": "node scripts/run-k6.mjs admin-readonly",
         "perf:customer-readonly": "node scripts/run-k6.mjs customer-readonly",
-        "perf:auth-readonly": "node scripts/run-k6.mjs auth-readonly"
+        "perf:auth-readonly": "node scripts/run-k6.mjs auth-readonly",
+        "format": "prettier . --write --ignore-path ../.prettierignore",
+        "format:check": "prettier . --check --ignore-path ../.prettierignore"
     },
     "imports": {
         "#src/*": {
