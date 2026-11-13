@@ -250,7 +250,14 @@ for the full client/server variable matrix.
 ### TypeScript style
 
 - Frontend TypeScript is `strict: true`.
-- Server TypeScript is less strict (`strict: false`, `noImplicitAny: true`).
+- Server TypeScript currently uses `noImplicitAny: true` with `strict: false` to
+  preserve a passing baseline. `server/tsconfig.strict.json` provides an
+  opt-in strict check while the legacy backend is migrated feature by feature;
+  do not broaden strict exceptions to make that check pass.
+- Prettier is the formatter for JavaScript, TypeScript, CSS/SCSS, JSON, HTML,
+  YAML, and Markdown. ESLint checks code quality and framework rules; it does
+  not own whitespace formatting. Keep package-local `format` and
+  `format:check` scripts in sync with the root Prettier configuration.
 - Frontend code uses ESM imports.
 - Server code mixes CommonJS `require` with TypeScript `import type`; preserve the existing local style within touched files instead of forcing a repo-wide conversion.
 
