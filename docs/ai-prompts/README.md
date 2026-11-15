@@ -7,6 +7,13 @@ handoff format.
 Goal: give an agent enough context to act safely without turning every task
 into an open-ended rewrite.
 
+Quality baseline: every prompt follows
+[evidence-and-human-review.md](./evidence-and-human-review.md). AI work must
+show where material claims came from, distinguish verified facts from
+assumptions, serve the user's intended outcome, communicate candidly without
+reflexive agreement or flattery, and leave product acceptance and consequential
+review to people.
+
 Audience: the maintainer, the primary Codex agent, and delegated agents working
 on the client or server package.
 
@@ -36,6 +43,10 @@ Before answering, inspecting, editing, testing, or delivering repository work,
 read this index and select one primary prompt. Do not wait for the user to name
 the prompt. Prompt selection chooses the workflow; it does not grant permission
 to expand the user's scope.
+
+Read the [evidence and human review standard](./evidence-and-human-review.md)
+alongside the selected prompt. Follow it for coding, commerce behavior, product
+copy, external technical references, and verification reports.
 
 | Request shape | Select | Add these skills when relevant |
 | --- | --- | --- |
@@ -118,6 +129,16 @@ Next action:
 Do not claim a test, build, browser route, or external lookup passed unless it
 ran. Keep findings evidence-based and separate environment failures from product
 defects.
+
+For material claims, include direct sources and the locations or versions that
+support them. For codebase behavior, cite repository paths and relevant symbols
+or tests. For external behavior, prefer current primary sources and record
+when/version checked. Label consequential assumptions and unresolved evidence.
+Product, pricing, stock, delivery, warranty, return, payment, legal, and
+conversion claims must not be invented or inferred into customer promises.
+Humans remain responsible for acceptance criteria, business policy, review of
+generated changes, and release decisions; AI summaries and passing tests do not
+replace that review.
 
 ## Follow skill routing
 
