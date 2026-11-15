@@ -1,6 +1,5 @@
 import pool from "#src/config/database.config";
 import { logger } from "#src/shared/utils/logger";
-import { env } from "#src/config/env.config";
 
 const QUERY_TIMEOUT = 8000;
 const MAX_TRANSACTION_ATTEMPTS = 5;
@@ -53,7 +52,7 @@ const createTransactionContext = (connection: TransactionConnection): Transactio
             connection.query({ sql, timeout: QUERY_TIMEOUT }, values, (error, results) => done(error, results as T));
         }).finally(() => {
             const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-            if (env.dbQueryLog && durationMs >= env.dbQueryLogThresholdMs) {
+            if (process.env.DB_QUERY_LOG === "true" && durationMs >= Number(process.env.DB_QUERY_LOG_THRESHOLD_MS || 200)) {
                 // Never log bound parameter values: queries may contain customer or payment data.
                 logger.info({ durationMs, sql: sql.replace(/\s+/g, " ").trim() }, "[db] transaction query");
             }
