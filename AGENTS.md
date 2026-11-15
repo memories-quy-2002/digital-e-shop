@@ -305,6 +305,15 @@ for the full client/server variable matrix.
 - Prisma exists but is only partially adopted. Do not assume a full Prisma migration.
 - Keep SQL and schema-aware persistence in repositories, not controllers.
 - Service layer coordinates multi-table updates such as checkout, inventory, timeline, and notifications.
+- Follow [database concurrency and query performance](docs/DATABASE_CONCURRENCY_PERFORMANCE.md)
+  before changing transaction boundaries, lock ordering, indexing or catalog queries.
+- Prefer conditional UPDATE and affectedRows checks for atomic writes, FOR UPDATE
+  inside a single transaction connection for multi-row invariants, and revision
+  checks for human-edited documents; do not replace these with client-side reads.
+- Use withRetryableTransaction only for database-only callbacks that are safe
+  to replay after rollback. Never retry provider calls or ambiguous COMMIT results.
+- Scope expensive aggregates to bounded product IDs where possible, retain
+  stable pagination/response contracts, and justify index changes with EXPLAIN.
 
 ### API response format
 
