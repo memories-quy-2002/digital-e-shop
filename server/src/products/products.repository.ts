@@ -529,9 +529,9 @@ export class NestProductsRepository {
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
                     products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm,
                     price, sale_price, stock,
-                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
-                    main_image, specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
-                 ${productBaseFrom}
+                    ${productScopedAvailabilitySelect},
+                    main_image, specifications, ${productAttributesSelect("products")}, ${productScopedRatingSelect}
+                 ${productIdentityFrom}
                  ${where}
                  ORDER BY products.id DESC
                  LIMIT ? OFFSET ?`,
