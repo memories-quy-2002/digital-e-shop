@@ -68,9 +68,13 @@ export async function withTransaction<T>(work: (tx: TransactionContext) => Promi
         await run<void>((done) => connection.commit(done));
         return result;
     } catch (error) {
-        await run<void>((done) => connection.rollback(done)).catch((rollbackError) => {
+        try {
+            await run<void>((done) => connection.rollback(done));
+        } catch (rollbackError) {
             logger.error({ rollbackError }, "Transaction rollback failed");
-        });
+            // A failed rollback leaves the transaction state uncertain; never auto-retry.
+            throw new AggregateError([error, rollbackError], "Transaction failed and rollback was not confirmed");
+        }
         throw error;
     } finally {
         connection.release();
