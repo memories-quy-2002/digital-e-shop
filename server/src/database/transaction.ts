@@ -73,7 +73,7 @@ export async function withTransaction<T>(work: (tx: TransactionContext) => Promi
         } catch (rollbackError) {
             logger.error({ rollbackError }, "Transaction rollback failed");
             // A failed rollback leaves the transaction state uncertain; never auto-retry.
-            throw new AggregateError([error, rollbackError], "Transaction failed and rollback was not confirmed");
+            throw new AggregateError([error, rollbackError], "Transaction failed and rollback was not confirmed", { cause: error });
         }
         throw error;
     } finally {
