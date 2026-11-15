@@ -121,6 +121,22 @@ describe("withRetryableTransaction", () => {
         expect(first.release).toHaveBeenCalledOnce();
     });
 
+    it("does not retry when rollback fails and transaction state is uncertain", async () => {
+        const first = buildConnection();
+        setupConnections([first]);
+        first.query.mockImplementation((_sql, _values, callback) =>
+            callback(Object.assign(new Error("deadlock"), { code: "ER_LOCK_DEADLOCK", errno: 1213 })));
+        first.rollback.mockImplementation((callback) => callback(new Error("rollback failed")));
+        const work = vi.fn(async (tx: TransactionContext) => tx.query("UPDATE products SET stock = stock + 1"));
+
+        await expect(withRetryableTransaction(work, { baseDelayMs: 0 }))
+            .rejects.toThrow("Transaction failed and rollback was not confirmed");
+
+        expect(work).toHaveBeenCalledOnce();
+        expect(pool.getConnection).toHaveBeenCalledOnce();
+        expect(first.release).toHaveBeenCalledOnce();
+    });
+
     it("does not retry business logic errors", async () => {
         const first = buildConnection();
         setupConnections([first]);
