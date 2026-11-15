@@ -167,6 +167,7 @@ describe("bounded catalog projection queries", () => {
         ["product detail", (repository: NestProductsRepository) => repository.getProductById(41), [41]],
         ["comparison", (repository: NestProductsRepository) => repository.getProductsForComparison([41, 42]), [41, 42]],
         ["default id page", (repository: NestProductsRepository) => repository.getAllProductsPaginated(12, 0), [12, 0]],
+        ["admin id page", (repository: NestProductsRepository) => repository.getAdminProductsPaginated(12, 0, {}), [12, 0]],
     ])("%s only aggregates ratings and reservations for the selected products", async (_name, query, params) => {
         await query(new NestProductsRepository());
         const sql = String(pool.query.mock.calls[0][0]);
