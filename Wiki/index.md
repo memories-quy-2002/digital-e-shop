@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target. Internal delivery includes admin-managed store pins and distance fees, scheduled staff assignments, employee status updates, and customer-visible delivery progress without GPS tracking.
 
-**Last updated:** 2026-11-08
+**Last updated:** 2026-11-15
 
 The current implementation includes authenticated and guest carts, transactional idempotent cart merging, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, guest order email-OTP access recovery, exact UTC return deadlines, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, internal road-distance checkout quotes with configurable fees and stable stale-quote errors, scheduled internal delivery assignments with employee-scoped status updates and exactly-once order completion, COD settlement and evidence-backed manual refunds, loyalty points and reward vouchers, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Historical GHN shipment/address data remains readable only; it no longer triggers provider calls or delivery state changes.
 
@@ -41,6 +41,7 @@ The demo seed creates a linked graph with 120 products across 8 categories and 1
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
+- [Database concurrency and performance](../docs/DATABASE_CONCURRENCY_PERFORMANCE.md): safe retry boundaries, row-lock ordering, scoped catalog aggregates, query profiling and rollout
 
 ## Wiki catalog
 
