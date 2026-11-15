@@ -144,3 +144,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-11-01 - Codex - Removed the duplicate cart-review checkout step, added localized checkout progress, and documented the customer-facing purchase path and its evidence limits in [[commerce-journey]].
 - 2026-11-08 - Codex - Documented storefront search, mobile purchase, compatibility, guest lookup and journey measurement in [[commerce-journey]].
 - 2026-11-08 - Codex - Reviewed storefront flows with Playwright API fixtures, fixed the product-specific localized add-to-cart accessible name, and recorded MySQL/browser acceptance limits in the storefront guide and [[commerce-journey]].
+- 2026-11-15 - ChatGPT - Added opt-in InnoDB deadlock/lock-wait transaction retries for idempotent cart merging, transaction slow-query timing, scoped aggregate projections for bounded catalog reads, and database concurrency/performance conventions; kept provider/payment retries isolated.
