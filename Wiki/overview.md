@@ -28,14 +28,16 @@ Digital-E is a full-stack e-commerce system for electronic components and
 devices. It provides a customer storefront and account area, guest and
 authenticated checkout, and an admin operations dashboard.
 
-## Current stack
+## Stack and modules
 
 | Area | Tools |
 | --- | --- |
 | Package management | Independent pnpm packages, pnpm `12.4.2`, no root workspace |
-| Frontend | React `19.2.8`, React Router DOM `7.18.3`, Vite `8.2.2`, TypeScript `6.0.3`, Tailwind CSS `4.3.3`, Radix UI, SCSS/Sass, Axios, Firebase client auth, Recharts |
-| Backend | NestJS `11.2.3` on Express `5.2.1`, TypeScript `6.0.3`, MySQL (`mysql`/`mysql2`), Prisma `7.10.0` partial layer, Zod, cookie/CSRF middleware, JWT, rate limiting, PayOS, Firebase Admin, Redis support, Pino, Vercel Blob |
+| Frontend | React 19, React Router 7, Vite, TypeScript, Tailwind CSS, Radix UI, SCSS/Sass, Axios, Firebase client auth, Recharts |
+| Backend | NestJS 11/Express 5, TypeScript, MySQL (`mysql`/`mysql2`), partial Prisma 7, Zod, cookie/CSRF middleware, JWT, rate limiting, PayOS, Firebase Admin, Redis support, Pino, Vercel Blob |
 | Delivery and verification | Vercel configs, GitHub Actions, Vitest, disposable MySQL integration checks, read-only k6 scripts |
+
+Exact dependency versions are maintained in `client/package.json`, `server/package.json`, and their package-local lockfiles.
 
 ## High-level modules
 
@@ -131,7 +133,7 @@ and branch protection remain repository/deployment settings.
   payment-ledger records use exact whole-number VND; verified PayOS webhooks,
   append-only reconciliation attempts, guarded COD confirmation, and manual
   refund operations provide the operational audit boundary.
-- Firebase owns verification, password-reset, and email-change action links in every environment. The server has no MySQL password-authentication path or generic transactional email provider; order updates use database-backed in-app notifications and guest checkout/lookup responses.
+- Firebase owns verification, password-reset, and email-change action links. The transactional-email module queues account, order, payment, shipment, cancellation, and after-sales messages; real delivery requires `EMAIL_PROVIDER_MODE=resend`, Resend credentials, and a verified sender. In-app notifications remain a separate order-update channel. See [[transactional-email-operations]].
 - Local Firebase Auth uses the Auth Emulator and Emulator UI (`9099`/`4001`);
   the guarded seeder and local MySQL profile start users unverified until an
   emulator action link is completed.

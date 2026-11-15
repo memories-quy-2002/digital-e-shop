@@ -1,692 +1,133 @@
 # AGENTS.md
 
-## Project overview
+Project rules. Read before repo work and after resume/compaction.
 
-Digital-E is a full-stack e-commerce system with independent pnpm packages for
-the client and server, focused on electronics and components.
+## Tech Stack
 
-It has two deployable applications:
+- Runtime: Node.js `24.22.1` (`.node-version`), pnpm `12.4.2`; independent `client/` and `server/` packages, no root workspace. Use pnpm only; do not add npm/yarn lockfiles. Dependency ranges are in package manifests; resolved versions in package-local lockfiles.
+- Client: React 19, React Router DOM 7, Vite 8, TypeScript 6 (`strict: true`), Tailwind CSS 4/Radix, SCSS, Axios, Firebase client auth, Recharts, Vercel Analytics/Speed Insights, Vitest.
+- Server: NestJS 11/Express 5, TypeScript (`noImplicitAny: true`, `strict: false`), MySQL/mysql2 (primary runtime persistence), partial Prisma 7, Zod, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, multer, Sharp, `@vercel/blob`.
+- Tooling: package-local ESLint flat configs, Prettier, Vercel configs, read-only k6 scripts. `server/tsconfig.strict.json` is opt-in; migrate strictness feature by feature.
 
-- `client/`: a React 19 + Vite storefront and admin UI.
-- `server/`: a NestJS 11 API on the Express 5 adapter serving catalog, cart,
-  checkout, account, admin, support, and analytics flows.
+## Commands
 
-High-level architecture:
-
-- Frontend: React Router pages, feature-scoped UI modules, React context for auth/cart/toast, Axios for API calls, SCSS for styling.
-- Backend: feature-based NestJS API with `@Module`/controller/service/repository
-  boundaries under `server/src/<feature>/`, plus shared guards, pipes,
-  filters, middleware, config, database, payments, and shared layers.
-- Data access: primary runtime access is still MySQL through feature repositories; Prisma is present and used in a limited subset of repository reads, not as the dominant persistence abstraction.
-
-For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATION.md`.
-
-## Tech stack
-
-### Runtime and language
-
-- Node.js
-- TypeScript in both packages
-- A small amount of JavaScript/CommonJS remains in the server runtime shape
-
-Exact dependency ranges live in `client/package.json` and `server/package.json`;
-resolved versions live in their package-local `pnpm-lock.yaml` files.
-
-### Frontend
-
-- React 19
-- React Router DOM 7
-- Vite 8
-- TypeScript 6
-- Tailwind CSS 4 with Radix UI primitives
-- SCSS / Sass
-- Axios
-- Firebase client auth
-- Recharts
-- Vercel Analytics and Speed Insights
-- Vitest test runner config is present
-
-### Backend
-
-- NestJS 11 on Express 5
-- MySQL via `mysql2`
-- Prisma 7 and `@prisma/client` (partial persistence/migration layer)
-- Zod validation
-- `csrf-csrf`
-- `jsonwebtoken`
-- `express-rate-limit`
-- `multer`
-- Sharp
-- `@vercel/blob`
-
-### Tooling and deployment
-
-- Independent pnpm packages (`packageManager: pnpm@12.4.2` in `client/` and `server/`); no root workspace
-- ESLint flat config in both packages
-- Prettier installed
-- Vercel config in both `client/vercel.json` and `server/vercel.json`
-- k6 scripts for read-only performance checks
-
-## Repository structure
-
-```text
-digital-e-shop/
-  client/
-    src/
-      api/          Thin exports into the shared HTTP client layer
-      app/          App bootstrap and providers
-      assets/       Static images and frontend assets
-      components/   Shared common/layout components
-      context/      Auth, cart, toast, and shared client state
-      features/     Domain-scoped UI and API modules (admin, auth, orders, products, users)
-      lib/          Shared frontend infrastructure such as HTTP/env helpers
-      pages/        Route-level pages not owned by a feature module
-      routes/       Router and lazy route wiring
-      services/     External client integrations (for example Firebase)
-      styles/       Shared and page SCSS
-      types/        Shared frontend types
-      utils/        Formatting and helper utilities
-
-  server/
-    api/            Serverless/Vercel entrypoint shim
-    src/
-      config/       Typed env, CORS, and database config
-      core/         HTTP exception and response helpers
-      database/     Prisma client/schema, migrations, and seeders
-      <feature>/    Feature-owned Nest modules/controllers/services/repositories/validators/dtos/types
-      guards/       AuthGuard, RolesGuard, and ownership metadata
-      pipes/        Zod validation pipe
-      filters/      Exception handling and compatibility response envelope
-      interceptors/ Request correlation and access logging
-      middleware/   CSRF, rate-limit, and request-id middleware
-      payments/     Provider boundary and payment ledger types
-      shared/       Shared constants, interfaces, validation helpers, and utilities
-      utils/        Narrow backend utilities still shared across modules
-      app.module.ts Nest composition root
-      main.ts       Nest bootstrap for local and serverless entrypoints
-      server.ts     Local process bootstrap
-    test/           Read-only k6 scripts
-
-  docs/
-    API.md
-    ARCHITECTURE.md
-    CODEX_ORCHESTRATION.md
-    DEVELOPMENT.md
-    TESTING.md
-```
-
-## Setup commands
-
-Use pnpm only. Do not add npm or yarn lockfiles.
-
-Use Node.js `24.22.1` and pnpm `12.4.2`. The repository pins the Node
-version in `.node-version`; each package manifest also pins pnpm.
-
-Install each package independently from the repository root:
+Run from repo root; install and run packages independently.
 
 ```powershell
 pnpm --dir client install
 pnpm --dir server install
-```
-
-Run the applications independently:
-
-```powershell
 pnpm --dir server dev
 pnpm --dir client dev
-```
-
-Package-specific build and checks:
-
-```powershell
 pnpm --dir client build
 pnpm --dir client lint
 pnpm --dir client test
-
+pnpm --dir client test -- --run
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
 pnpm --dir server build
 pnpm --dir server typecheck
 pnpm --dir server lint
-```
-
-Direct frontend typecheck used in current workflows:
-
-```powershell
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-```
-
-Prisma and DB-related commands currently available:
-
-```powershell
+pnpm --dir server test -- --run
+pnpm --dir server test:integration
 pnpm --dir server prisma:generate
 pnpm --dir server prisma:migrate
 pnpm --dir server seed:mock
-```
-
-Performance scripts:
-
-```powershell
 pnpm --dir server perf:readonly
 pnpm --dir server perf:admin-readonly
 pnpm --dir server perf:customer-readonly
-```
-
-Production start points:
-
-```powershell
 pnpm --dir server start
 pnpm --dir client preview
 ```
 
-Local defaults:
-
-- Client: `http://localhost:5173`
-- Server: `http://localhost:4000`
-- Health check: `http://localhost:4000/api/health`
-
-## Environment variables
-
-Tracked environment templates are available at `client/.env.example`,
-`server/.env.example`, and `server/.env.docker.example`. Use placeholders, not
-real secrets.
-
-### Server
-
-Required for normal local runtime:
-
-```env
-NODE_ENV=development
-PORT=4000
-
-DB_HOST=<mysql-host>
-DB_PORT=<mysql-port>
-DB_USER=<mysql-user>
-DB_PASSWORD=<mysql-password>
-DB_NAME=<mysql-database>
-DATABASE_URL=mysql://<user>:<password>@<host>:<port>/<database>
-
-JWT_SECRET_KEY=<jwt-access-secret>
-JWT_REFRESH_SECRET_KEY=<jwt-refresh-secret>
-CSRF_SECRET=<csrf-secret>
-
-CLIENT_URL=http://localhost:5173
-SERVER_URL=http://localhost:4000
-```
-
-Optional or feature-specific:
-
-```env
-BLOB_READ_WRITE_TOKEN=<vercel-blob-token>
-
-DB_QUERY_LOG=false
-DB_QUERY_LOG_THRESHOLD_MS=200
-DB_EXPLAIN_SLOW=false
-
-MOCK_ORDER_COUNT=<seed-order-count>
-MOCK_REVIEW_COUNT=<seed-review-count>
-```
-
-Production also requires `PAYMENT_PROVIDER_MODE=live` and the PayOS credentials.
-Firebase Admin requires `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
-`FIREBASE_PRIVATE_KEY` when the Auth Emulator is not in use; the emulator is
-rejected in production. The MySQL pool uses `DB_PASSWORD`, although the current
-startup missing-key list does not check it. See the
-[production environment guide](docs/DEVELOPMENT.md#production-deployment-variables)
-for the full client/server variable matrix.
-
-### Client
-
-- The client reads `VITE_API_BASE_URL` from Vite environment variables.
-  Development defaults to `http://localhost:4000`; production builds require
-  the variable to be set explicitly.
-- Firebase web config comes from six required `VITE_FIREBASE_*` build variables;
-  `VITE_FIREBASE_MEASUREMENT_ID` is optional. These values are bundled into the
-  browser app, so Firebase web config is public rather than server-side secret
-  material. Production uses project `graduation-project-5bbfb` and rejects the
-  client Auth Emulator URL.
-- Images are served from Vercel Blob (`PRODUCT_IMAGE_BASE_URL` in `client/src/utils/images.ts`), not Cloudinary — an unused Cloudinary image-transform path was removed from that file.
-
-## Coding conventions
-
-### TypeScript style
-
-- Frontend TypeScript is `strict: true`.
-- Server TypeScript currently uses `noImplicitAny: true` with `strict: false` to
-  preserve a passing baseline. `server/tsconfig.strict.json` provides an
-  opt-in strict check while the legacy backend is migrated feature by feature;
-  do not broaden strict exceptions to make that check pass.
-- Prettier is the formatter for JavaScript, TypeScript, CSS/SCSS, JSON, HTML,
-  YAML, and Markdown. ESLint checks code quality and framework rules; it does
-  not own whitespace formatting. Keep package-local `format` and
-  `format:check` scripts in sync with the root Prettier configuration.
-- Frontend code uses ESM imports.
-- Server code mixes CommonJS `require` with TypeScript `import type`; preserve the existing local style within touched files instead of forcing a repo-wide conversion.
-
-### Naming conventions
-
-- React components and pages: `PascalCase` files and component names.
-- Hooks and utilities: `camelCase`.
-- Server source files use `kebab-case` filenames. Nest feature files keep their role suffix in dot notation, such as `payment-reconciliation.service.ts` and `admin-after-sales.controller.ts`.
-- Route path names stay descriptive and mostly noun-based.
-
-### Folder and module boundaries
-
-- Put domain-specific client code in `client/src/features/<domain>/`.
-- Put generic route pages in `client/src/pages/`.
-- Put shared frontend infrastructure in `client/src/lib`, `client/src/context`, `client/src/components/common`, and `client/src/components/layout`.
-- Keep backend route/controller/service/repository boundaries explicit inside each feature module.
-- Put shared backend types in `server/src/shared/interfaces`.
-
-### Error handling
-
-- Backend handlers commonly return JSON with `msg` on expected failures and `error` for infrastructure-style failures.
-- This response shape is not fully uniform across the API. Preserve the existing contract of the specific route you are touching.
-- `AllExceptionsFilter` adds canonical error metadata and compatibility aliases; the response interceptor adds success metadata without moving route data. See `Wiki/concepts/api-response-contract.md` for the maintained contract.
-
-### Validation
-
-- New write-path validation should use Zod in the owning `server/src/<feature>/*.validator.ts` file, or a nearby shared validation module if a contract is genuinely cross-feature.
-- Parse and validate request payloads before persistence.
-- Do not trust client-provided IDs; pair validation with ownership or role checks.
-
-### Logging
-
-- Logging is Pino-based with request correlation IDs; local development also
-  uses readable access output where configured.
-- Request logging records method, URL, status, duration, and request ID without
-  secrets or personal data.
-- DB slow query logging can be enabled with env flags.
-- Do not introduce noisy logs on hot paths. Avoid logging secrets, cookies, tokens, or personal data.
-
-### Database access
-
-- Primary data access lives in `server/src/<feature>/*.repository.ts` as
-  injectable Nest providers.
-- Prefer existing MySQL model patterns for most changes.
-- Prisma exists but is only partially adopted. Do not assume a full Prisma migration.
-- Keep SQL and schema-aware persistence in repositories, not controllers.
-- Service layer coordinates multi-table updates such as checkout, inventory, timeline, and notifications.
-- Follow [database concurrency and query performance](docs/DATABASE_CONCURRENCY_PERFORMANCE.md)
-  before changing transaction boundaries, lock ordering, indexing or catalog queries.
-- Prefer conditional UPDATE and affectedRows checks for atomic writes, FOR UPDATE
-  inside a single transaction connection for multi-row invariants, and revision
-  checks for human-edited documents; do not replace these with client-side reads.
-- Use withRetryableTransaction only for database-only callbacks that are safe
-  to replay after rollback. Never retry provider calls or ambiguous COMMIT results.
-- Scope expensive aggregates to bounded product IDs where possible, retain
-  stable pagination/response contracts, and justify index changes with EXPLAIN.
-
-### API response format
-
-- Expect route-specific payload keys such as `msg`, `error`, `products`, `order`, `orders`, `userData`, `notifications`, `pagination`.
-- Avoid "cleaning up" response shapes unless the user explicitly asks for an API contract change.
-
-### Import rules
-
-- Reuse `client/src/lib/http.ts` for authenticated frontend HTTP calls.
-- Do not hard-code backend URLs in page components.
-- Reuse existing feature `api.ts` files when adding client-side calls in an existing domain.
-- On the server, keep dependency imports local to the layer that owns them.
-
-### Frontend conventions
-
-- Use functional components.
-- Keep loading, empty, error, and success states explicit.
-- Preserve responsive behavior for storefront, account, and admin screens.
-- Keep styles in BEM structure.
-
-### Backend conventions
-
-- Keep controllers thin.
-- Put cross-table orchestration in services.
-- Keep SQL and persistence details in repositories.
-  - Enforce `AuthGuard`, `RolesGuard`, and `OwnerParam` consistently.
-
-## Architecture rules
-
-When adding or changing features:
-
-### Frontend
-
-- Route pages belong in:
-  - `client/src/features/<domain>/pages` for domain-owned screens
-  - `client/src/pages` for generic site pages
-- Shared UI belongs in `client/src/components/common` or `client/src/components/layout`.
-- Shared app infrastructure belongs in `client/src/app`, `client/src/lib`, or `client/src/context`.
-- Feature-specific API wrappers belong in `client/src/features/<domain>/api.ts`.
-- Shared helpers belong in `client/src/utils` or `client/src/lib`.
-- Shared types belong in `client/src/types` or feature-local `types.ts`.
-
-### Backend
-
-- Add or extend controllers in `server/src/<feature>/<feature>.controller.ts` and
-  register the feature module through `server/src/app.module.ts` when needed.
-- Put request parsing and response formatting in feature controllers.
-- Put business rules and multi-repository coordination in feature services.
-- Put table-specific reads/writes in feature repositories.
-- Put feature-local request schemas in `server/src/<feature>/<feature>.validator.ts`.
-- Put shared request/domain types in `server/src/shared/interfaces`.
-- Put cross-cutting helpers in `server/src/shared`, `server/src/core`, or `server/src/config`.
-
-### Data and auth rules
-
-- API routes are mounted under `/api` by `main.ts`'s global prefix. Preserve
-  documented singular/plural route aliases; do not add a general bare-path
-  fallback without verifying the serverless contract.
-- Unsafe requests must preserve the existing CSRF flow.
-- Login, register, and refresh are intentionally excluded from CSRF protection; do not broaden those exceptions.
-- Customer endpoints must validate ownership.
-- Admin endpoints must enforce admin authorization before business logic.
-
-### Shared-code placement
-
-- Use `client/src/features/*/types.ts` for feature-local contracts.
-- Use `server/src/shared/interfaces/domain.ts` for shared backend request/DB typing patterns.
-- Do not add a new abstraction layer unless the existing structure is clearly insufficient.
-
-## Testing instructions
-
-Current test reality:
-
-- Client has Vitest and Testing Library coverage for focused UI/logic paths.
-- Server has a Vitest unit suite, an opt-in MySQL-backed integration suite, and
-  read-only k6 performance scripts.
-
-Use these checks by default:
-
-```powershell
-pnpm --dir client exec tsc -p tsconfig.json --noEmit
-pnpm --dir client build
-pnpm --dir client test
-
-pnpm --dir server typecheck
-pnpm --dir server build
-pnpm --dir server lint
-```
-
-Add targeted tests for new work where practical:
-
-- Frontend: Vitest + Testing Library component/render tests for new logic-heavy components, route guards, or UI state transitions.
-- Backend: use the existing Vitest unit suite for changed logic; use the opt-in MySQL integration suite for persistence boundaries. The server test command also runs the portable Docker command-plan tests without connecting to a database.
-- Performance: use k6 only for read-only paths unless a cloned test DB exists.
-
-If you cannot run a relevant command, say so explicitly in the final report.
-
-## Database instructions
-
-- Prisma schema lives at `server/src/database/prisma/schema.prisma`.
-- The checked-in SQL dump baseline lives under `server/src/database/migrations/`.
-- The operational runtime still relies mainly on feature repositories in
-  `server/src/<feature>/*.repository.ts`.
-
-Current workflow:
-
-- Generate Prisma client:
-
-```powershell
-pnpm --dir server prisma:generate
-```
-
-- Apply Prisma dev migration if you are intentionally using Prisma migrations:
-
-```powershell
-pnpm --dir server prisma:migrate
-```
-
-- Mock data seed currently available:
-
-```powershell
-pnpm --dir server seed:mock
-```
-
-Safe schema-change rules:
-
-- Do not edit schema casually; schema changes affect both raw MySQL queries and the partial Prisma layer.
-- Keep table and column names aligned with existing dump/schema conventions.
-- Prefer additive, reviewable DB changes.
-- If you add a new table or column, update every affected layer: repositories, services, validators, shared/feature types, and any Prisma schema touched by the flow.
-- Be careful with checkout, inventory, order timeline, addresses, and notifications because those paths coordinate multiple tables.
-
-## Security and production constraints
-
-- Never commit secrets, `.env` files, tokens, private cookies, or production credentials.
-- Validate all write payloads before persistence.
-- Preserve auth, CSRF, CORS, and role/ownership checks.
-- Do not bypass `AuthGuard`, `RolesGuard`, or `OwnerParam` for convenience.
-- Avoid unsafe SQL construction. If raw SQL is required, parameterize it whenever possible and review any `$queryRawUnsafe` usage carefully.
-- Preserve existing API contracts unless a contract change is explicitly requested.
-- Be cautious in performance-sensitive paths:
-  - product listing, search, and facets
-  - cart validation and checkout
-  - admin analytics
-  - order history and notification reads
-- Do not add dependencies without a concrete need and compatibility check.
-- For dependency changes, keep lockfile churn minimal and prefer patch/minor updates unless a larger change is required.
-
-## Git and PR workflow
-
-Current branch structure on the GitHub remote:
-
-- `main`: the only long-lived branch. It is deployed and serves as both the release and production branch.
-
-The repo previously ran a `dev` → `main` → `production` flow (see git history for the merged/deleted `dev`, `production`, and `feature/github-actions-cicd` branches), but those branches no longer exist on the remote. Do not assume `dev` or `production` exist, branch from them, or target PRs at them unless the user has explicitly recreated that structure — verify with `git ls-remote --heads origin` if unsure, since stale local remote-tracking refs can otherwise look like live branches.
-
-Branch naming (for new work branched from `main`):
-
-- `feature/<short-description>` for new functionality.
-- `bugfix/<short-description>` for non-urgent bug fixes.
-- `hotfix/<short-description>` for urgent production fixes.
-
-Standard flow:
-
-1. Branch from `main`.
-2. Develop and commit on the feature/bugfix/hotfix branch.
-3. Open a PR into `main`; reviews and CI must pass before merge.
-4. Delete the branch after merge.
-
-Rules:
-
-- Never push directly to `main`.
-- Every change should go through a pull request with at least one review.
-- Delete feature, bugfix, and hotfix branches after merge.
-- Always confirm the current branch before suggesting or performing a merge.
-- Ask for explicit confirmation before any task touches `main`.
-- Flag any action that would violate this flow and explain why.
-- If the user reintroduces a multi-branch flow (e.g. adds back `dev`/`production`), update this section to match rather than leaving stale instructions.
-
-Commit messages should use Conventional Commit style:
-
-```text
-<type>(<scope>): <short summary>
-```
-
-Allowed common types:
-
-- `feat`
-- `fix`
-- `refactor`
-- `test`
-- `chore`
-- `docs`
-
-Before opening a PR, run the relevant checks for the changed surface. PR summaries should include changed files, behavior changes, verification, assumptions, and remaining risks. Include screenshots for substantial UI changes when possible.
-
-## Superpowers execution workflow
-
-Use this structured workflow for any non-trivial AI coding task. It keeps changes small, reviewable, and safe.
-
-1. **Inspect** — Read the relevant files first. Use GitNexus/Grep to map the touched surface before editing. Read `AGENTS.md` and `Wiki/index.md`.
-2. **Clarify assumptions** — State assumptions explicitly. If a requirement is ambiguous and the choice changes behavior, ask once; otherwise pick the obvious default and note it.
-3. **Plan** — Write a short step list (use the todo list for multi-step work). Identify the files to change and the verification commands you will run.
-4. **Implement** — Make the smallest safe change. Match surrounding style. Preserve API contracts, auth/CSRF/CORS, and route aliases.
-5. **Test** — Run the relevant verification commands for the touched surface (see "Verification commands" below). Add targeted tests where practical.
-6. **Review** — Re-read the diff for correctness, security, and accidental scope creep. Confirm no secrets, no broadened CSRF exceptions, no bypassed role checks.
-7. **Summarize** — Report changed files, behavior changes, verification results, assumptions, and remaining risks. Note any command you could not run and why.
-
-Scale the ceremony to the task. A one-line fix does not need a written plan; a multi-file feature does.
-
-## Verification commands
-
-Run the checks relevant to the surface you changed. Doc-only changes need no build.
-
-```powershell
-# Frontend
-pnpm --dir client exec tsc -p tsconfig.json --noEmit
-pnpm --dir client build
-pnpm --dir client lint
-pnpm --dir client test -- --run
-
-# Backend
-pnpm --dir server typecheck
-pnpm --dir server test -- --run
-pnpm --dir server test:integration
-pnpm --dir server build
-pnpm --dir server lint
-```
-
-Always state which commands you ran and their result in the final summary.
-
-## LLM Wiki maintenance rules
-
-`Wiki/` is the long-term project knowledge base, written for both humans (readable in Obsidian) and future AI agents. It complements `AGENTS.md` (rules for agents) and `docs/` (human guides); the wiki captures *understanding* — why things are the way they are.
-
-- **Read first:** Read `Wiki/index.md` before any major change. Follow links into `Wiki/architecture.md`, entities, and decisions relevant to your task.
-- **Update after meaningful change:** When you change architecture, an API contract, the database schema, or core business logic, update the affected wiki page in the same task.
-- **Use Obsidian wikilinks:** Link pages with `[[page-name]]` (no `.md`). Keep a working backlink graph.
-- **Structure:**
-  - `index.md` — catalog of important pages + short project summary + last-updated date.
-  - `overview.md` — purpose, stack, modules, commands, assumptions.
-  - `architecture.md` — folder structure, backend/frontend/db boundaries, observations, risks.
-  - `log.md` — append-only log of wiki/AI-maintenance operations (date, agent, what changed).
-  - `sources/` — notes distilled from specific source files or docs.
-  - `entities/` — domain entities (Product, Order, Cart, User, Discount…).
-  - `concepts/` — cross-cutting concepts (auth/CSRF, validation, inventory movement…).
-  - `decisions/` — lightweight ADRs (one decision per file).
-  - `synthesis/` — higher-level summaries that tie several pages together.
-- **Keep it concise:** Prefer short, factual Markdown over long prose. Always bump the "Last updated" date in `index.md` and append a one-line entry to `log.md` when you edit the wiki.
-- **Don't duplicate code:** Capture intent, contracts, and relationships — not copies of source that will drift.
-
-## BMAD lightweight workflow
-
-A minimal product-and-engineering process for non-trivial work. Keep it lightweight — a solo dev or small team should never drown in process documents. Roles are *hats one person wears*, not separate people.
-
-Roles:
-
-- **Analyst** — clarifies the problem, constraints, and success criteria.
-- **PM** — turns the problem into a short PRD: scope, user value, acceptance criteria.
-- **Architect** — decides where it lives in the existing structure; records non-obvious choices as a decision in `Wiki/decisions/`.
-- **Scrum Master** — slices the PRD into small stories using `docs/bmad/story-template.md`.
-- **Developer** — implements via the Superpowers workflow above.
-- **QA** — runs `docs/bmad/qa-checklist.md` and the verification commands.
-
-When to use BMAD: multi-file features, schema/contract changes, anything touching checkout, auth, inventory, or admin authorization, or work spanning more than ~a day.
-
-When NOT to use BMAD: typo fixes, copy tweaks, single-function bug fixes, dependency bumps, doc edits. Just do those via the Superpowers steps.
-
-Templates live in `docs/bmad/`. Produce only the artifacts the task actually needs.
-
-## Codex orchestration
-
-The user is the Product Owner. Main Codex owns requirements analysis, planning,
-specialist selection, integration, validation, review, commits, and final delivery.
-
-- Work on demand in the active session. Use subagents only when delegation
-  provides a concrete benefit; small tasks can stay with Main Codex.
-- Native custom roles live in `.codex/agents/`: Architect, Backend, Frontend,
-  QA, Reviewer, and DevOps. Choose only the roles needed for the task.
-- `.codex/config.toml` limits concurrency to two subagents, excluding Main Codex.
-  Delegated agents use Luna; do not silently substitute another model.
-- Assign exact file ownership and bounded task packets. Reuse suitable agents
-  and avoid overlapping writes. Subagents must not spawn more agents.
-- Main Codex inspects the actual diff, resolves findings, and runs the relevant
-  checks before committing. Configuration/doc-only changes need no app build.
-- Subagents return reports and leave Git operations to Main Codex. Create PRs
-  only when requested. Merge/deploy require explicit authorization and existing
-  quality, review, and environment gates.
-- Keep implementation small and consistent with project conventions. Add an
-  abstraction only for a concrete need; avoid redundant code and unrelated work.
-- This configuration does not authorize background monitoring, cron, hosted
-  dispatchers, workers, queues, protected-path edits, or production operations.
-
-Read [docs/CODEX_ORCHESTRATION.md](docs/CODEX_ORCHESTRATION.md) before delegation
-for role selection, ownership, handoff, model, verification, and delivery rules.
-
-## Codex working rules
-
-- Read this `AGENTS.md` before starting repo work and re-read it after resume/compaction.
-- Before any repository response or action, read `docs/ai-prompts/README.md` and automatically select the closest task prompt. Do not wait for the user to name a prompt. Invoke the skills required by that prompt when the task matches their scope.
-- For broad tasks that need delegation, read `docs/CODEX_ORCHESTRATION.md`.
-- Use Context7 when the task is about a library, framework, SDK, API, CLI tool, or cloud service. Resolve the library ID first, then query the docs.
-- Inspect existing patterns before editing.
-- Use GitNexus for structural lookup before broad manual scanning when it is available.
-- Before spawning a new sub-agent, check whether an existing Codex sub-agent is already active and suitable for the task. Reuse active sub-agents when their current role matches or is close enough. Spawn a new sub-agent only when the task is materially different from the work the existing sub-agents are already handling, or when parallel ownership needs to stay isolated.
-- Make the smallest safe change that satisfies the request.
-- Avoid large rewrites unless explicitly requested.
-- Do not add dependencies without justification.
-- Update docs when behavior, commands, or architecture expectations change.
-- Run the most relevant checks before the final response.
-- Mention any commands that could not be run and why.
-- Preserve existing public APIs, route aliases, cookie flow, and CSRF behavior unless explicitly asked to change them.
-
-## Known gaps / TODOs
-
-These are directly observable from the current repo:
-
-- Tracked environment templates exist at `client/.env.example`,
-  `server/.env.example`, and `server/.env.docker.example`; they contain
-  placeholders only and must not be replaced with real secrets.
-- Client and server are independently installable; `pnpm --dir client dev` runs Vite, while `pnpm --dir server dev` prepares Prisma before compiling and watching the API.
-- Client and server each have package-local Vitest configuration and tests; the
-  server integration suite requires an isolated MySQL target.
-- Prisma schema and a checked-in forward migration history exist, but the
-  initial `0_init` migration is metadata-only because the legacy SQL dump is
-  still the baseline.
-- `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent lockfiles and must be updated from their owning package directories.
-- `client/src/lib/env.ts` requires an explicit production API base URL and uses
-  localhost only for development defaults.
-- Feature validators own their schemas. Shared request parsing and validation-error formatting live in `server/src/shared/validation/request-validation.ts`; avoid re-exporting feature schemas through the shared layer.
-- Backend response payload shapes are inconsistent across routes (`msg` vs `error` and route-specific data keys), so callers must preserve route-local contracts carefully.
+- URLs: client `http://localhost:5173`; server `http://localhost:4000`; health `http://localhost:4000/api/health`.
+- Client: Vitest/Testing Library. Server: Vitest; integration requires isolated MySQL; portable Docker command-plan tests do not need DB. Use k6 on read-only paths unless using a cloned test DB.
+- Run checks relevant to changed surface. Doc-only changes need no app build. Report every check and result; never claim unrun checks passed.
+
+## Architecture
+
+- Client: `client/src/features/<domain>/` owns domain UI, `pages/`, `api.ts`, `types.ts`; generic pages in `client/src/pages/`; shared UI in `client/src/components/common|layout/`; app infrastructure in `client/src/app|lib|context/`; helpers in `client/src/utils|lib/`; shared types in `client/src/types/`. Other folders: `api/` thin exports, `assets/`, `routes/`, `services/`, `styles/`.
+- Server: `server/api/` Vercel shim; `server/src/<feature>/` Nest module/controller/service/repository/validator/DTO/types; shared interfaces in `server/src/shared/interfaces/`. Cross-cutting code: `config/`, `core/`, `database/`, `guards/`, `pipes/`, `filters/`, `interceptors/`, `middleware/`, `payments/`, `shared/`, `utils/`; roots `app.module.ts`, `main.ts`, `server.ts`; k6 scripts in `server/test/`.
+- Guides: `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/CODEX_ORCHESTRATION.md`, `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/DATABASE_CONCURRENCY_PERFORMANCE.md`; task prompts in `docs/ai-prompts/`.
+- Frontend: React Router pages, feature UI, auth/cart/toast contexts, Axios. Reuse `client/src/lib/http.ts` and existing feature `api.ts`; never hard-code backend URLs in pages.
+- Backend: thin controllers; services coordinate business and multi-table work; repositories own SQL/persistence. Keep MySQL primary; Prisma is limited to selected reads/migrations. Keep dependency imports in the owning layer.
+- API prefix `/api` is set in `main.ts`. Preserve documented singular/plural aliases; do not add bare-path fallback without verifying serverless contract. Preserve route-specific response keys (`msg`, `error`, `products`, `order`, `orders`, `userData`, `notifications`, `pagination`). `AllExceptionsFilter` adds error metadata/aliases; response interceptor adds success metadata without moving route data. Contract: `Wiki/concepts/api-response-contract.md`.
+- Client production requires explicit `VITE_API_BASE_URL` (localhost default is development-only). Firebase uses six required `VITE_FIREBASE_*` build variables and optional `VITE_FIREBASE_MEASUREMENT_ID`; these are public client config. Production project: `graduation-project-5bbfb`; reject client Auth Emulator URL. Images use Vercel Blob via `PRODUCT_IMAGE_BASE_URL` in `client/src/utils/images.ts`, not Cloudinary.
+
+### Database
+
+- Read `docs/DATABASE_CONCURRENCY_PERFORMANCE.md` before transaction, locking, index, or catalog-query changes.
+- Keep persistence in feature repositories; services coordinate checkout, inventory, timelines, notifications, etc. Do not migrate all persistence to Prisma.
+- Single-row arithmetic: conditional `UPDATE` + `affectedRows`; multi-row invariants: ordered `SELECT ... FOR UPDATE` on the same transaction connection; human edits: revision compare-and-swap. Do not replace with client-side reads.
+- `withRetryableTransaction` only replays DB-only, replay-safe callbacks after confirmed rollback. Never retry provider calls, external side effects, or ambiguous COMMIT outcomes.
+- Bound expensive aggregates to product IDs where possible; preserve pagination/contracts; justify indexes with `EXPLAIN`.
+- Prisma schema: `server/src/database/prisma/schema.prisma`; checked-in legacy SQL baseline: `server/src/database/migrations/`; runtime remains mainly `server/src/<feature>/*.repository.ts`.
+- Keep table/column names aligned; prefer additive schema changes and update affected repositories, services, validators, types, and Prisma schema. Treat checkout, inventory, order timeline, addresses, and notifications as coordinated paths. Integration needs isolated MySQL; k6 is read-only unless using a cloned DB.
+
+## Coding Conventions
+
+- Format JS/TS/CSS/SCSS/JSON/HTML/YAML/Markdown with Prettier; ESLint checks quality/framework rules, not whitespace. Keep package `format`/`format:check` aligned with root config.
+- Preserve local module style: frontend ESM; server may mix CommonJS `require` and TS `import type`. Do not force repo-wide conversion or broaden strict exceptions.
+- Names: React components/pages `PascalCase`; hooks/utilities `camelCase`; server filenames `kebab-case` with Nest role suffixes (e.g. `payment-reconciliation.service.ts`); descriptive, mostly noun-based routes.
+- Client: functional components; explicit loading/empty/error/success states; responsive storefront/account/admin; BEM styles.
+- Validate new writes with feature-owned Zod `*.validator.ts`; use shared validation only for cross-feature rules. Parse before persistence. Shared parsing/error formatting: `server/src/shared/validation/request-validation.ts`; do not re-export feature schemas there.
+- Do not trust client IDs/prices/stock/totals/payment status; enforce ownership/role with `AuthGuard`, `RolesGuard`, `OwnerParam`.
+- Add abstractions only for concrete boundary needs. Pino logs method/URL/status/duration/request ID; never log secrets, cookies, tokens, or personal data; avoid hot-path noise. DB flags: `DB_QUERY_LOG`, `DB_QUERY_LOG_THRESHOLD_MS`, `DB_EXPLAIN_SLOW`; no diagnostic queries on hot production paths.
+
+## Guardrails/Don'ts
+
+### Environment and secrets
+
+- Templates: `client/.env.example`, `server/.env.example`, `server/.env.docker.example`; placeholders only. Never commit `.env`, secrets, tokens, private cookies, or production credentials.
+- Server local vars: `NODE_ENV=development`, `PORT=4000`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL=mysql://<user>:<password>@<host>:<port>/<database>`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET`, `CLIENT_URL=http://localhost:5173`, `SERVER_URL=http://localhost:4000`.
+- Optional: `BLOB_READ_WRITE_TOKEN`, `DB_QUERY_LOG=false`, `DB_QUERY_LOG_THRESHOLD_MS=200`, `DB_EXPLAIN_SLOW=false`, `MOCK_ORDER_COUNT`, `MOCK_REVIEW_COUNT`.
+- Production requires `PAYMENT_PROVIDER_MODE=live` and PayOS credentials. Firebase Admin requires `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` outside Auth Emulator; production rejects emulator. MySQL pool uses `DB_PASSWORD`, though startup missing-key list omits it. Full matrix: `docs/DEVELOPMENT.md#production-deployment-variables`.
+
+### Security and compatibility
+
+- Preserve auth, CSRF, CORS, role/ownership checks, cookie flow, route aliases, API contracts, and transaction boundaries. Never bypass guards/ownership. Login/register/refresh are the only intentional CSRF exemptions; preserve unsafe-request CSRF flow.
+- Customer endpoints validate ownership; admin authorization precedes business logic. Validate every write payload before persistence.
+- Parameterize raw SQL; review `$queryRawUnsafe` carefully. Do not change global isolation or assume production isolation level. Do not casually run `prisma db push` or `prisma migrate reset` on data-bearing DBs.
+- Protect hot paths: product listing/search/facets, cart validation/checkout, admin analytics, order history, notification reads. Add dependencies only for concrete need/compatibility; minimize lockfile churn and prefer patch/minor updates. Make schema changes additive/reviewable; follow DB guide for locking, retries, profiling, rollout.
+
+### Git and delivery
+
+- Remote long-lived branch is `main` (release/production); historical `dev`, `production`, `feature/github-actions-cicd` are deleted. If uncertain, run `git ls-remote --heads origin`; do not trust stale local refs.
+- Branch from `main`: `feature/<short-description>`, `bugfix/<short-description>`, `hotfix/<short-description>`. Flow: branch -> commit -> PR to `main` -> one review + passing CI -> delete branch after merge.
+- Never push directly to `main`; explicitly confirm before any task touches `main`. Verify current branch before merge; flag flow violations. Update this rule if user restores multi-branch flow.
+- Conventional Commit: `<type>(<scope>): <short summary>`; common types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
+- Before PR, run relevant checks. Summaries include files, behavior, verification, assumptions, risks; include screenshots for substantial UI changes when possible. Main Codex owns Git; do not commit/push/create PR/merge/deploy unless requested/authorized.
+
+### Workflow and delegation
+
+- For every repo request, read `docs/ai-prompts/README.md` and choose one closest prompt automatically: `feature.md`, `bugfix.md`, `refactor.md`, `review.md`, `test.md`, `wiki-ingest.md`. Follow its required skills; prompt selection does not expand scope. Use `find-skills` for missing capability or explicit skill discovery.
+- Inspect guidance, branch/worktree, patterns, and `Wiki/index.md` before major changes. Use GitNexus before broad scans; use Context7 for library/framework/SDK/API/CLI/cloud behavior. Read `docs/CODEX_ORCHESTRATION.md` before broad delegation.
+- Non-trivial work: inspect -> state assumptions -> plan files/checks -> smallest implementation -> relevant tests -> review diff/security/scope -> report files, behavior, verification, assumptions, risks. Scale ceremony to task; doc-only changes need no app build.
+- Use BMAD for multi-file features, schema/contracts, checkout/auth/inventory/admin authorization, or work over ~1 day; otherwise skip. Roles: Analyst (problem/criteria), PM (short PRD), Architect (placement/decision), Scrum Master (stories via `docs/bmad/story-template.md`), Developer (Superpowers workflow), QA (`docs/bmad/qa-checklist.md`). Templates: `docs/bmad/`; create only needed artifacts.
+- User is Product Owner. Main Codex owns requirements, planning, specialist selection, integration, validation, review, Git, delivery. Delegate only for concrete benefit; check/reuse suitable active agents. Max two concurrent subagents besides Main Codex; use `.codex/agents/` roles (Architect, Backend, Frontend, QA, Reviewer, DevOps) and Luna; choose effort by complexity. Assign exact ownership, avoid overlapping writes; delegates must not spawn agents or do Git operations. PR creation only when requested; merge/deploy need explicit authorization and quality/review/environment gates.
+- Delegation does not authorize background monitoring, cron, hosted dispatchers/workers/queues, protected-path edits, or production operations. See `docs/CODEX_ORCHESTRATION.md` for packets, models, ownership, verification, handoff, delivery.
+
+### Wiki maintenance
+
+- `Wiki/` stores durable understanding; `AGENTS.md` agent rules; `docs/` human guides. Read `Wiki/index.md` before major changes and follow relevant links. Update Wiki for architecture, API contract, schema, or core business-rule changes.
+- Use Obsidian `[[page-name]]` links with working backlinks; keep concise and do not copy source code. On Wiki edits, update `Wiki/index.md` Last updated and append one line to `Wiki/log.md`.
+- Structure: `index.md` catalog/summary/date; `overview.md` purpose/stack/modules/commands/assumptions; `architecture.md` boundaries/risks; append-only `log.md`; `sources/`, `entities/`, `concepts/`, `decisions/` (one ADR each), `synthesis/`.
 
 <!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+### GitNexus — mandatory code intelligence
 
-This project is indexed by GitNexus as **digital-e-shop** (64901 symbols, 82142 relationships, 530 execution flows).
+Repo: `digital-e-shop` (64901 symbols, 82142 relationships, 530 flows). If stale, run `node .gitnexus/run.cjs analyze --index-only` at repo root. If runner absent, bootstrap with `npx`, `bunx`, or `pnpm dlx`, e.g. `bunx gitnexus@latest analyze` (npm 11 `npx` issue #1939).
 
-> Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
-
-## Always Do
-
-- **MUST run impact before editing.** Use `impact({target: "symbolName", direction: "upstream"})` or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, and risk. Never substitute grep for graph analysis.
-- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). `partial: true` or `truncated: true` is not a clean check — a zero means unseen, not unaffected; re-run it. For regression review: `detect_changes({scope: "compare", base_ref: "main"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
-- MUST warn on HIGH/CRITICAL `risk` pre-edit; never use `riskSharedAxes` to waive a HIGH/CRITICAL `risk` warning. Compare File/symbol: MCP File omits axes; Graph-RAG expands File.
-- **MUST treat `risk: UNKNOWN` as unresolved, not as low.** An empty caller set is not evidence the symbol is unused — it can also mean the callers are not resolvable by the index (plain-object property access, dynamic dispatch, cross-language calls). `impact` pairs `UNKNOWN` with a `riskNote` saying so. Confirm with a text search before treating the symbol as safe to change or delete; do not proceed on the strength of a zero.
-- **MUST use `query({search_query: "concept"})` for concepts/flows, `context({name: "symbolName"})` for a named symbol, or `impact` for blast radius, on read-only callers, dependencies, imports, or execution flow.** Graph first; text search only for empty/`UNKNOWN`/literals.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
-
-## Never Do
-
-- NEVER edit a function, class, or method before MCP/CLI impact analysis.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis, and never read `UNKNOWN` as an all-clear — it means the walk could not answer, which is the one verdict that requires confirming by other means.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit before MCP/CLI graph change analysis.
-
-## Resources
-
-| Resource | Use for |
-| --- | --- |
-| `gitnexus://repo/digital-e-shop/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/digital-e-shop/clusters` | All functional areas |
-| `gitnexus://repo/digital-e-shop/processes` | All execution flows |
-| `gitnexus://repo/digital-e-shop/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-| --- | --- |
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
-
+- Before editing any function/class/method, run upstream impact via MCP `impact({target: "symbolName", direction: "upstream"})` or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, risk. Never substitute grep. Warn on HIGH/CRITICAL; `riskSharedAxes` does not waive these warnings.
+- Treat `risk: UNKNOWN` as unresolved, not low. Empty callers may mean unresolved dispatch/cross-language/property access; confirm with text search. Never infer unused/safe from zero. MCP File omits axes; Graph-RAG expands File.
+- For read-only callers/dependencies/imports/flows, use graph first: `query({search_query: "concept"})`, `context({name: "symbolName"})`, or `impact`. Use text search only for empty/UNKNOWN/literals. Security taint: `explain({target: "fileOrSymbol"})` (requires `analyze --pdg`).
+- Before commit, run MCP `detect_changes({scope: "all"})` or `node .gitnexus/run.cjs detect-changes --scope all --repo .`; `partial: true`/`truncated: true` is not clean, rerun. Regression: MCP `detect_changes({scope: "compare", base_ref: "main"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
+- Never edit symbols before impact; ignore no HIGH/CRITICAL or UNKNOWN; never rename via find/replace (use GitNexus `rename`); never commit before graph change analysis.
+- Resources: `gitnexus://repo/digital-e-shop/context`, `gitnexus://repo/digital-e-shop/clusters`, `gitnexus://repo/digital-e-shop/processes`, `gitnexus://repo/digital-e-shop/process/{name}`.
+- CLI skills: architecture `.claude/skills/gitnexus-exploring/SKILL.md`; impact `.claude/skills/gitnexus-impact-analysis/SKILL.md`; debugging `.claude/skills/gitnexus-debugging/SKILL.md`; refactor `.claude/skills/gitnexus-refactoring/SKILL.md`; tools/resources `.claude/skills/gitnexus-guide/SKILL.md`; index/status/wiki `.claude/skills/gitnexus-cli/SKILL.md`.
 <!-- gitnexus:end -->
+
+### Known gaps
+
+- `pnpm --dir server dev` prepares Prisma before compile/watch; client dev runs Vite. Each package has Vitest; server integration needs isolated MySQL.
+- Prisma forward migrations exist; `0_init` is metadata-only because legacy SQL dump remains baseline. Lockfiles `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent; update from owning package.
+- `client/src/lib/env.ts` requires production API URL. Feature validators own schemas; shared parsing is `server/src/shared/validation/request-validation.ts`. Backend response keys vary; preserve route contracts.
