@@ -6,7 +6,7 @@ const { pool } = vi.hoisted(() => ({
 
 vi.mock("#src/config/database.config", () => ({ default: pool }));
 
-import { withRetryableTransaction, withTransaction } from "../transaction";
+import { withRetryableTransaction, withTransaction, type TransactionContext } from "../transaction";
 
 const buildConnection = () => ({
     query: vi.fn(),
@@ -75,7 +75,7 @@ describe("withRetryableTransaction", () => {
         first.query.mockImplementation((_sql, _values, callback) =>
             callback(Object.assign(new Error("deadlock"), { code: "ER_LOCK_DEADLOCK", errno: 1213 })));
         second.query.mockImplementation((_sql, _values, callback) => callback(null, [{ value: 7 }]));
-        const work = vi.fn(async (tx: Parameters<typeof withTransaction>[0] extends (tx: infer C) => Promise<unknown> ? C : never) => {
+        const work = vi.fn(async (tx: TransactionContext) => {
             const rows = await tx.query<Array<{ value: number }>>("SELECT 7");
             return rows[0].value;
         });
@@ -97,7 +97,7 @@ describe("withRetryableTransaction", () => {
             connection.query.mockImplementation((_sql, _values, callback) =>
                 callback(Object.assign(new Error("lock wait timeout"), { code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 })));
         }
-        const work = vi.fn(async (tx: Parameters<typeof withTransaction>[0] extends (tx: infer C) => Promise<unknown> ? C : never) => tx.query("UPDATE products SET stock = stock + 1"));
+        const work = vi.fn(async (tx: TransactionContext) => tx.query("UPDATE products SET stock = stock + 1"));
 
         await expect(withRetryableTransaction(work, { maxAttempts: 2, baseDelayMs: 0 }))
             .rejects.toThrow("lock wait timeout");
