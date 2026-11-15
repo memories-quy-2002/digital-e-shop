@@ -154,3 +154,37 @@ describe("filtered product count queries", () => {
         await expect(new NestProductsRepository().countProductsByFilters({})).rejects.toBe(failure);
     });
 });
+
+
+describe("bounded catalog projection queries", () => {
+    beforeEach(() => pool.query.mockReset().mockImplementation((
+        _sql: unknown,
+        _params: unknown,
+        callback?: (error: null, rows: unknown[]) => void,
+    ) => callback?.(null, [])));
+
+    it.each([
+        ["product detail", (repository: NestProductsRepository) => repository.getProductById(41), [41]],
+        ["comparison", (repository: NestProductsRepository) => repository.getProductsForComparison([41, 42]), [41, 42]],
+        ["default id page", (repository: NestProductsRepository) => repository.getAllProductsPaginated(12, 0), [12, 0]],
+    ])("%s only aggregates ratings and reservations for the selected products", async (_name, query, params) => {
+        await query(new NestProductsRepository());
+        const sql = String(pool.query.mock.calls[0][0]);
+
+        expect(pool.query.mock.calls[0][1]).toEqual(params);
+        expect(sql).toContain("WHERE r.product_id = products.id");
+        expect(sql).toContain("WHERE ir.product_id = products.id");
+        expect(sql).toContain("COALESCE((SELECT ROUND(AVG(r.rating), 1)");
+        expect(sql).not.toContain("GROUP BY ir.product_id");
+        expect(sql).not.toContain("GROUP BY product_id");
+        expect(sql).toContain("products.stock >= 0");
+    });
+
+    it("retains ID ordering and bounded pagination for the default storefront page", async () => {
+        await new NestProductsRepository().getAllProductsPaginated(24, 48);
+        const sql = String(pool.query.mock.calls[0][0]);
+        expect(sql).toContain("ORDER BY products.id DESC");
+        expect(sql).toContain("LIMIT ? OFFSET ?");
+        expect(pool.query.mock.calls[0][1]).toEqual([24, 48]);
+    });
+});
