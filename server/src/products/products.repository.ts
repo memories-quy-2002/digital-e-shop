@@ -72,6 +72,24 @@ const productAttributesSelect = (productAlias: string) => `
     ), JSON_OBJECT()) AS attributes
 `;
 
+// Bounded catalog reads use product-scoped aggregates instead of
+// aggregating all catalog reviews and active reservations first.
+const productScopedRatingSelect = `
+    COALESCE((SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.product_id = products.id), 0) AS rating,
+    (SELECT COUNT(*) FROM reviews r WHERE r.product_id = products.id) AS reviews
+`;
+
+const productScopedAvailabilitySelect = `
+    GREATEST(products.stock - COALESCE((
+        SELECT SUM(ir.quantity)
+        FROM inventory_reservations ir
+        JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+        WHERE ir.product_id = products.id
+          AND pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'
+          AND pc.expires_at > UTC_TIMESTAMP()
+    ), 0), 0) AS available_stock
+`;
+
 const productAvailabilityJoin = `
     LEFT JOIN (
         SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
@@ -405,13 +423,11 @@ export class NestProductsRepository {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
-                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
+                    ${productScopedAvailabilitySelect}, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productScopedRatingSelect}
                 FROM products
                 JOIN categories ON categories.id = products.category_id
                 JOIN brands ON brands.id = products.brand_id
-                ${productRatingJoin}
-                ${productAvailabilityJoin}
                 WHERE products.id = ? AND products.stock >= 0`,
                 [pid],
                 (err: Error | null, rows: ProductEditorRow[]) => {
@@ -441,19 +457,17 @@ export class NestProductsRepository {
             "products.price",
             "products.sale_price",
             "products.stock",
-            "GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock",
+            productScopedAvailabilitySelect,
             "products.main_image",
             "products.specifications",
             productAttributesSelect("products"),
-            productRatingSelect,
+            productScopedRatingSelect,
         ].join(", ");
         const sql = [
             `SELECT ${selectFragments}`,
             "FROM products",
             "JOIN categories ON categories.id = products.category_id",
             "JOIN brands ON brands.id = products.brand_id",
-            productRatingJoin,
-            productAvailabilityJoin,
             `WHERE products.id IN (${placeholders}) AND products.stock >= 0`,
         ].join("\n");
 
@@ -488,9 +502,9 @@ export class NestProductsRepository {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
-                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
-                ${productBaseFrom}
+                    ${productScopedAvailabilitySelect}, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productScopedRatingSelect}
+                ${productIdentityFrom}
                 WHERE products.stock >= 0
                 ORDER BY products.id DESC
                 LIMIT ? OFFSET ?`,
