@@ -7,13 +7,13 @@ Prisma as part of performance cleanup.
 
 ## Concurrency decision matrix
 
-| Workload | Preferred mechanism | Notes |
-| --- | --- | --- |
-| Single-row arithmetic (available stock, counters) | Atomic conditional UPDATE + affectedRows check | Check bounds and reject unsuccessful writes |
-| Multiple related writes / inventory reservations | withTransaction + ordered SELECT ... FOR UPDATE | Lock the canonical rows before inspecting dependent state; commit all business writes atomically |
-| Human-edited documents (stock counts, purchase orders) | version/revision compare-and-swap | Include the expected version in WHERE; return 409 on mismatch |
-| Background task leasing | Bounded FOR UPDATE SKIP LOCKED with fencing token | Call providers only after commit, outside the transaction |
-| Purely read-only public queries | Non-locking SELECT | Avoid FOR UPDATE on browsing/catalog endpoints |
+| Workload                                               | Preferred mechanism                               | Notes                                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Single-row arithmetic (available stock, counters)      | Atomic conditional UPDATE + affectedRows check    | Check bounds and reject unsuccessful writes                                                      |
+| Multiple related writes / inventory reservations       | withTransaction + ordered SELECT ... FOR UPDATE   | Lock the canonical rows before inspecting dependent state; commit all business writes atomically |
+| Human-edited documents (stock counts, purchase orders) | version/revision compare-and-swap                 | Include the expected version in WHERE; return 409 on mismatch                                    |
+| Background task leasing                                | Bounded FOR UPDATE SKIP LOCKED with fencing token | Call providers only after commit, outside the transaction                                        |
+| Purely read-only public queries                        | Non-locking SELECT                                | Avoid FOR UPDATE on browsing/catalog endpoints                                                   |
 
 - For multi-product writes, deduplicate and sort product IDs consistently before locking.
   Keep a consistent lock order between order, payment, product, inventory and related
@@ -55,7 +55,9 @@ reconciliation paths instead of speculative replay.
 4. Benchmark queries with actual cardinalities. Use EXPLAIN ANALYZE on a disposable or
    approved read-only environment; compare rows examined, plans, p50/p95 latency,
    sort/temp-table cost and scan amplification. Verify supporting indexes rather than
-   adding indexes blindly.
+   adding indexes blindly. See [Database optimization evidence](DATABASE_OPTIMIZATION_EVIDENCE.md)
+   for the bounded catalog aggregate demo, its DoD, and the recorded synthetic MySQL
+   report.
 5. For LIKE '%term%' and computed expressions (LOWER/REPLACE), regular B-tree indexes
    may not help. Consider pre-normalized searchable fields or FULLTEXT only after
    profiling and verifying language/search semantics.
