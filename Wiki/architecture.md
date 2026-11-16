@@ -20,6 +20,12 @@ install command. Each package owns its dependencies and lockfile.
 - Generic site pages live in `client/src/pages/`.
 - Authenticated requests go through `client/src/lib/http.ts`; components do
   not hard-code API origins.
+- The local Vite storefront has a dev-only API selector. It defaults to Local
+  and can route through separate same-origin proxies to the local or live
+  production API. Proxy cookie paths isolate sessions; this is a developer
+  convenience, not a production environment switch, and it does not change the
+  Firebase Auth configuration loaded by Vite. See
+  [the development guide](../docs/DEVELOPMENT.md#switching-the-local-storefront-api-environment).
 - Product catalog, recommendation, search/facet, and wishlist operations live
   in `client/src/features/products/api.ts`; user logout lives in the users API.
   Shared wishlist mutations are pure helpers in `wishlistState.ts`, keeping

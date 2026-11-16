@@ -7,10 +7,12 @@ const { allowedRoutingEndpoints, allowedTileUrls } = vi.hoisted(() => ({
     allowedRoutingEndpoints: [
         "http://10.20.0.5:5000",
         "https://router.example.test",
+        "https://api.geoapify.com/v1/routing",
         "https://user:secret@router.example.test",
     ],
     allowedTileUrls: [
-        "https://tiles.example.test/{z}/{x}/{y}.png",
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png",
         "http://tiles.example.test/{z}/{x}/{y}.png",
     ],
 }));
@@ -26,6 +28,7 @@ vi.mock("../config/env.config", async (importOriginal) => {
             ...actual.env,
             deliveryRoutingEndpointAllowlist: allowedRoutingEndpoints,
             deliveryTileUrlAllowlist: allowedTileUrls,
+            geoapifyApiKey: "server-test-key",
         },
     };
 });
@@ -36,9 +39,9 @@ const validInput = (): Omit<DeliverySettings, "version"> => ({
     storeLongitude: 106.7009,
     fee5To20Vnd: 25000,
     feeOver20Vnd: 50000,
-    routingEndpoint: "http://10.20.0.5:5000",
-    tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png",
-    tileAttribution: "Map data provider",
+    routingEndpoint: "https://api.geoapify.com/v1/routing",
+    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    tileAttribution: "© OpenStreetMap contributors",
 });
 
 describe("DeliverySettingsService", () => {
@@ -67,10 +70,8 @@ describe("DeliverySettingsService", () => {
     it("returns only normalized allowlisted endpoints for admin settings choices", async () => {
         await expect(service.getAdminConfig()).resolves.toEqual({
             settings: null,
-            allowedRoutingEndpoints: ["http://10.20.0.5:5000", "https://router.example.test"],
-            allowedTileUrls: [
-                "https://tiles.example.test/{z}/{x}/{y}.png",
-            ],
+            allowedRoutingEndpoints: ["https://api.geoapify.com/v1/routing"],
+            allowedTileUrls: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
         });
     });
 
@@ -93,18 +94,20 @@ describe("DeliverySettingsService", () => {
         [{ fee5To20Vnd: 25000, feeOver20Vnd: 25000 }],
         [{ fee5To20Vnd: 25000.5 }],
         [{ routingEndpoint: "https://user:secret@router.example.test" }],
-        [{ routingEndpoint: "https://unlisted.example.test" }],
+        [{ routingEndpoint: "https://router.project-osrm.org" }],
         [{ tileUrl: "http://tiles.example.test/{z}/{x}/{y}.png" }],
+        [{ tileUrl: "https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png" }],
         [{ tileUrl: "https://unlisted.example.test/{z}/{x}/{y}.png" }],
+        [{ tileAttribution: "Map tiles" }],
     ])("rejects unusable delivery settings %j before persistence", async (overrides) => {
         await expect(service.update({ ...validInput(), ...overrides }, "admin-1")).rejects.toThrow();
         expect(repository.lockCurrent).not.toHaveBeenCalled();
         expect(repository.save).not.toHaveBeenCalled();
     });
 
-    it("allows an explicitly configured private OSRM endpoint", async () => {
+    it("allows only an explicitly configured Geoapify route endpoint", async () => {
         await expect(service.update(validInput(), "admin-1"))
-            .resolves.toMatchObject({ routingEndpoint: "http://10.20.0.5:5000", version: 1 });
+            .resolves.toMatchObject({ routingEndpoint: "https://api.geoapify.com/v1/routing", version: 1 });
     });
 
     it("locks only fully configured and currently allowlisted settings for quote use", async () => {

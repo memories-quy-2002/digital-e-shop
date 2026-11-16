@@ -101,7 +101,10 @@ const AppRouter = () => {
                 <Route path="/news/:slug" element={<NewsArticlePage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<CheckoutSuccessPage />} />
-                <Route path="/mock-payos-checkout" element={<MockPayOSCheckoutPage />} />
+                <Route
+                    path="/mock-payos-checkout"
+                    element={import.meta.env.DEV ? <MockPayOSCheckoutPage /> : <Navigate to="/cart" replace />}
+                />
                 <Route path="/403" element={<ForbiddenPage />} />
                 <Route path={CUSTOMER_ROUTES.account} element={<ProtectedCustomerAccountPage />} />
                 <Route path={CUSTOMER_ROUTES.orders} element={<ProtectedOrderHistoryPage />} />

@@ -21,9 +21,9 @@ const deliverySettings = {
     storeLongitude: 106.7,
     fee5To20Vnd: 25000,
     feeOver20Vnd: 50000,
-    routingEndpoint: "https://router.example.test",
-    tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png",
-    tileAttribution: "Map provider",
+    routingEndpoint: "https://api.geoapify.com/v1/routing",
+    tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    tileAttribution: "© OpenStreetMap contributors",
     version: 2,
 };
 const cart = [{ product_id: 7, quantity: 2, price: 100000, sale_price: null }] as never;

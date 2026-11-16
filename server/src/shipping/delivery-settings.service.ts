@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { withTransaction, type TransactionContext } from "../database/transaction";
 import { env } from "../config/env.config";
-import { isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./delivery-routing.config";
+import { isGeoapifyRoutingEndpoint, isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./delivery-routing.config";
 import { DeliverySettingsRepository } from "./delivery-settings.repository";
-import { deliverySettingsSchema, isSafeTileUrl } from "./delivery-settings.validator";
+import { deliverySettingsSchema, isOpenStreetMapTileUrl, isSafeTileUrl, normalizeTileUrl } from "./delivery-settings.validator";
 import type { DeliveryMapConfig, DeliverySettings, RoadPoint } from "./shipping.types";
 
 export type { DeliverySettings } from "./shipping.types";
@@ -22,8 +22,10 @@ export class DeliverySettingsService {
             settings,
             allowedRoutingEndpoints: [...new Set(env.deliveryRoutingEndpointAllowlist
                 .map((endpoint) => normalizeRoutingEndpoint(endpoint))
-                .filter((endpoint): endpoint is string => endpoint !== null))],
-            allowedTileUrls: [...new Set(env.deliveryTileUrlAllowlist.filter(isSafeTileUrl))],
+                .filter((endpoint): endpoint is string => endpoint !== null)
+                .filter((endpoint) => isGeoapifyRoutingEndpoint(endpoint) && Boolean(env.geoapifyApiKey)))],
+            allowedTileUrls: [...new Set(env.deliveryTileUrlAllowlist.filter((url) => isSafeTileUrl(url)
+                && isOpenStreetMapTileUrl(url)).map((url) => normalizeTileUrl(url) || url))],
         };
     }
 
@@ -45,11 +47,16 @@ export class DeliverySettingsService {
     async update(input: Omit<DeliverySettings, "version">, actorId: string): Promise<DeliverySettings> {
         const parsed = deliverySettingsSchema.safeParse(input);
         if (!parsed.success) throw new BadRequestException({ msg: "Delivery settings are invalid", issues: parsed.error.issues });
-        const settings = parsed.data;
-        if (!isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)) {
+        const tileUrl = normalizeTileUrl(parsed.data.tileUrl);
+        if (!tileUrl) throw new BadRequestException("Map tile URL is invalid");
+        const settings = { ...parsed.data, tileUrl };
+        if (!isGeoapifyRoutingEndpoint(settings.routingEndpoint)
+            || !isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)
+            || !env.geoapifyApiKey) {
             throw new BadRequestException("Select an operator-approved routing endpoint");
         }
-        if (!env.deliveryTileUrlAllowlist.includes(settings.tileUrl)) {
+        if (!isOpenStreetMapTileUrl(settings.tileUrl)
+            || !env.deliveryTileUrlAllowlist.some((allowed) => normalizeTileUrl(allowed) === settings.tileUrl)) {
             throw new BadRequestException("Select an operator-approved HTTPS map tile URL");
         }
         if (!actorId?.trim()) throw new BadRequestException("An administrator identity is required");
@@ -66,8 +73,11 @@ export class DeliverySettingsService {
     }
 
     private assertMapConfigurationAllowed(settings: DeliverySettings): void {
-        if (!isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)
-            || !env.deliveryTileUrlAllowlist.includes(settings.tileUrl)) {
+        if (!isGeoapifyRoutingEndpoint(settings.routingEndpoint)
+            || !isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)
+            || !isOpenStreetMapTileUrl(settings.tileUrl)
+            || !env.deliveryTileUrlAllowlist.some((allowed) => normalizeTileUrl(allowed) === settings.tileUrl)
+            || !env.geoapifyApiKey) {
             throw new ServiceUnavailableException("Internal delivery routing or map configuration is unavailable.");
         }
     }
