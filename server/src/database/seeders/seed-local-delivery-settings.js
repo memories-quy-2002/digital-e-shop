@@ -4,7 +4,7 @@ require("dotenv").config({ path: path.join(__dirname, "..", "..", "..", ".env") 
 const mysql = require("mysql2/promise");
 const { assertLocalDatabaseTarget } = require("../../config/database-target");
 
-const ROUTING_ENDPOINT = "https://router.project-osrm.org";
+const ROUTING_ENDPOINT = "https://api.geoapify.com/v1/routing";
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const DEMO_SETTINGS = {
     storeAddress: "Digital-E demo pickup point, District 1, Ho Chi Minh City",
@@ -14,6 +14,11 @@ const DEMO_SETTINGS = {
     feeOver20Vnd: 50000,
     routingEndpoint: ROUTING_ENDPOINT,
     tileUrl: TILE_URL,
+    tileAttribution: "© OpenStreetMap contributors",
+};
+const LEGACY_DEMO_SETTINGS = {
+    ...DEMO_SETTINGS,
+    routingEndpoint: "https://router.project-osrm.org",
     tileAttribution: "Map tiles © OpenStreetMap contributors · Routes © OSRM",
 };
 
@@ -50,8 +55,9 @@ async function main() {
     assertLocalDatabaseTarget({ dbHost: process.env.DB_HOST, databaseUrl: process.env.DATABASE_URL });
 
     if (!isAllowedEndpoint(process.env.DELIVERY_ROUTING_ENDPOINT_ALLOWLIST, ROUTING_ENDPOINT)
-        || !isAllowedEndpoint(process.env.DELIVERY_TILE_URL_ALLOWLIST, TILE_URL)) {
-        throw new Error("Add the local demo routing endpoint and HTTPS tile URL to the server allowlists before seeding.");
+        || !isAllowedEndpoint(process.env.DELIVERY_TILE_URL_ALLOWLIST, TILE_URL)
+        || !process.env.GEOAPIFY_API_KEY?.trim()) {
+        throw new Error("Configure the Geoapify routing endpoint, OpenStreetMap tiles, allowlists, and server key before seeding.");
     }
 
     const pool = mysql.createPool({
@@ -80,18 +86,33 @@ async function main() {
             current.fee_5_to_20_vnd, current.fee_over_20_vnd, current.routing_endpoint,
             current.tile_url, current.tile_attribution];
         const isEmpty = currentValues.every((value) => value == null) && Number(current.version) === 0;
-        const alreadySeeded = current.store_address === DEMO_SETTINGS.storeAddress
-            && Number(current.store_latitude) === DEMO_SETTINGS.storeLatitude
-            && Number(current.store_longitude) === DEMO_SETTINGS.storeLongitude
-            && Number(current.fee_5_to_20_vnd) === DEMO_SETTINGS.fee5To20Vnd
-            && Number(current.fee_over_20_vnd) === DEMO_SETTINGS.feeOver20Vnd
-            && current.routing_endpoint === DEMO_SETTINGS.routingEndpoint
-            && current.tile_url === DEMO_SETTINGS.tileUrl
-            && current.tile_attribution === DEMO_SETTINGS.tileAttribution;
+        const matchesSettings = (settings) => current.store_address === settings.storeAddress
+            && Number(current.store_latitude) === settings.storeLatitude
+            && Number(current.store_longitude) === settings.storeLongitude
+            && Number(current.fee_5_to_20_vnd) === settings.fee5To20Vnd
+            && Number(current.fee_over_20_vnd) === settings.feeOver20Vnd
+            && current.routing_endpoint === settings.routingEndpoint
+            && current.tile_url === settings.tileUrl
+            && current.tile_attribution === settings.tileAttribution;
+        const alreadySeeded = matchesSettings(DEMO_SETTINGS);
+        const legacyDemoSeeded = matchesSettings(LEGACY_DEMO_SETTINGS) && Number(current.version) === 1;
 
         if (alreadySeeded) {
             await connection.commit();
             process.stdout.write("Local demo delivery settings are already seeded; no changes made.\n");
+            return;
+        }
+        if (legacyDemoSeeded) {
+            await connection.query(
+                `UPDATE delivery_settings
+                 SET routing_endpoint = ?, tile_url = ?, tile_attribution = ?, version = version + 1,
+                     updated_by_id = NULL, updated_at = UTC_TIMESTAMP(3)
+                 WHERE id = 1 AND version = ? AND routing_endpoint = ? AND tile_url = ?`,
+                [DEMO_SETTINGS.routingEndpoint, DEMO_SETTINGS.tileUrl, DEMO_SETTINGS.tileAttribution,
+                    Number(current.version), LEGACY_DEMO_SETTINGS.routingEndpoint, LEGACY_DEMO_SETTINGS.tileUrl],
+            );
+            await connection.commit();
+            process.stdout.write("Updated the local demo delivery settings to Geoapify routing and OpenStreetMap tiles.\n");
             return;
         }
         if (!isEmpty) throw new Error("Delivery settings already contain data; refusing to overwrite operator configuration.");
@@ -124,4 +145,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main, DEMO_SETTINGS, isAllowedEndpoint };
+module.exports = { main, DEMO_SETTINGS, LEGACY_DEMO_SETTINGS, isAllowedEndpoint };

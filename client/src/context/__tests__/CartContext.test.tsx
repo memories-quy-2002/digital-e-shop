@@ -168,13 +168,34 @@ describe("CartContext dual-source state", () => {
 
     it("loads a guest preview as ready state and keeps server-derived totals", async () => {
         addGuestCartItem({ productId: 10, quantity: 2 });
+        mocks.previewGuestCart.mockResolvedValueOnce(preview({ merchandiseTotal: 201, totalPrice: 201 }));
 
         renderCart();
 
         await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
         expect(screen.getByTestId("items")).toHaveTextContent("1");
-        expect(screen.getByTestId("total")).toHaveTextContent("200");
+        expect(screen.getByTestId("total")).toHaveTextContent("201");
         expect(mocks.previewGuestCart).toHaveBeenCalledWith([{ productId: 10, quantity: 2 }], undefined);
+    });
+
+    it("updates the customer total while a quantity change is saving", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        const update = deferred<void>();
+        mocks.updateCustomerCartItem.mockReturnValueOnce(update.promise);
+        mocks.fetchCustomerCart
+            .mockResolvedValueOnce([serverItem({ sale_price: 80 })])
+            .mockResolvedValueOnce([serverItem({ sale_price: 80, quantity: 3 })]);
+
+        renderCart();
+        await waitFor(() => expect(screen.getByTestId("total")).toHaveTextContent("160"));
+
+        fireEvent.click(screen.getByText("update"));
+
+        expect(screen.getByTestId("total")).toHaveTextContent("240");
+        expect(screen.getByTestId("subtotal")).toHaveTextContent("240");
+
+        await act(async () => update.resolve());
+        expect(screen.getByTestId("total")).toHaveTextContent("240");
     });
 
     it("exposes a recoverable error instead of treating a failed preview as empty", async () => {

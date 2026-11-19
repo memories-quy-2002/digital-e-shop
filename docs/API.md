@@ -498,6 +498,8 @@ Browser return parameters and cached checkout data never establish payment.
 | Method | Path | Access |
 | --- | --- | --- |
 | GET | /api/shipping/delivery/map-config | Public minimal map configuration |
+| POST | /api/shipping/address-locations | Public Geoapify address suggestions; address only |
+| POST | /api/shipping/address-locations/reverse | Public Geoapify reverse lookup; Vietnam latitude/longitude and optional locale |
 | POST | /api/shipping/quotes | Authenticated customer; cart is server-owned |
 | POST | /api/shipping/guest/quotes | Guest cart cookie plus submitted cart |
 | GET | /api/shipping/orders/:id | Order owner or admin |

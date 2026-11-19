@@ -167,6 +167,7 @@ export class NestOrdersPayOSService {
         input: AuthoritativePayOSCheckoutInput,
         attemptInput: PayOSAttemptRequest,
     ): Promise<PayOSCheckoutSession> {
+        this.assertProviderModeForEnvironment();
         const reservationBase = {
             deliveryCheckout: input.deliveryCheckout,
             authoritativeCart: input.authoritativeCart,
@@ -193,9 +194,6 @@ export class NestOrdersPayOSService {
         const attempt = reservation.paymentAttempt;
         const initial = this.resultFromAttempt(attempt);
         if (env.paymentProviderMode === "mock") return { result: await this.createMockLink(attempt), replayed: false };
-        if (env.nodeEnv === "production" && env.paymentProviderMode !== "live") {
-            throw createCheckoutError("Mock PayOS checkout is disabled in production.", HTTP_STATUS.SERVICE_UNAVAILABLE);
-        }
         if (initial.sessionState === "READY" || initial.sessionState === "CLOSED") return { result: initial, replayed: false };
 
         const result = await this.createOrRecoverLiveLink(attempt, attemptInput, false);
@@ -203,10 +201,17 @@ export class NestOrdersPayOSService {
     }
 
     private async resumeAttempt(attempt: PaymentAttemptClaim, attemptInput: PayOSAttemptRequest): Promise<PayOSCheckoutResult> {
+        this.assertProviderModeForEnvironment();
         const current = this.resultFromAttempt(attempt);
         if (current.sessionState !== "CREATING") return current;
         if (env.paymentProviderMode === "mock") return this.createMockLink(attempt);
         return this.createOrRecoverLiveLink(attempt, attemptInput, true);
+    }
+
+    private assertProviderModeForEnvironment(): void {
+        if (env.nodeEnv === "production" && env.paymentProviderMode !== "live") {
+            throw createCheckoutError("Mock PayOS checkout is disabled in production.", HTTP_STATUS.SERVICE_UNAVAILABLE);
+        }
     }
 
     private resolveIdempotencyKey(supplied: string | undefined): string {

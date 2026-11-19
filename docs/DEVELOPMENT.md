@@ -118,17 +118,39 @@ before it runs. See [retail P0 acceptance](./backlog/README.md) and
 
 For local checkout work, `pnpm --dir server seed:delivery:local` seeds an
 idempotent demo pickup point and sample VND delivery fees only into the loopback
-`digital_e_shop_local` database. It refuses to overwrite existing settings.
+`digital_e_shop_local` database. It updates only the exact recognized legacy
+OSRM demo fixture to Geoapify routing and OpenStreetMap tiles; other populated
+settings are preserved and cause the seed to stop.
 The current customer-facing cart and checkout flow is documented in
 [Storefront customer journey](./storefront-customer-journey.md).
-The public OSRM demo is for reasonable non-commercial testing only and has no
-uptime guarantee; configure a suitable routing provider and tile service for
-production. The local seed command requires the OSRM and HTTPS tile endpoints
-to be present in the server allowlists first.
-Checkout address lookup uses Photon in local development. `GEOCODING_ENDPOINT`
-can point to an HTTPS Photon-compatible service; it is disabled by default
-outside development. The lookup sends only street address and city, and the
-customer confirms a suggested result before its coordinates are saved.
+Checkout uses Geoapify for routing and address search, with the standard
+OpenStreetMap tile server for the map. OSRM and Geoapify Maps tiles are not
+used. Set these server variables to enable the chosen providers:
+
+```env
+DELIVERY_ROUTING_ENDPOINT_ALLOWLIST=https://api.geoapify.com/v1/routing
+DELIVERY_TILE_URL_ALLOWLIST=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+GEOCODING_ENDPOINT=https://api.geoapify.com/v1/geocode/search
+GEOAPIFY_API_KEY=<server-key-restricted-to-routing-and-geocoding>
+```
+
+Keep `GEOAPIFY_API_KEY` server-side and restrict it to Routing and Geocoding.
+No Geoapify Maps key is needed. The map shows OpenStreetMap attribution and a
+Geoapify link for address/routing data. The admin settings page still requires
+an operator to select the allowlisted endpoints, set the store pin, and save
+delivery fees.
+
+Geoapify's Free plan currently allows 3,000 shared credits per day and permits
+commercial use within its limits, but does not include a service-level
+guarantee. Routing and geocoding consume credits, so monitor usage and key
+restrictions. OpenStreetMap tiles are community funded, best effort, and
+subject to caching, attribution, and no-prefetch requirements. For higher
+production traffic, use an OSM-derived tile host with suitable capacity or
+self-host tiles.
+
+Address lookup sends only street address and city, and the customer confirms a
+suggested result before its coordinates are saved. Use the documented Geoapify
+endpoint; the local example environment selects it by default.
 
 Resend credentials are server-only and use `RESEND_API_KEY`,
 `RESEND_WEBHOOK_SECRET`, and
@@ -262,6 +284,14 @@ loopback-bound and optional; production needs an externally reachable OTLP
 endpoint and its provider-specific credentials.
 
 The client reads `VITE_API_BASE_URL`. Development uses `http://localhost:4000` when no override is supplied. Production builds require an explicit API base URL. Do not put `/api` in the client variable because request modules add that prefix.
+
+### Switching the local storefront API environment
+
+When running the Vite development server, use the fixed selector in the lower-right corner to choose **Local API** or **Production API**. The choice is stored per browser tab and defaults to Local in a new tab. Selecting an environment reloads the app so API clients and CSRF state are recreated. Production requests use a same-origin Vite proxy, so production CORS does not need to allow localhost. Separate proxy paths scope cookies to each backend and prevent the local and production sessions from being sent to one another.
+
+The production selector uses `https://e-commerce-express-server-app.vercel.app` by default. Override either target with `VITE_LOCAL_API_PROXY_TARGET` or `VITE_PRODUCTION_API_PROXY_TARGET` in the client development environment. These variables configure the local Vite server only; they are not API credentials. The selector is not included in production builds. Production mode connects to live data, and any write operation may affect real customers, inventory, orders, or payments. Use read-only storefront checks unless a real transaction is explicitly intended.
+
+This selector changes the API backend only. Firebase Auth continues to use the `VITE_FIREBASE_*` configuration loaded by the current Vite process.
 
 ## Prepare the local database
 

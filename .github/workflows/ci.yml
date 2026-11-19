@@ -63,8 +63,10 @@ jobs:
       EMAIL_PROVIDER_MODE: sandbox
       EMAIL_SANDBOX_FIXTURE: accepted
       PAYMENT_PROVIDER_MODE: mock
-      DELIVERY_ROUTING_ENDPOINT_ALLOWLIST: https://router.example.test
-      DELIVERY_TILE_URL_ALLOWLIST: https://tiles.example.test/{z}/{x}/{y}.png
+      DELIVERY_ROUTING_ENDPOINT_ALLOWLIST: https://api.geoapify.com/v1/routing
+      DELIVERY_TILE_URL_ALLOWLIST: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+      GEOCODING_ENDPOINT: https://api.geoapify.com/v1/geocode/search
+      GEOAPIFY_API_KEY: ci-geoapify-test-key
       JWT_SECRET_KEY: ci-access-secret
       JWT_REFRESH_SECRET_KEY: ci-refresh-secret
       CSRF_SECRET: ci-csrf-secret

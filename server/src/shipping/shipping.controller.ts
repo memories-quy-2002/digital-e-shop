@@ -17,6 +17,11 @@ const addressLocationInput = z.object({
     city: z.string().trim().min(2).max(120).optional(),
     locale: z.enum(["en", "vi"]).optional(),
 }).strict();
+const reverseAddressLocationInput = z.object({
+    latitude: z.number().finite().min(8).max(24),
+    longitude: z.number().finite().min(102).max(110),
+    locale: z.enum(["en", "vi"]).optional(),
+}).strict();
 
 @Controller("shipping")
 export class ShippingController {
@@ -25,6 +30,10 @@ export class ShippingController {
     @Post("address-locations")
     async addressLocations(@Body(new ZodValidationPipe(addressLocationInput)) body: z.infer<typeof addressLocationInput>) {
         return { suggestions: await this.geocoding.find(body) };
+    }
+    @Post("address-locations/reverse")
+    async reverseAddressLocation(@Body(new ZodValidationPipe(reverseAddressLocationInput)) body: z.infer<typeof reverseAddressLocationInput>) {
+        return { location: await this.geocoding.reverse(body) };
     }
     @Post("quotes") @UseGuards(AuthGuard)
     async create(@Req() req: Request, @Body(new ZodValidationPipe(quoteInput)) body: z.infer<typeof quoteInput>) {

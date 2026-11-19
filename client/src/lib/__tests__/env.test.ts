@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { API_BASE_URL, resolveApiBaseUrl } from "../env";
+import { API_BASE_URL, resolveApiBaseUrl, resolveDevelopmentApiBaseUrl } from "../env";
 
 describe("env module", () => {
     it("exports a string API base URL", () => {
@@ -40,6 +40,20 @@ describe("env module", () => {
     it("requires an explicit API URL for production builds", () => {
         expect(() => resolveApiBaseUrl({ isProduction: true })).toThrow(
             "VITE_API_BASE_URL is required for production builds",
+        );
+    });
+
+    it("routes local storefront API requests through an isolated local proxy", () => {
+        expect(resolveDevelopmentApiBaseUrl("local", "http://localhost:5173")).toBe("/__local_api");
+    });
+
+    it("routes production API requests through an isolated proxy without changing the browser origin", () => {
+        expect(resolveDevelopmentApiBaseUrl("production", "http://localhost:5173")).toBe("/__production_api");
+    });
+
+    it("preserves the current origin when the development app is hosted remotely", () => {
+        expect(resolveDevelopmentApiBaseUrl("local", "https://storefront-preview.example.test")).toBe(
+            "https://storefront-preview.example.test",
         );
     });
 

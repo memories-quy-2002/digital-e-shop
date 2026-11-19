@@ -1,9 +1,11 @@
 # Shipping and internal delivery
 
-Checkout quotes use an operator-configured store pin and an OSRM-compatible
-road route. Fees are free below 5 km, use the configured middle band from 5 to
-20 km, and use the higher band above 20 km. Parcel dimensions do not participate
-in quote creation.
+Checkout quotes use Geoapify routing between the configured store pin and the
+customer's confirmed pin. The storefront map uses OpenStreetMap's standard
+tiles and shows attribution for OpenStreetMap and Geoapify. OSRM is not
+supported. Fees are free below 5 km, use the configured middle band from 5
+to 20 km, and use the higher band above 20 km. Parcel dimensions do not
+participate in quote creation.
 
 New orders create an `INTERNAL` shipment in the same transaction as checkout.
 Admins advance packing states, schedule an active delivery staff member, and

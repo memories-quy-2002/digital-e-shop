@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AppRouter from "./router";
 import { Role, type UserData } from "../types/user";
 import { LocaleProvider } from "../context/LocaleContext";
@@ -28,6 +28,10 @@ vi.mock("../features/orders/pages/CartPage", () => ({
 
 vi.mock("../features/orders/pages/CheckoutSuccessPage", () => ({
     default: () => <div data-testid="public-checkout-success-page">Checkout success</div>,
+}));
+
+vi.mock("../features/orders/pages/MockPayOSCheckoutPage", () => ({
+    default: () => <div data-testid="local-mock-payos-page">Local payment simulator</div>,
 }));
 
 vi.mock("../features/orders/pages/GuestOrderLookupPage", () => ({
@@ -117,6 +121,8 @@ beforeEach(() => {
     authState.value = { loading: false, userData: null };
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("cart routing", () => {
     it("renders /cart without the protected route wrapper", async () => {
         render(
@@ -127,6 +133,29 @@ describe("cart routing", () => {
 
         expect(await screen.findByTestId("public-cart-page")).toBeInTheDocument();
         expect(screen.queryByTestId("protected-route")).not.toBeInTheDocument();
+    });
+
+    it("keeps the PayOS simulator available in local development", async () => {
+        vi.stubEnv("DEV", true);
+        render(
+            <MemoryRouter initialEntries={["/mock-payos-checkout"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("local-mock-payos-page")).toBeInTheDocument();
+    });
+
+    it("redirects direct simulator visits to the cart outside local development", async () => {
+        vi.stubEnv("DEV", false);
+        render(
+            <MemoryRouter initialEntries={["/mock-payos-checkout"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("public-cart-page")).toBeInTheDocument();
+        expect(screen.queryByTestId("local-mock-payos-page")).not.toBeInTheDocument();
     });
 
     it("keeps the canonical account routes protected", async () => {
