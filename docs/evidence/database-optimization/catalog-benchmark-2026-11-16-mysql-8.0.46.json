@@ -1,0 +1,150 @@
+{
+  "schema": "catalog_bench_evidence",
+  "databaseVersion": "8.0.46",
+  "target": "127.0.0.1:3308",
+  "generatedAt": "2026-11-16T03:38:51.573Z",
+  "dataset": {
+    "products": 5000,
+    "reviews": 94740,
+    "productsWithoutReviews": 263,
+    "reviewRowsPerProduct": 20,
+    "checkouts": 498,
+    "reservations": 498,
+    "activeReservations": 448,
+    "reservationRate": 0.1,
+    "runIdHash": "3444f4b4d394"
+  },
+  "methodology": {
+    "warmups": 3,
+    "measuredRuns": 15,
+    "beforeAfterOrderAlternates": true,
+    "comparison": "same fixture rows; result parity checked before timing"
+  },
+  "cases": [
+    {
+      "name": "product-detail",
+      "kind": "optimized",
+      "resultParity": "pass",
+      "resultRows": 1,
+      "legacy": {
+        "minMs": 40.836,
+        "medianMs": 43.661,
+        "p95Ms": 50.721,
+        "maxMs": 50.721,
+        "samples": 15
+      },
+      "scoped": {
+        "minMs": 0.693,
+        "medianMs": 0.984,
+        "p95Ms": 1.612,
+        "maxMs": 1.612,
+        "samples": 15
+      },
+      "medianChangePercent": -97.75,
+      "explainAnalyze": {
+        "legacy": "-> Nested loop left join  (cost=504 rows=0) (actual time=44.2..44.2 rows=1 loops=1)\n    -> Nested loop left join  (cost=478 rows=4758) (actual time=43.6..43.6 rows=1 loops=1)\n        -> Rows fetched before execution  (cost=0..0 rows=1) (actual time=54e-6..90e-6 rows=1 loops=1)\n        -> Index lookup on review_summary using <auto_key0> (product_id=2500)  (cost=19523..19526 rows=10) (actual time=43.6..43.6 rows=1 loops=1)\n            -> Materialize  (cost=19523..19523 rows=4758) (actual time=43.6..43.6 rows=4737 loops=1)\n                -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=2.95..41.6 rows=4737 loops=1)\n                    -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=2.95..37.5 rows=94740 loops=1)\n    -> Index lookup on active_reservations using <auto_key0> (product_id=2500)  (cost=0.26..2.65 rows=10.2) (actual time=0.589..0.589 rows=0 loops=1)\n        -> Materialize  (cost=0..0 rows=0) (actual time=0.588..0.588 rows=448 loops=1)\n            -> Table scan on <temporary>  (actual time=0.471..0.493 rows=448 loops=1)\n                -> Aggregate using temporary table  (actual time=0.47..0.47 rows=448 loops=1)\n                    -> Nested loop inner join  (cost=225 rows=448) (actual time=0.0462..0.394 rows=448 loops=1)\n                        -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0197..0.0682 rows=498 loops=1)\n                        -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=533e-6..573e-6 rows=0.9 loops=498)\n                            -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=390e-6..403e-6 rows=1 loops=498)\n",
+        "scoped": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=54e-6..98e-6 rows=1 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Aggregate: avg(r.rating)  (cost=9 rows=1) (actual time=0.0185..0.0185 rows=1 loops=1)\n        -> Index lookup on r using idx_product (product_id='2500')  (cost=7 rows=20) (actual time=0.0144..0.016 rows=20 loops=1)\n-> Select #3 (subquery in projection; dependent)\n    -> Aggregate: count(0)  (cost=4.26 rows=1) (actual time=0.00376..0.00379 rows=1 loops=1)\n        -> Covering index lookup on r using idx_product (product_id='2500')  (cost=2.26 rows=20) (actual time=0.00207..0.003 rows=20 loops=1)\n-> Select #4 (subquery in projection; dependent)\n    -> Aggregate: sum(ir.quantity)  (cost=0.79 rows=1) (actual time=0.00146..0.0015 rows=1 loops=2)\n        -> Nested loop inner join  (cost=0.7 rows=0.9) (actual time=0.0012..0.0012 rows=0 loops=2)\n            -> Index lookup on ir using idx_product (product_id='2500')  (cost=0.35 rows=1) (actual time=0.00108..0.00108 rows=0 loops=2)\n            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.34 rows=0.9) (never executed)\n                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.34 rows=1) (never executed)\n"
+      }
+    },
+    {
+      "name": "product-comparison",
+      "kind": "optimized",
+      "resultParity": "pass",
+      "resultRows": 3,
+      "legacy": {
+        "minMs": 38.391,
+        "medianMs": 41.097,
+        "p95Ms": 51.021,
+        "maxMs": 51.021,
+        "samples": 15
+      },
+      "scoped": {
+        "minMs": 0.573,
+        "medianMs": 0.83,
+        "p95Ms": 1.168,
+        "maxMs": 1.168,
+        "samples": 15
+      },
+      "medianChangePercent": -97.98,
+      "explainAnalyze": {
+        "legacy": "-> Nested loop left join  (cost=1588 rows=0) (actual time=43.4..43.4 rows=3 loops=1)\n    -> Nested loop left join  (cost=1443 rows=14274) (actual time=42.8..42.8 rows=3 loops=1)\n        -> Filter: (p.id in (1,2500,5000))  (cost=1.36 rows=3) (actual time=0.00845..0.0173 rows=3 loops=1)\n            -> Index range scan on p using PRIMARY over (id = 1) OR (id = 2500) OR (id = 5000)  (cost=1.36 rows=3) (actual time=0.0078..0.0154 rows=3 loops=1)\n        -> Index lookup on review_summary using <auto_key0> (product_id=p.id)  (cost=19523..19528 rows=19) (actual time=14.3..14.3 rows=1 loops=3)\n            -> Materialize  (cost=19523..19523 rows=4758) (actual time=42.8..42.8 rows=4737 loops=1)\n                -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=2.98..41 rows=4737 loops=1)\n                    -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=2.97..36.9 rows=94740 loops=1)\n    -> Index lookup on active_reservations using <auto_key0> (product_id=p.id)  (cost=0.252..2.56 rows=10.2) (actual time=0.191..0.191 rows=0 loops=3)\n        -> Materialize  (cost=0..0 rows=0) (actual time=0.572..0.572 rows=448 loops=1)\n            -> Table scan on <temporary>  (actual time=0.457..0.479 rows=448 loops=1)\n                -> Aggregate using temporary table  (actual time=0.456..0.456 rows=448 loops=1)\n                    -> Nested loop inner join  (cost=225 rows=448) (actual time=0.0343..0.384 rows=448 loops=1)\n                        -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0203..0.0697 rows=498 loops=1)\n                        -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=510e-6..549e-6 rows=0.9 loops=498)\n                            -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=367e-6..381e-6 rows=1 loops=498)\n",
+        "scoped": "-> Filter: (p.id in (1,2500,5000))  (cost=1.36 rows=3) (actual time=0.0127..0.0166 rows=3 loops=1)\n    -> Index range scan on p using PRIMARY over (id = 1) OR (id = 2500) OR (id = 5000)  (cost=1.36 rows=3) (actual time=0.0118..0.0155 rows=3 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Aggregate: avg(r.rating)  (cost=8.98 rows=1) (actual time=0.0174..0.0175 rows=1 loops=3)\n        -> Index lookup on r using idx_product (product_id=p.id)  (cost=6.98 rows=20) (actual time=0.0148..0.016 rows=20 loops=3)\n-> Select #3 (subquery in projection; dependent)\n    -> Aggregate: count(0)  (cost=4.25 rows=1) (actual time=0.00334..0.00336 rows=1 loops=3)\n        -> Covering index lookup on r using idx_product (product_id=p.id)  (cost=2.25 rows=20) (actual time=0.00183..0.00269 rows=20 loops=3)\n-> Select #4 (subquery in projection; dependent)\n    -> Aggregate: sum(ir.quantity)  (cost=0.79 rows=1) (actual time=0.00128..0.00131 rows=1 loops=6)\n        -> Nested loop inner join  (cost=0.7 rows=0.9) (actual time=0.00108..0.00108 rows=0 loops=6)\n            -> Index lookup on ir using idx_product (product_id=p.id)  (cost=0.35 rows=1) (actual time=990e-6..990e-6 rows=0 loops=6)\n            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.34 rows=0.9) (never executed)\n                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.34 rows=1) (never executed)\n"
+      }
+    },
+    {
+      "name": "storefront-page",
+      "kind": "optimized",
+      "resultParity": "pass",
+      "resultRows": 10,
+      "legacy": {
+        "minMs": 38.293,
+        "medianMs": 40.026,
+        "p95Ms": 43.231,
+        "maxMs": 43.231,
+        "samples": 15
+      },
+      "scoped": {
+        "minMs": 0.7,
+        "medianMs": 0.931,
+        "p95Ms": 1.202,
+        "maxMs": 1.202,
+        "samples": 15
+      },
+      "medianChangePercent": -97.67,
+      "explainAnalyze": {
+        "legacy": "-> Limit: 10 row(s)  (cost=265915 rows=0) (actual time=43.4..43.4 rows=10 loops=1)\n    -> Nested loop left join  (cost=265915 rows=0) (actual time=43.4..43.4 rows=10 loops=1)\n        -> Nested loop left join  (cost=24214 rows=4758) (actual time=42.7..42.7 rows=10 loops=1)\n            -> Index scan on p using PRIMARY (reverse)  (cost=570e-6 rows=1) (actual time=0.00489..0.00903 rows=10 loops=1)\n            -> Index lookup on review_summary using <auto_key0> (product_id=p.id)  (cost=19523..19528 rows=19) (actual time=4.27..4.27 rows=0.9 loops=10)\n                -> Materialize  (cost=19523..19523 rows=4758) (actual time=42.7..42.7 rows=4737 loops=1)\n                    -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=3..40.8 rows=4737 loops=1)\n                        -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=3..36.6 rows=94740 loops=1)\n        -> Index lookup on active_reservations using <auto_key0> (product_id=p.id)  (cost=0.25..2.55 rows=10.2) (actual time=0.0657..0.0657 rows=0 loops=10)\n            -> Materialize  (cost=0..0 rows=0) (actual time=0.654..0.654 rows=448 loops=1)\n                -> Table scan on <temporary>  (actual time=0.536..0.559 rows=448 loops=1)\n                    -> Aggregate using temporary table  (actual time=0.536..0.536 rows=448 loops=1)\n                        -> Nested loop inner join  (cost=225 rows=448) (actual time=0.0339..0.445 rows=448 loops=1)\n                            -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0206..0.0716 rows=498 loops=1)\n                            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=625e-6..666e-6 rows=0.9 loops=498)\n                                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=466e-6..480e-6 rows=1 loops=498)\n",
+        "scoped": "-> Limit: 10 row(s)  (cost=0.0075 rows=10) (actual time=0.00768..0.00862 rows=10 loops=1)\n    -> Index scan on p using PRIMARY (reverse)  (cost=0.0075 rows=10) (actual time=0.00728..0.0078 rows=10 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Aggregate: avg(r.rating)  (cost=8.98 rows=1) (actual time=0.0119..0.012 rows=1 loops=10)\n        -> Index lookup on r using idx_product (product_id=p.id)  (cost=6.98 rows=20) (actual time=0.0102..0.011 rows=18 loops=10)\n-> Select #3 (subquery in projection; dependent)\n    -> Aggregate: count(0)  (cost=4.25 rows=1) (actual time=0.00291..0.00293 rows=1 loops=10)\n        -> Covering index lookup on r using idx_product (product_id=p.id)  (cost=2.25 rows=20) (actual time=0.00162..0.00235 rows=18 loops=10)\n-> Select #4 (subquery in projection; dependent)\n    -> Aggregate: sum(ir.quantity)  (cost=0.79 rows=1) (actual time=0.00103..0.00105 rows=1 loops=20)\n        -> Nested loop inner join  (cost=0.7 rows=0.9) (actual time=931e-6..931e-6 rows=0 loops=20)\n            -> Index lookup on ir using idx_product (product_id=p.id)  (cost=0.35 rows=1) (actual time=865e-6..865e-6 rows=0 loops=20)\n            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.34 rows=0.9) (never executed)\n                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.34 rows=1) (never executed)\n"
+      }
+    },
+    {
+      "name": "admin-page",
+      "kind": "optimized",
+      "resultParity": "pass",
+      "resultRows": 10,
+      "legacy": {
+        "minMs": 39.968,
+        "medianMs": 41.415,
+        "p95Ms": 43.983,
+        "maxMs": 43.983,
+        "samples": 15
+      },
+      "scoped": {
+        "minMs": 0.671,
+        "medianMs": 0.948,
+        "p95Ms": 1.322,
+        "maxMs": 1.322,
+        "samples": 15
+      },
+      "medianChangePercent": -97.71,
+      "explainAnalyze": {
+        "legacy": "-> Limit/Offset: 10/20 row(s)  (cost=265915 rows=0) (actual time=46.2..46.2 rows=10 loops=1)\n    -> Nested loop left join  (cost=265915 rows=0) (actual time=46.2..46.2 rows=30 loops=1)\n        -> Nested loop left join  (cost=24214 rows=4758) (actual time=45.6..45.6 rows=30 loops=1)\n            -> Filter: (p.stock >= 0)  (cost=570e-6 rows=1) (actual time=0.00777..0.017 rows=30 loops=1)\n                -> Index scan on p using PRIMARY (reverse)  (cost=570e-6 rows=1) (actual time=0.00723..0.0143 rows=30 loops=1)\n            -> Index lookup on review_summary using <auto_key0> (product_id=p.id)  (cost=19523..19528 rows=19) (actual time=1.52..1.52 rows=0.933 loops=30)\n                -> Materialize  (cost=19523..19523 rows=4758) (actual time=45.6..45.6 rows=4737 loops=1)\n                    -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=3.2..43.7 rows=4737 loops=1)\n                        -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=3.19..39.4 rows=94740 loops=1)\n        -> Index lookup on active_reservations using <auto_key0> (product_id=p.id)  (cost=0.25..2.55 rows=10.2) (actual time=0.0194..0.0194 rows=0.0667 loops=30)\n            -> Materialize  (cost=0..0 rows=0) (actual time=0.572..0.572 rows=448 loops=1)\n                -> Table scan on <temporary>  (actual time=0.449..0.472 rows=448 loops=1)\n                    -> Aggregate using temporary table  (actual time=0.449..0.449 rows=448 loops=1)\n                        -> Nested loop inner join  (cost=225 rows=448) (actual time=0.0338..0.382 rows=448 loops=1)\n                            -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0199..0.0688 rows=498 loops=1)\n                            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=508e-6..547e-6 rows=0.9 loops=498)\n                                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=366e-6..380e-6 rows=1 loops=498)\n",
+        "scoped": "-> Limit/Offset: 10/20 row(s)  (cost=0.0345 rows=10) (actual time=0.0123..0.0139 rows=10 loops=1)\n    -> Filter: (p.stock >= 0)  (cost=0.0345 rows=30) (actual time=0.00941..0.0126 rows=30 loops=1)\n        -> Index scan on p using PRIMARY (reverse)  (cost=0.0345 rows=30) (actual time=0.00892..0.0107 rows=30 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Aggregate: avg(r.rating)  (cost=8.98 rows=1) (actual time=0.0249..0.0249 rows=1 loops=10)\n        -> Index lookup on r using idx_product (product_id=p.id)  (cost=6.98 rows=20) (actual time=0.023..0.0238 rows=18 loops=10)\n-> Select #3 (subquery in projection; dependent)\n    -> Aggregate: count(0)  (cost=4.25 rows=1) (actual time=0.003..0.00302 rows=1 loops=10)\n        -> Covering index lookup on r using idx_product (product_id=p.id)  (cost=2.25 rows=20) (actual time=0.00168..0.00242 rows=18 loops=10)\n-> Select #4 (subquery in projection; dependent)\n    -> Aggregate: sum(ir.quantity)  (cost=0.79 rows=1) (actual time=0.00135..0.00137 rows=1 loops=20)\n        -> Nested loop inner join  (cost=0.7 rows=0.9) (actual time=0.00116..0.0012 rows=0.1 loops=20)\n            -> Index lookup on ir using idx_product (product_id=p.id)  (cost=0.35 rows=1) (actual time=873e-6..898e-6 rows=0.1 loops=20)\n            -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.34 rows=0.9) (actual time=0.002..0.00209 rows=1 loops=2)\n                -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.34 rows=1) (actual time=0.00127..0.0013 rows=1 loops=2)\n"
+      }
+    },
+    {
+      "name": "filtered-rating-list-control",
+      "kind": "unchanged-control",
+      "resultParity": "pass",
+      "resultRows": 10,
+      "legacy": {
+        "minMs": 43.718,
+        "medianMs": 45.681,
+        "p95Ms": 52.015,
+        "maxMs": 52.015,
+        "samples": 15
+      },
+      "scoped": {
+        "minMs": 43.249,
+        "medianMs": 45.506,
+        "p95Ms": 53.646,
+        "maxMs": 53.646,
+        "samples": 15
+      },
+      "medianChangePercent": -0.38,
+      "explainAnalyze": {
+        "legacy": "-> Limit: 10 row(s)  (actual time=51.4..51.4 rows=10 loops=1)\n    -> Sort: rating DESC, reviews DESC, p.id DESC, limit input to 10 row(s) per chunk  (actual time=51.4..51.4 rows=10 loops=1)\n        -> Stream results  (cost=2.64e+6 rows=0) (actual time=44.3..50.5 rows=5000 loops=1)\n            -> Nested loop left join  (cost=2.64e+6 rows=0) (actual time=44.3..49.4 rows=5000 loops=1)\n                -> Nested loop left join  (cost=2.4e+6 rows=23.8e+6) (actual time=43.7..47 rows=5000 loops=1)\n                    -> Filter: (p.stock >= 0)  (cost=503 rows=5000) (actual time=0.126..0.87 rows=5000 loops=1)\n                        -> Covering index scan on p using idx_stock_id  (cost=503 rows=5000) (actual time=0.125..0.654 rows=5000 loops=1)\n                    -> Index lookup on review_summary using <auto_key0> (product_id=p.id)  (cost=19523..19528 rows=19) (actual time=0.00906..0.00915 rows=0.947 loops=5000)\n                        -> Materialize  (cost=19523..19523 rows=4758) (actual time=43.5..43.5 rows=4737 loops=1)\n                            -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=2.97..41.6 rows=4737 loops=1)\n                                -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=2.96..37.4 rows=94740 loops=1)\n                -> Index lookup on active_reservations using <auto_key0> (product_id=p.id)  (cost=0.25..2.55 rows=10.2) (actual time=380e-6..388e-6 rows=0.0896 loops=5000)\n                    -> Materialize  (cost=0..0 rows=0) (actual time=0.616..0.616 rows=448 loops=1)\n                        -> Table scan on <temporary>  (actual time=0.478..0.504 rows=448 loops=1)\n                            -> Aggregate using temporary table  (actual time=0.477..0.477 rows=448 loops=1)\n                                -> Nested loop inner join  (cost=225 rows=448) (actual time=0.038..0.409 rows=448 loops=1)\n                                    -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0227..0.0734 rows=498 loops=1)\n                                    -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=524e-6..593e-6 rows=0.9 loops=498)\n                                        -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=380e-6..424e-6 rows=1 loops=498)\n",
+        "scoped": "-> Limit: 10 row(s)  (actual time=51..51 rows=10 loops=1)\n    -> Sort: rating DESC, reviews DESC, p.id DESC, limit input to 10 row(s) per chunk  (actual time=51..51 rows=10 loops=1)\n        -> Stream results  (cost=2.64e+6 rows=0) (actual time=44.6..50.3 rows=5000 loops=1)\n            -> Nested loop left join  (cost=2.64e+6 rows=0) (actual time=44.6..49.4 rows=5000 loops=1)\n                -> Nested loop left join  (cost=2.4e+6 rows=23.8e+6) (actual time=44..47.1 rows=5000 loops=1)\n                    -> Filter: (p.stock >= 0)  (cost=503 rows=5000) (actual time=0.0234..0.709 rows=5000 loops=1)\n                        -> Covering index scan on p using idx_stock_id  (cost=503 rows=5000) (actual time=0.023..0.505 rows=5000 loops=1)\n                    -> Index lookup on review_summary using <auto_key0> (product_id=p.id)  (cost=19523..19528 rows=19) (actual time=0.00912..0.0092 rows=0.947 loops=5000)\n                        -> Materialize  (cost=19523..19523 rows=4758) (actual time=44..44 rows=4737 loops=1)\n                            -> Group aggregate: avg(bench_47d6d05a_reviews.rating), count(0)  (cost=19047 rows=4758) (actual time=3.14..42.2 rows=4737 loops=1)\n                                -> Index scan on bench_47d6d05a_reviews using idx_product  (cost=9552 rows=94954) (actual time=3.13..38.2 rows=94740 loops=1)\n                -> Index lookup on active_reservations using <auto_key0> (product_id=p.id)  (cost=0.25..2.55 rows=10.2) (actual time=355e-6..361e-6 rows=0.0896 loops=5000)\n                    -> Materialize  (cost=0..0 rows=0) (actual time=0.566..0.566 rows=448 loops=1)\n                        -> Table scan on <temporary>  (actual time=0.451..0.473 rows=448 loops=1)\n                            -> Aggregate using temporary table  (actual time=0.45..0.45 rows=448 loops=1)\n                                -> Nested loop inner join  (cost=225 rows=448) (actual time=0.0301..0.383 rows=448 loops=1)\n                                    -> Table scan on ir  (cost=50.6 rows=498) (actual time=0.0181..0.0673 rows=498 loops=1)\n                                    -> Filter: ((pc.`status` = 'PENDING') and (pc.expires_at > <cache>(utc_timestamp())))  (cost=0.25 rows=0.9) (actual time=515e-6..553e-6 rows=0.9 loops=498)\n                                        -> Single-row index lookup on pc using PRIMARY (id=ir.pending_checkout_id)  (cost=0.25 rows=1) (actual time=376e-6..389e-6 rows=1 loops=498)\n"
+      }
+    }
+  ]
+}

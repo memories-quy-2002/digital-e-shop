@@ -33,6 +33,11 @@ draft. The draft is not written to persistent browser storage, and the
 single-use delivery quote is intentionally recalculated. A zero-payable order
 cannot start a PayOS attempt; customers must choose COD.
 
+The storefront mounts `/mock-payos-checkout` only in development builds.
+Production uses the live PayOS-hosted checkout URL; the server rejects mock
+mode before reserving inventory or resuming an attempt, and the simulator
+confirmation endpoint independently rejects production requests.
+
 Admins can inspect a sanitized checkout snapshot, retry an eligible paid
 attempt, or record an offline transfer already completed. Retry requires an
 exact paid amount and no order, cancellation intent, refund, or closed

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatCurrency } from "../../../utils/currency";
 import { useT } from "../../../hooks/useT";
 import { useLocale } from "../../../context/LocaleContext";
-import { fetchDeliveryMapConfig, findDeliveryAddressLocations, requestInternalDeliveryQuote, type DeliveryAddressSuggestion } from "../api";
+import { fetchDeliveryMapConfig, findDeliveryAddressLocations, reverseDeliveryAddressLocation, requestInternalDeliveryQuote, type DeliveryAddressSuggestion } from "../api";
 import type { DeliveryAddress, DeliveryMapConfig, InternalDeliveryQuote, RoadPoint } from "../types";
 import DeliveryMapPicker from "./DeliveryMapPicker";
 import "../../../styles/features/shipping/_shipping.scss";
@@ -49,10 +49,13 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
     const [locationSuggestions, setLocationSuggestions] = useState<DeliveryAddressSuggestion[]>([]);
     const [locationSearchLoading, setLocationSearchLoading] = useState(false);
     const [locationSearchError, setLocationSearchError] = useState("");
+    const [reverseLookupLoading, setReverseLookupLoading] = useState(false);
+    const [reverseLookupError, setReverseLookupError] = useState("");
     const [locationSaveMessage, setLocationSaveMessage] = useState("");
     const [manualMapOpen, setManualMapOpen] = useState(false);
     const requestSequence = useRef(0);
     const locationRequestSequence = useRef(0);
+    const reverseLookupSequence = useRef(0);
 
     const cartKey = useMemo(() => JSON.stringify(cart.map(({ productId, quantity, price, salePrice }) => [productId, quantity, price, salePrice])), [cart]);
     const quoteInputKey = JSON.stringify([guest, recipientName, recipientPhone, addressInput, addressLine, city, destination, discountCode, cartKey]);
@@ -84,6 +87,9 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
 
     useEffect(() => {
         if (!addressPrefill) return;
+        reverseLookupSequence.current += 1;
+        setReverseLookupLoading(false);
+        setReverseLookupError("");
         setRecipientName(addressPrefill.recipientName || "");
         setRecipientPhone(addressPrefill.recipientPhone || "");
         setAddressLine(addressPrefill.addressLine);
@@ -106,6 +112,9 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
 
     useEffect(() => {
         if (resetKey === 0) return;
+        reverseLookupSequence.current += 1;
+        setReverseLookupLoading(false);
+        setReverseLookupError("");
         setQuote(null);
         onQuoteChange(null, null);
     }, [resetKey, onQuoteChange]);
@@ -136,12 +145,38 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
 
     const handleDestinationChange = useCallback((point: RoadPoint | null) => {
         setDestination(point);
-        if (point) {
-            setAddressLine((current) => current || addressInput.trim());
-            const typedLocality = addressInput.split(",").map((part) => part.trim()).filter(Boolean).at(-1);
-            setCity((current) => current || typedLocality || addressPrefill?.city || "Vietnam");
+        if (!point) {
+            reverseLookupSequence.current += 1;
+            setReverseLookupLoading(false);
+            setReverseLookupError("");
+            return;
         }
-    }, [addressInput, addressPrefill?.city]);
+
+        const requestId = ++reverseLookupSequence.current;
+        setAddressInput("");
+        setAddressLine("");
+        setCity("");
+        setLocationSuggestions([]);
+        setLocationSearchError("");
+        setLocationSaveMessage("");
+        setReverseLookupError("");
+        setReverseLookupLoading(true);
+        void reverseDeliveryAddressLocation({ ...point, locale }).then((location) => {
+            if (requestId !== reverseLookupSequence.current) return;
+            if (!location) {
+                setReverseLookupError(t("shipping.pinAddressNotFound"));
+                return;
+            }
+            const selectedCity = location.city || location.state || "Vietnam";
+            setAddressInput(location.label);
+            setAddressLine(location.label);
+            setCity(selectedCity);
+        }).catch(() => {
+            if (requestId === reverseLookupSequence.current) setReverseLookupError(t("shipping.pinAddressLookupError"));
+        }).finally(() => {
+            if (requestId === reverseLookupSequence.current) setReverseLookupLoading(false);
+        });
+    }, [locale, t]);
 
     useEffect(() => {
         const query = addressInput.trim();
@@ -156,7 +191,7 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
         const timeout = window.setTimeout(async () => {
             setLocationSearchLoading(true);
             try {
-                const suggestions = await findDeliveryAddressLocations({ addressLine: query, city: "", locale });
+                const suggestions = await findDeliveryAddressLocations({ addressLine: query, locale });
                 if (requestId !== locationRequestSequence.current) return;
                 setLocationSuggestions(suggestions);
                 if (!suggestions.length) setLocationSearchError(t("shipping.locationNoResults"));
@@ -258,12 +293,14 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
                 </label>
                 <label className="shipping-quote__grid-wide">
                     <span>{t("shipping.deliveryAddress")}</span>
-                    <input autoComplete="street-address" value={addressInput} aria-autocomplete="list" aria-controls="delivery-address-suggestions" aria-expanded={locationSuggestions.length > 0} onChange={(event) => { setAddressInput(event.target.value); setAddressLine(""); setCity(""); setDestination(null); setLocationSuggestions([]); setLocationSearchError(""); setLocationSaveMessage(""); }} />
+                    <input autoComplete="street-address" value={addressInput} aria-autocomplete="list" aria-controls="delivery-address-suggestions" aria-expanded={locationSuggestions.length > 0} onChange={(event) => { reverseLookupSequence.current += 1; setReverseLookupLoading(false); setReverseLookupError(""); setAddressInput(event.target.value); setAddressLine(""); setCity(""); setDestination(null); setLocationSuggestions([]); setLocationSearchError(""); setLocationSaveMessage(""); }} />
                 </label>
             </div>
+            {addressInput.trim() || manualMapOpen ? <p className="shipping-quote__location-status">{t("shipping.locationLookupPrivacy")}</p> : null}
+            {reverseLookupLoading ? <p className="shipping-quote__location-status" role="status" aria-live="polite">{t("shipping.resolvingPinAddress")}</p> : null}
+            {reverseLookupError ? <p className="shipping-quote__location-status" role="alert">{reverseLookupError}</p> : null}
             {!destination && addressInput.trim().length >= 3 ? (
                 <div className="shipping-quote__location-lookup">
-                    <p>{t("shipping.locationLookupPrivacy")}</p>
                     {locationSearchLoading ? <p className="shipping-quote__location-status" role="status" aria-live="polite">{t("shipping.locationSearching")}</p> : null}
                     {locationSearchError ? <p role={locationSearchError === t("shipping.locationLookupError") ? "alert" : "status"}>{locationSearchError}</p> : null}
                     {locationSuggestions.length ? (
@@ -304,10 +341,11 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
                 </details>
             ) : null}
             {error ? <p className="shipping-quote__error" role="alert">{error}</p> : null}
-            <button type="button" onClick={() => void handleQuote()} disabled={loading || mapConfigLoading || !mapConfig || !cart.length}>
+            <button type="button" onClick={() => void handleQuote()} disabled={loading || reverseLookupLoading || mapConfigLoading || !mapConfig || !cart.length}>
                 {loading ? t("shipping.quoting") : quote ? t("shipping.refreshQuote") : t("shipping.getQuote")}
             </button>
             {quote ? <div className="shipping-quote__result" role="status" aria-live="polite">
+                <strong>{t("shipping.quoteSuccess")}</strong>
                 <span>{t("shipping.roadDistance")}: <strong>{(quote.distanceMeters / 1000).toFixed(1)} km</strong></span>
                 <span>{t("shipping.merchandiseTotal")}: <strong>{formatCurrency(quote.pricing.itemsSubtotal)}</strong></span>
                 <span>{t("shipping.merchandiseDiscount")}: <strong>−{formatCurrency(quote.pricing.merchandiseDiscount)}</strong></span>

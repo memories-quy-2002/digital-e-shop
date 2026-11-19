@@ -3064,6 +3064,12 @@
         "/api/shipping/delivery/map-config": {
             "get": { "tags": ["Shipping"], "summary": "Get public map configuration", "responses": { "200": { "description": "Minimal delivery map configuration" } } }
         },
+        "/api/shipping/address-locations": {
+            "post": { "tags": ["Shipping"], "summary": "Find delivery-address suggestions", "description": "Public server-side geocoding proxy. Sends only the address query to Geoapify; recipient name and phone are not accepted.", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["addressLine"], "properties": { "addressLine": { "type": "string", "minLength": 3, "maxLength": 255 }, "city": { "type": "string", "maxLength": 120 }, "locale": { "type": "string", "enum": ["en", "vi"] } }, "additionalProperties": false } } } }, "responses": { "201": { "description": "Address suggestions" } } }
+        },
+        "/api/shipping/address-locations/reverse": {
+            "post": { "tags": ["Shipping"], "summary": "Resolve a delivery address from a map pin", "description": "Public server-side Geoapify reverse-geocoding proxy; accepts Vietnam coordinates and an optional locale. The Geoapify key remains server-side.", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["latitude", "longitude"], "properties": { "latitude": { "type": "number", "minimum": 8, "maximum": 24 }, "longitude": { "type": "number", "minimum": 102, "maximum": 110 }, "locale": { "type": "string", "enum": ["en", "vi"] } }, "additionalProperties": false } } } }, "responses": { "201": { "description": "Resolved address or null when no address is found" } } }
+        },
         "/api/shipping/quotes": {
             "post": { "tags": ["Shipping"], "summary": "Create an owner-bound delivery quote", "security": [{ "cookieAuth": [] }], "responses": { "201": { "description": "Expiring delivery quote" } } }
         },

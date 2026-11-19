@@ -4,7 +4,7 @@ const { isAllowedEndpoint } = require("./seed-local-delivery-settings.js") as {
     isAllowedEndpoint: (configured: string, expected: string) => boolean;
 };
 
-const trusted = "https://router.project-osrm.org";
+const trusted = "https://api.geoapify.com/v1/routing";
 
 describe("local delivery seed endpoint allowlist", () => {
     it("accepts a precise endpoint inside a comma-separated list", () => {
@@ -14,13 +14,13 @@ describe("local delivery seed endpoint allowlist", () => {
     });
 
     it.each([
-        "https://router.project-osrm.org.evil.example",
-        "https://router.project-osrm.org@evil.example",
-        "https://evil.example/https://router.project-osrm.org",
-        "http://router.project-osrm.org",
-        "https://router.project-osrm.org/route",
-        "https://router.project-osrm.org?redirect=https://evil.example",
-        "https://router.project-osrm.org/#fragment",
+        "https://api.geoapify.com.evil.example/v1/routing",
+        "https://api.geoapify.com@evil.example/v1/routing",
+        "https://evil.example/https://api.geoapify.com/v1/routing",
+        "http://api.geoapify.com/v1/routing",
+        "https://api.geoapify.com/v1/routing/extra",
+        "https://api.geoapify.com/v1/routing?redirect=https://evil.example",
+        "https://api.geoapify.com/v1/routing#fragment",
         "not-a-url",
     ])("rejects a lookalike or malformed endpoint: %s", (candidate) => {
         expect(isAllowedEndpoint(candidate, trusted)).toBe(false);

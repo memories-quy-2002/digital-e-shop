@@ -1,13 +1,16 @@
 # Shipping and fulfillment
 
 New checkout quotes use internal delivery pricing. The server routes between
-the configured store pin and the customer's confirmed address pin via an
-operator-allowlisted OSRM-compatible endpoint. When an address has no saved
+the configured store pin and the customer's confirmed address pin via the
+operator-allowlisted Geoapify Routing API. When an address has no saved
 coordinates, checkout can search the street and city with the configured
 geocoding endpoint; the customer confirms a result before use. Recipient name
 and phone are not sent to the geocoder. A map remains available for manual
-adjustment. `< 5 km` is free, `5–20 km` uses the configured middle band, and
-`> 20 km` uses the higher band.
+adjustment. Clicking or dragging its pin reverse-geocodes the point and updates
+the delivery-address field. A failed lookup clears the stale address and asks
+the customer to choose another point or enter an address manually. `< 5 km` is
+free, `5–20 km` uses the configured middle band, and `> 20 km` uses the higher
+band.
 
 A short-lived quote binds customer or guest-cart identity, cart facts, the
 structured address and coordinates, route, fee, and delivery-settings version.
@@ -30,11 +33,23 @@ map can show both endpoints without a privileged settings read.
 Checkout and saved-address maps fetch the same minimal configuration from a
 public endpoint. It exposes the store pin and operator-allowlisted tile URL and
 attribution only; fee bands and the routing endpoint remain server-side.
-`GEOCODING_ENDPOINT` configures the address lookup provider. Local development
-defaults to the Photon demo endpoint; other environments leave lookup disabled
-until an endpoint is configured. Address search is explicit, returns at most
-five results and is throttled to one provider request per second per API
-instance. Confirmed coordinates are saved only to the selected owned address.
+`GEOCODING_ENDPOINT` configures the Geoapify Geocoding API. Geoapify routing
+and geocoding use the server-only `GEOAPIFY_API_KEY`. The map uses
+`https://tile.openstreetmap.org/{z}/{x}/{y}.png` directly and needs no map API
+key. Attribution is kept visible for OpenStreetMap, with a Geoapify link near
+the map for its address/routing data. Address search is explicit, returns at
+most five results, map pins resolve to one address, and both lookups are
+throttled to one provider request per second per API instance. The public server
+routes `/shipping/address-locations` and `/shipping/address-locations/reverse`
+proxy lookups without exposing the key. Confirmed coordinates are saved only
+to the selected owned address.
+
+Geoapify Free permits commercial use within its current shared 3,000-credit
+daily limit, but provides no service-level guarantee. Routing and geocoding
+consume credits; monitor the provider dashboard. OpenStreetMap's public raster
+tiles are community funded, best-effort, and subject to caching, attribution,
+and no-prefetch rules; production traffic may need an OSM-derived host with an
+appropriate service commitment. Provider limits and terms may change.
 
 ## Internal assignments
 

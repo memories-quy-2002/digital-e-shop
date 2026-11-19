@@ -35,6 +35,7 @@ import { env } from "#src/config/env.config";
         DeliveryAssignmentRepository,
         DeliveryAssignmentService,
         { provide: "GEOCODING_ENDPOINT", useValue: env.geocodingEndpoint },
+        { provide: "GEOAPIFY_API_KEY", useValue: env.geoapifyApiKey },
         AddressGeocodingService,
         RoadRouteService,
         ShippingRepository,

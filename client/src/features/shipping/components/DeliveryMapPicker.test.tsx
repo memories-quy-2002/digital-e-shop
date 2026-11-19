@@ -61,7 +61,9 @@ describe("DeliveryMapPicker", () => {
 
         await waitFor(() => expect(mocks.tileLayer).toHaveBeenCalledWith(
             "https://tiles.example.test/{z}/{x}/{y}.png",
-            expect.objectContaining({ attribution: "Map data contributors" }),
+            expect.objectContaining({
+                attribution: "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener noreferrer\">Map data contributors</a> | <a href=\"https://www.geoapify.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Powered by Geoapify</a>",
+            }),
         ));
         expect(screen.getByText("Map data contributors")).toBeInTheDocument();
         await waitFor(() => expect(mocks.polyline).toHaveBeenCalledOnce());
@@ -133,7 +135,9 @@ describe("DeliveryMapPicker", () => {
 
         await waitFor(() => expect(mocks.tileLayer).toHaveBeenLastCalledWith(
             "https://tiles.example.test/{z}/{x}/{y}.png",
-            expect.objectContaining({ attribution: "&lt;img src=x onerror=alert(1)&gt;" }),
+            expect.objectContaining({
+                attribution: "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener noreferrer\">&lt;img src=x onerror=alert(1)&gt;</a> | <a href=\"https://www.geoapify.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Powered by Geoapify</a>",
+            }),
         ));
     });
 });

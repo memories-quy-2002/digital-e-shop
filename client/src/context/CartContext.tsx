@@ -105,7 +105,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const source = uid ? `user:${uid}` : "guest";
 
     const [items, setItems] = useState<CheckoutCartItem[]>([]);
-    const [totalPrice, setTotalPrice] = useState(0);
+    const [guestMerchandiseTotal, setGuestMerchandiseTotal] = useState<number | null>(null);
     const [discount, setDiscount] = useState(0);
     const [discountCode, setDiscountCode] = useState<string | null>(null);
     const [validationIssues, setValidationIssues] = useState<CartValidationIssue[]>([]);
@@ -129,7 +129,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const setReadyState = useCallback((nextItems: CheckoutCartItem[], nextIssues: CartValidationIssue[] = []) => {
         const normalizedItems = normalizeContextItems(nextItems);
         setItems(normalizedItems);
-        setTotalPrice(calculateTotal(normalizedItems));
+        setGuestMerchandiseTotal(null);
         setValidationIssues(nextIssues);
         setStatus(nextIssues.length > 0 ? "validation-error" : normalizedItems.length > 0 ? "ready" : "empty");
         setError(null);
@@ -139,7 +139,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const nextItems = normalizeContextItems(preview.cartItems || []);
         const issues = preview.issues || [];
         setItems(nextItems);
-        setTotalPrice(Number(preview.merchandiseTotal) || calculateTotal(nextItems));
+        setGuestMerchandiseTotal(Number(preview.merchandiseTotal) || null);
         setDiscount(getPreviewDiscount(preview));
         setDiscountCode(preview.promotion?.valid ? preview.promotion.code || null : null);
         setValidationIssues(issues);
@@ -174,7 +174,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGuestItems(localItems);
         if (localItems.length === 0) {
             setItems([]);
-            setTotalPrice(0);
+            setGuestMerchandiseTotal(null);
             setDiscount(0);
             setDiscountCode(null);
             setValidationIssues([]);
@@ -235,7 +235,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const clearCart = useCallback((options: { converted?: boolean } = {}) => {
         requestIdRef.current += 1;
         setItems([]);
-        setTotalPrice(0);
+        setGuestMerchandiseTotal(null);
         setDiscount(0);
         setDiscountCode(null);
         setValidationIssues([]);
@@ -467,7 +467,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sourceRef.current = nextSource;
         requestIdRef.current += 1;
         setItems([]);
-        setTotalPrice(0);
+        setGuestMerchandiseTotal(null);
         setDiscount(0);
         setDiscountCode(null);
         setValidationIssues([]);
@@ -483,6 +483,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         void fetchCart(null);
     }, [authLoading, fetchCart, source, uid]);
+
+    const totalPrice = guestMerchandiseTotal ?? calculateTotal(items);
 
     return (
         <CartContext.Provider

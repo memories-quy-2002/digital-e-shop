@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { withTransaction, type TransactionContext } from "#src/database/transaction";
+import { withRetryableTransaction, type TransactionContext } from "#src/database/transaction";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 
 export type CartMergeResult = {
@@ -10,7 +10,8 @@ export type CartMergeOperation = { payloadHash: string; resultJson: string | Car
 
 @Injectable()
 export class CartMergeRepository {
-    withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T> { return withTransaction(work); }
+    // Cart merge is database-only and idempotent by (userId, operationId), so a full rollback/retry is safe.
+    withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T> { return withRetryableTransaction(work); }
 
     async lockUser(tx: TransactionContext, userId: string): Promise<void> {
         const [row] = await tx.query<Array<{ id: string }>>("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);

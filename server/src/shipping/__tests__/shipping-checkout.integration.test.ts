@@ -34,8 +34,8 @@ describe("delivery quote database integration", () => {
             `UPDATE delivery_settings
              SET store_address = 'Integration Store', store_latitude = 10.78, store_longitude = 106.7,
                  fee_5_to_20_vnd = 25000, fee_over_20_vnd = 50000,
-                 routing_endpoint = 'https://router.example.test', tile_url = 'https://tiles.example.test/{z}/{x}/{y}.png',
-                 tile_attribution = 'Map provider', version = 2, updated_by_id = NULL WHERE id = 1`,
+                 routing_endpoint = 'https://api.geoapify.com/v1/routing', tile_url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                 tile_attribution = '© OpenStreetMap contributors', version = 2, updated_by_id = NULL WHERE id = 1`,
         );
     });
     afterAll(async () => {

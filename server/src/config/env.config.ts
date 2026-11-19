@@ -171,6 +171,7 @@ export const env = {
         .split(",")
         .map((url) => url.trim())
         .filter(Boolean),
+    geoapifyApiKey: process.env.GEOAPIFY_API_KEY?.trim() || "",
     geocodingEndpoint: process.env.GEOCODING_ENDPOINT?.trim()
         || (mode === "development" ? "https://photon.komoot.io/api/" : ""),
     storeCurrency: CURRENCY_CODE.VND,

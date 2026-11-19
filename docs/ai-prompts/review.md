@@ -35,7 +35,9 @@ pass and separate findings by lens.
    the maintained guide for the target surface.
 2. Inspect target files, callers, callees, routes, API helpers, tests, and
    configuration. Use GitNexus or Grep when available.
-3. Confirm each finding against current source or rendered behavior.
+3. Confirm each finding against current source or rendered behavior. Include a
+   path and symbol, test, route, or direct source that supports each material
+   finding. Mark conclusions that remain inferred or unverified.
 4. In `read_only` mode, do not edit source, tests, configuration, or docs.
 5. In `implement_after_approval` mode, report findings first. Edit only
    the approved scope after the user or primary agent approves the fix.
@@ -117,6 +119,9 @@ Check active voice, direct labels, sentence case, precise claims, consistent
 terminology, English and Vietnamese parity, and a clear next action. Keep
 persuasive copy benefit-led and evidence-based. Reject fake metrics, personal
 contact details, unsupported urgency, and production claims without evidence.
+Verify commerce claims against an approved product source or current policy.
+Flag any unsupported price, availability, delivery, payment, warranty, return,
+refund, legal, or performance promise for human review.
 
 ## Few-shot examples
 
@@ -212,3 +217,5 @@ Next action:
 
 Use `blocked` only when a required external state or user decision prevents
 meaningful progress. Do not claim a check passed unless it ran.
+The review report informs a human decision; it does not approve business
+policy, security risk, or release readiness on the human's behalf.
