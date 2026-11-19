@@ -1,22 +1,26 @@
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { calculateDeliveryFee } from "./delivery.policy";
+import { GEOAPIFY_ROUTING_ENDPOINT } from "./delivery-routing.config";
 import { RoadRouteService } from "./road-route.service";
 
 const { allowedEndpoints } = vi.hoisted(() => ({
-    allowedEndpoints: ["https://router.example.test", "http://10.20.0.5:5000"],
+    allowedEndpoints: ["https://api.geoapify.com/v1/routing"],
 }));
 
 vi.mock("axios", () => ({ default: { get: vi.fn() } }));
 vi.mock("../config/env.config", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../config/env.config")>();
-    return { ...actual, env: { ...actual.env, deliveryRoutingEndpointAllowlist: allowedEndpoints } };
+    return { ...actual, env: { ...actual.env, geoapifyApiKey: "server-test-key", deliveryRoutingEndpointAllowlist: allowedEndpoints } };
 });
 
 const routeResponse = (distance = 4999.5) => ({
     data: {
-        code: "Ok",
-        routes: [{ distance, geometry: { type: "LineString", coordinates: [[106.7, 10.7], [106.8, 10.8]] } }],
+        type: "FeatureCollection",
+        features: [{
+            properties: { distance },
+            geometry: { type: "LineString", coordinates: [[106.7, 10.7], [106.8, 10.8]] },
+        }],
     },
 });
 
@@ -28,67 +32,83 @@ describe("RoadRouteService", () => {
 
     beforeEach(() => vi.clearAllMocks());
 
-    it("requests an OSRM driving route and rounds provider meters before pricing", async () => {
+    it("requests a Geoapify driving route and rounds provider meters before pricing", async () => {
         get.mockResolvedValueOnce(routeResponse() as never);
 
-        const route = await service.getRoute(origin, destination, "https://router.example.test");
+        const route = await service.getRoute(origin, destination, GEOAPIFY_ROUTING_ENDPOINT);
 
         expect(route).toEqual({
             distanceMeters: 5000,
             geometry: [[106.7, 10.7], [106.8, 10.8]],
         });
         expect(calculateDeliveryFee(route.distanceMeters, { fee5To20Vnd: 25000, feeOver20Vnd: 50000 })).toBe(25000);
-        expect(get).toHaveBeenCalledWith(
-            "https://router.example.test/route/v1/driving/106.7,10.7;106.8,10.8?overview=full&geometries=geojson&steps=false",
-            { timeout: 5000, maxRedirects: 0, headers: { "User-Agent": "Digital-E/1.0" } },
-        );
+        expect(get).toHaveBeenCalledWith(GEOAPIFY_ROUTING_ENDPOINT, {
+            params: {
+                waypoints: "10.7,106.7|10.8,106.8",
+                mode: "drive",
+                format: "geojson",
+                apiKey: "server-test-key",
+            },
+            timeout: 5000,
+            maxRedirects: 0,
+            headers: { "User-Agent": "Digital-E/1.0" },
+        });
+    });
+
+    it("flattens Geoapify MultiLineString route geometry", async () => {
+        get.mockResolvedValueOnce({
+            data: {
+                features: [{
+                    properties: { distance: 1200 },
+                    geometry: { type: "MultiLineString", coordinates: [[[106.7, 10.7], [106.75, 10.75]], [[106.75, 10.75], [106.8, 10.8]]] },
+                }],
+            },
+        } as never);
+
+        await expect(service.getRoute(origin, destination, GEOAPIFY_ROUTING_ENDPOINT)).resolves.toEqual({
+            distanceMeters: 1200,
+            geometry: [[106.7, 10.7], [106.75, 10.75], [106.75, 10.75], [106.8, 10.8]],
+        });
     });
 
     it.each([
-        ["NoRoute", []],
-        ["Ok", [{ distance: Number.NaN, geometry: { type: "LineString", coordinates: [[106.7, 10.7], [106.8, 10.8]] } }]],
-        ["Ok", [{ distance: 1000, geometry: { type: "Point", coordinates: [106.7, 10.7] } }]],
-        ["Ok", [{ distance: 1000, geometry: { type: "LineString", coordinates: [[200, 10], [106.8, 10.8]] } }]],
-    ])("rejects missing or malformed route data", async (code, routes) => {
-        get.mockResolvedValueOnce({ data: { code, routes } } as never);
+        { features: [] },
+        { features: [{ properties: { distance: Number.NaN }, geometry: { type: "LineString", coordinates: [[106.7, 10.7], [106.8, 10.8]] } }] },
+        { features: [{ properties: { distance: 1000 }, geometry: { type: "Point", coordinates: [106.7, 10.7] } }] },
+        { features: [{ properties: { distance: 1000 }, geometry: { type: "LineString", coordinates: [[200, 10], [106.8, 10.8]] } }] },
+    ])("rejects missing or malformed Geoapify route data", async (data) => {
+        get.mockResolvedValueOnce({ data } as never);
 
-        await expect(service.getRoute(origin, destination, "https://router.example.test"))
+        await expect(service.getRoute(origin, destination, GEOAPIFY_ROUTING_ENDPOINT))
             .rejects.toThrow("Delivery route is unavailable");
     });
 
     it("turns routing timeouts into a recoverable route error", async () => {
         get.mockRejectedValueOnce(new Error("timeout"));
 
-        await expect(service.getRoute(origin, destination, "https://router.example.test"))
+        await expect(service.getRoute(origin, destination, GEOAPIFY_ROUTING_ENDPOINT))
             .rejects.toThrow("Delivery route is unavailable");
     });
 
-    it("refuses an endpoint outside the deployment allowlist without making a request", async () => {
-        await expect(service.getRoute(origin, destination, "https://attacker.example.test"))
-            .rejects.toThrow("Delivery route is unavailable");
-        expect(get).not.toHaveBeenCalled();
-    });
-
-    it("allows a private self-hosted route only at its exact configured endpoint", async () => {
-        get.mockResolvedValueOnce(routeResponse(4000) as never);
-
-        await expect(service.getRoute(origin, destination, "http://10.20.0.5:5000"))
-            .resolves.toMatchObject({ distanceMeters: 4000 });
-        await expect(service.getRoute(origin, destination, "http://10.20.0.5:5001"))
-            .rejects.toThrow("Delivery route is unavailable");
-        expect(get).toHaveBeenCalledTimes(1);
-    });
+    it.each(["https://attacker.example.test", "https://router.project-osrm.org", "http://10.20.0.5:5000"])(
+        "refuses non-Geoapify route endpoint %s without making a request",
+        async (endpoint) => {
+            await expect(service.getRoute(origin, destination, endpoint))
+                .rejects.toThrow("Delivery route is unavailable");
+            expect(get).not.toHaveBeenCalled();
+        },
+    );
 
     it("does not follow routing endpoint redirects", async () => {
         get.mockRejectedValueOnce(Object.assign(new Error("redirect"), { response: { status: 302 } }));
 
-        await expect(service.getRoute(origin, destination, "https://router.example.test"))
+        await expect(service.getRoute(origin, destination, GEOAPIFY_ROUTING_ENDPOINT))
             .rejects.toThrow("Delivery route is unavailable");
-        expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ maxRedirects: 0 }));
+        expect(get).toHaveBeenCalledWith(GEOAPIFY_ROUTING_ENDPOINT, expect.objectContaining({ maxRedirects: 0 }));
     });
 
     it("validates input coordinates before making a request", async () => {
-        await expect(service.getRoute({ ...origin, latitude: 91 }, destination, "https://router.example.test"))
+        await expect(service.getRoute({ ...origin, latitude: 91 }, destination, GEOAPIFY_ROUTING_ENDPOINT))
             .rejects.toThrow("Delivery route is unavailable");
         expect(get).not.toHaveBeenCalled();
     });

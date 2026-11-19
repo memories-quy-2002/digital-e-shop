@@ -1,7 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import axios from "axios";
 import { env } from "../config/env.config";
-import { isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./delivery-routing.config";
+import { GEOAPIFY_ROUTING_ENDPOINT, isGeoapifyRoutingEndpoint, isRoutingEndpointAllowed } from "./delivery-routing.config";
 import type { RoadPoint, RoadRoute } from "./shipping.types";
 
 const ROUTE_UNAVAILABLE_MESSAGE = "Delivery route is unavailable. Please retry later.";
@@ -11,33 +11,36 @@ function isRoadPoint(value: RoadPoint): boolean {
         && Number.isFinite(value.longitude) && value.longitude >= -180 && value.longitude <= 180;
 }
 
-function parseRouteResponse(value: unknown): RoadRoute {
+function parseGeoapifyRouteResponse(value: unknown): RoadRoute {
     if (!value || typeof value !== "object") throw new Error("Invalid route response");
-    const response = value as {
-        code?: unknown;
-        routes?: Array<{ distance?: unknown; geometry?: { type?: unknown; coordinates?: unknown[] } }>;
-    };
-    const route = response.code === "Ok" && Array.isArray(response.routes) ? response.routes[0] : undefined;
-    if (!route || typeof route.distance !== "number" || !Number.isFinite(route.distance) || route.distance < 0) {
-        throw new Error("Invalid route distance");
-    }
+    const response = value as { features?: Array<{ properties?: { distance?: unknown }; geometry?: { type?: unknown; coordinates?: unknown } }> };
+    const route = Array.isArray(response.features) ? response.features[0] : undefined;
+    const distance = route?.properties?.distance;
+    if (typeof distance !== "number" || !Number.isFinite(distance) || distance < 0) throw new Error("Invalid route distance");
 
-    const distanceMeters = Math.round(route.distance);
-    if (!Number.isSafeInteger(distanceMeters) || route.geometry?.type !== "LineString" || !Array.isArray(route.geometry.coordinates)) {
-        throw new Error("Invalid route geometry");
-    }
+    const distanceMeters = Math.round(distance);
+    if (!Number.isSafeInteger(distanceMeters)) throw new Error("Invalid route distance");
+    const geometryValue = route?.geometry;
+    const lines = geometryValue?.type === "LineString"
+        ? [geometryValue.coordinates]
+        : geometryValue?.type === "MultiLineString" && Array.isArray(geometryValue.coordinates)
+            ? geometryValue.coordinates
+            : null;
+    if (!lines) throw new Error("Invalid route geometry");
 
-    const geometry = route.geometry.coordinates.map((coordinate) => {
-        if (!Array.isArray(coordinate) || coordinate.length < 2) throw new Error("Invalid route coordinate");
-        const [longitude, latitude] = coordinate;
-        if (typeof longitude !== "number" || typeof latitude !== "number"
-            || !Number.isFinite(longitude) || !Number.isFinite(latitude)
-            || longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
-            throw new Error("Invalid route coordinate");
-        }
-        return [longitude, latitude] as [number, number];
+    const geometry = lines.flatMap((line) => {
+        if (!Array.isArray(line)) throw new Error("Invalid route geometry");
+        return line.map((coordinate) => {
+            if (!Array.isArray(coordinate) || coordinate.length < 2) throw new Error("Invalid route coordinate");
+            const [longitude, latitude] = coordinate;
+            if (typeof longitude !== "number" || typeof latitude !== "number"
+                || !Number.isFinite(longitude) || !Number.isFinite(latitude)
+                || longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+                throw new Error("Invalid route coordinate");
+            }
+            return [longitude, latitude] as [number, number];
+        });
     });
-
     if (geometry.length < 2) throw new Error("Invalid route geometry");
     return { distanceMeters, geometry };
 }
@@ -45,23 +48,26 @@ function parseRouteResponse(value: unknown): RoadRoute {
 @Injectable()
 export class RoadRouteService {
     async getRoute(origin: RoadPoint, destination: RoadPoint, endpoint: string): Promise<RoadRoute> {
-        const normalizedEndpoint = normalizeRoutingEndpoint(endpoint);
         if (!isRoadPoint(origin) || !isRoadPoint(destination)
-            || !normalizedEndpoint
+            || !isGeoapifyRoutingEndpoint(endpoint)
             || !isRoutingEndpointAllowed(endpoint, env.deliveryRoutingEndpointAllowlist)) {
             throw new ServiceUnavailableException(ROUTE_UNAVAILABLE_MESSAGE);
         }
 
-        const coordinates = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
-        const url = `${normalizedEndpoint}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
-
         try {
-            const response = await axios.get<unknown>(url, {
+            if (!env.geoapifyApiKey) throw new Error("Geoapify routing is not configured");
+            const response = await axios.get<unknown>(GEOAPIFY_ROUTING_ENDPOINT, {
+                params: {
+                waypoints: `${origin.latitude},${origin.longitude}|${destination.latitude},${destination.longitude}`,
+                mode: "drive",
+                format: "geojson",
+                apiKey: env.geoapifyApiKey,
+                },
                 timeout: 5000,
                 maxRedirects: 0,
                 headers: { "User-Agent": "Digital-E/1.0" },
             });
-            return parseRouteResponse(response.data);
+            return parseGeoapifyRouteResponse(response.data);
         } catch {
             throw new ServiceUnavailableException(ROUTE_UNAVAILABLE_MESSAGE);
         }

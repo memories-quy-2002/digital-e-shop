@@ -35,6 +35,15 @@ export async function findDeliveryAddressLocations(input: {
     return Array.isArray(response.data.suggestions) ? response.data.suggestions : [];
 }
 
+export async function reverseDeliveryAddressLocation(input: {
+    latitude: number;
+    longitude: number;
+    locale?: "en" | "vi";
+}): Promise<DeliveryAddressSuggestion | null> {
+    const response = await http.post("/api/shipping/address-locations/reverse", input);
+    return response.data.location ?? null;
+}
+
 export async function requestInternalDeliveryQuote(input: {
     address: DeliveryAddress;
     locale?: "en" | "vi";

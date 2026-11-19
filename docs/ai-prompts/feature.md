@@ -57,6 +57,13 @@ Define acceptance criteria for:
 - Data integrity, idempotency, retries, and audit requirements
 - English and Vietnamese copy, light and dark themes, and responsive behavior
 
+Ground behavior and acceptance criteria in current product decisions and
+implemented contracts. For commerce behavior, identify the source of pricing,
+stock, payment, delivery, refund, warranty, and return rules; treat missing
+policy as unresolved instead of creating a customer promise. Mark assumptions
+and surface product decisions for human acceptance before implementation when
+they affect customer outcomes.
+
 ## Implement safely
 
 - Keep controllers thin, business orchestration in services, SQL in
@@ -82,6 +89,10 @@ For customer-facing UI and copy:
 - Use existing theme tokens for light and dark mode
 - Write benefit-led, professional copy with a precise action label. Do not
   invent business claims or urgency
+
+Before handoff, provide enough evidence for a human to review the changed
+behavior and customer-visible claims. Human acceptance remains necessary for
+business policy and release readiness.
 
 ## Test and verify
 

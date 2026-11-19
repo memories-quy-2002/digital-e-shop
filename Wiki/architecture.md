@@ -5,44 +5,9 @@ Back to [[index]]. See also [[overview]] and the human guide in
 
 ## Repository layout
 
-```text
-digital-e-shop/
-  client/                 React/Vite storefront and admin application
-    src/
-      app/                Bootstrap and providers
-      components/         Shared common and layout UI
-      context/            Auth, cart, toast, and shared client state
-      features/           admin, auth, orders, products, support, users
-      lib/                HTTP client and environment helpers
-      pages/              Generic route-level pages
-      routes/             Router and lazy route wiring
-      services/           External client integrations such as Firebase
-      styles/             Shared and feature SCSS
-      types/              Shared client types
-      utils/              Formatting and image helpers
-  server/                 NestJS API on the Express adapter
-    api/                  Vercel/serverless entrypoint shim
-    src/
-      <feature>/          Feature modules with controller/service/repository code
-      guards/             AuthGuard, RolesGuard, OwnerParam metadata
-      pipes/              ZodValidationPipe
-      filters/             AllExceptionsFilter
-      interceptors/        Request correlation and access logging
-      middleware/          CSRF, rate-limit, and request-id middleware
-      config/              Typed environment, CORS, and database configuration
-      database/            Prisma schema/client, migrations, and seeders
-      payments/            Provider boundary and payment ledger types
-      shipping/            Internal road quotes, packing, and scheduled delivery assignments
-      transactional-email/ Provider boundary, templates, and verified webhooks
-      operations/          Durable tasks, bounded runner, and private evidence
-      shared/              Shared constants, interfaces, and utilities
-      app.module.ts        Nest composition root
-      main.ts              Cached Nest bootstrap
-      server.ts            Local process bootstrap
-    test/                  Read-only k6 scripts
-  docs/                    Human guides, process templates, and prompts
-  Wiki/                    Current project knowledge and decisions
-```
+- `client/`: React/Vite storefront and admin. Domain UI/API lives in `client/src/features/`; shared app, context, HTTP, and UI code lives in `client/src/app`, `context`, `lib`, and `components/`.
+- `server/`: NestJS/Express API. Features own controllers, services, repositories, validators, and types under `server/src/<feature>/`; guards, pipes, filters, middleware, config, database, payments, shipping, transactional email, operations, and shared code provide cross-cutting boundaries.
+- `server/api/` is the Vercel shim; `server/test/` contains read-only k6 scripts. Human guides/prompts live in `docs/`; durable architecture and domain knowledge lives in `Wiki/`. See [the architecture guide](../docs/ARCHITECTURE.md) for the fuller tree.
 
 `client/` and `server/` are independent pnpm package roots. The repository
 root has no package manifest, workspace file, lockfile, or supported root
@@ -55,6 +20,12 @@ install command. Each package owns its dependencies and lockfile.
 - Generic site pages live in `client/src/pages/`.
 - Authenticated requests go through `client/src/lib/http.ts`; components do
   not hard-code API origins.
+- The local Vite storefront has a dev-only API selector. It defaults to Local
+  and can route through separate same-origin proxies to the local or live
+  production API. Proxy cookie paths isolate sessions; this is a developer
+  convenience, not a production environment switch, and it does not change the
+  Firebase Auth configuration loaded by Vite. See
+  [the development guide](../docs/DEVELOPMENT.md#switching-the-local-storefront-api-environment).
 - Product catalog, recommendation, search/facet, and wishlist operations live
   in `client/src/features/products/api.ts`; user logout lives in the users API.
   Shared wishlist mutations are pure helpers in `wishlistState.ts`, keeping
@@ -186,7 +157,7 @@ documented singular/plural aliases where the client contract requires them.
   account. `firebase.json` owns Auth port `9099` and Emulator UI port `4001`;
   the guarded seeder never targets the production project.
 - Account security is Firebase-owned in every environment: Firebase sends verification, password-reset, and email-change action links. The server has no MySQL password-authentication or server-owned reset/email-change token flow.
-- Customer order state changes create database-backed in-app notifications. The notifications API reports the total unread count independently of its limited recent-notification list. No external order-email provider is configured, so order success is independent of email delivery.
+- Customer order state changes create database-backed in-app notifications; unread totals are independent of the limited recent-notification list. Transactional email also supports order, payment, shipment, cancellation, and after-sales events. Real Resend delivery requires `EMAIL_PROVIDER_MODE=resend` and credentials; the example environment defaults to `disabled`. Provider acceptance does not prove inbox delivery. See [[transactional-email-operations]].
 - Storefront notifications with a destination mark as read before navigating to the associated order or product; order links select the full order detail. Admin operational alerts appear in the dashboard, notification center, and header feed; read state is per admin, while claim/resolution state is shared and stored in MySQL. The header shows only open alerts and the latest eight in its popover.
 - Product alerts use an authenticated `product-alerts` feature boundary. Product and order services pass authoritative snapshots/transitions into the feature's transaction-aware repository; the repository records durable `price_drop`/`back_in_stock` events and inserts localized-ready customer notifications with product metadata. Preferences remain owner-scoped and do not support target prices, email, SMS, or push delivery. See [[product-alert]].
 - Product comparison is a guest-friendly read-only catalog flow. The bounded `GET /api/products/compare?ids=...` contract validates two to four same-category products, returns current VND/stock/review/warranty/attribute snapshots, and maps fixed validation codes to the bilingual client state. See [[api-response-contract]] and [the API guide](../docs/API.md).

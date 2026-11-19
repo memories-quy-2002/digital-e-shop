@@ -72,7 +72,10 @@ const DeliveryMapPicker = ({
             if (disposed || !mapContainerRef.current) return;
             map = L.map(container, { keyboard: true, zoomControl: true, attributionControl: true })
                 .setView([store.latitude, store.longitude], initialZoom);
-            L.tileLayer(tileUrl, { attribution: escapeHtml(tileAttribution), maxZoom: 19 }).addTo(map);
+            L.tileLayer(tileUrl, {
+                attribution: `<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">${escapeHtml(tileAttribution)}</a> | <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Powered by Geoapify</a>`,
+                maxZoom: 19,
+            }).addTo(map);
             if (showStoreMarker) {
                 L.marker([store.latitude, store.longitude], {
                     keyboard: true,

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("#src/config/env.config", () => ({
     env: {
         clientUrl: "http://localhost:5173",
+        nodeEnv: "development",
         paymentProviderMode: "live",
     },
 }));
@@ -85,6 +86,7 @@ function buildService() {
 describe("NestOrdersPayOSService", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        env.nodeEnv = "development";
         env.paymentProviderMode = "live";
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-09-10T01:00:00.000Z"));
@@ -421,6 +423,44 @@ describe("NestOrdersPayOSService", () => {
                 paymentCurrency: "VND",
             }),
         );
+    });
+
+    it("rejects mock PayOS checkout in production before reserving inventory", async () => {
+        const { service, cartService, checkoutReservationService, payosService } = buildService();
+        env.nodeEnv = "production";
+        env.paymentProviderMode = "mock";
+        cartService.validateCheckoutSubmission.mockResolvedValue({
+            cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
+            authoritativeTotalPrice: 100,
+            issues: [],
+            mismatches: [],
+        });
+
+        await expect(service.createCheckoutSession("user-1", {
+            totalPrice: 100,
+            cart: [{ productId: 1, quantity: 1, price: 100 }],
+            shippingAddress: "123 Main St",
+        })).rejects.toMatchObject({ statusCode: 503 });
+
+        expect(checkoutReservationService.reservePayOSInventory).not.toHaveBeenCalled();
+        expect(payosService.createPaymentLink).not.toHaveBeenCalled();
+    });
+
+    it("does not resume an existing mock PayOS attempt in production", async () => {
+        const { service, checkoutReservationService, paymentAttemptService, payosService } = buildService();
+        env.nodeEnv = "production";
+        env.paymentProviderMode = "mock";
+        paymentAttemptService.findExistingClaim.mockResolvedValue(paymentAttempt);
+
+        await expect(service.createCheckoutSession("user-1", {
+            totalPrice: 100,
+            cart: [{ productId: 1, quantity: 1, price: 100 }],
+            shippingAddress: "123 Main St",
+        })).rejects.toMatchObject({ statusCode: 503 });
+
+        expect(checkoutReservationService.reservePayOSInventory).not.toHaveBeenCalled();
+        expect(checkoutReservationService.attachPayOSAttemptProvider).not.toHaveBeenCalled();
+        expect(payosService.createPaymentLink).not.toHaveBeenCalled();
     });
 
     it("records a verified simulator observation and finalizes the matching payment attempt", async () => {

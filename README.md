@@ -25,7 +25,7 @@ Discover products, compare options, place orders, and manage the operations behi
 
 ## At a glance
 
-Digital-E is a full-stack e-commerce project for electronic devices and components. It combines a customer-facing shopping experience with an admin workspace for catalog, inventory, payments, fulfillment, and support. The frontend and API are deployed independently and maintained as separate `pnpm` packages.
+Digital-E is a full-stack electronics store with customer shopping and admin operations. The frontend and API deploy independently as separate `pnpm` packages.
 
 | Discover & shop | Checkout & track | Operate & improve |
 | :--- | :--- | :--- |
@@ -55,26 +55,11 @@ Digital-E is a full-stack e-commerce project for electronic devices and componen
 
 > **Production capture status:** During screenshot collection the production catalog displayed “Unable to load products.” Catalog and admin screenshots are excluded rather than presenting broken states or local-only data as production.
 
-### Storefront
-
-- **Product discovery:** Search and filter the catalog, inspect product specifications, compare options, and explore recommendations.
-- **Shopping journey:** Use guest or signed-in carts, review server-calculated totals, and complete checkout with cash on delivery or PayOS.
-- **Account experience:** Sign in with Firebase, manage account information, follow orders, and write eligible product reviews.
-- **Loyalty rewards:** Earn points on paid orders, redeem them at checkout, or claim customer-owned promotion vouchers.
-
-### Admin workspace
-
-- **Catalog & stock:** Maintain products, availability, and inventory movements; record supplier orders and partial receipts; review stock counts against live checkout holds.
-- **Order operations:** Review order state, payment reconciliation, and fulfillment-related workflows.
-- **Customer operations:** Manage promotions, support workflows, notifications, and operational analytics.
-
 ## Engineering highlights
 
-- **Server-authoritative commerce:** Prices, availability, discounts, and totals are recalculated on the API; inventory is reserved before payment finalization.
-- **Payment integrity:** PayOS payment-link creation and webhook verification are separated from browser redirects; payment and order reconciliation preserve state.
-- **Identity & access:** Firebase Authentication is paired with API-issued cookie sessions, CSRF protection, and role/ownership guards. Guest order lookup requires a protected access token.
-- **Clear backend boundaries:** NestJS controllers, services, and repositories separate HTTP contracts, workflows, and MySQL persistence. Zod validates write payloads.
-- **Inspectable behavior:** GitHub Actions, integration tests, safe k6 smoke profiles, structured logging, and optional OpenTelemetry help verify changes.
+- **Commerce integrity:** The API recalculates prices, stock, discounts, and totals; reserves inventory; and reconciles PayOS links/webhooks with order state.
+- **Access control:** Firebase Authentication pairs with API cookie sessions, CSRF, role/ownership guards, and protected guest-order lookup.
+- **Operational clarity:** NestJS controllers/services/repositories separate contracts, workflows, and MySQL persistence; Zod validates writes. CI, tests, safe k6 profiles, structured logs, and optional OpenTelemetry support verification.
 
 ## Architecture
 
@@ -90,9 +75,7 @@ flowchart LR
     M["Prisma migrations"] -. "Forward schema changes" .-> D
 ```
 
-The API uses NestJS on the Express adapter. MySQL repositories handle most runtime queries and transactions; Prisma supports typed models and forward migrations for a partial schema projection.
-
-`client/` owns the React storefront and admin UI, `server/` owns the REST API and data integration, and `docs/` / `Wiki/` preserve the implementation guides and engineering decisions.
+`client/` owns the storefront/admin UI; `server/` owns the REST API. MySQL repositories handle most runtime queries; Prisma supports selected models and forward migrations.
 
 [Read the architecture guide →](./docs/ARCHITECTURE.md)
 
@@ -134,7 +117,7 @@ cp server/.env.docker.example server/.env.docker
 
 </details>
 
-Configure the local Firebase and database settings in the copied files using the [development guide](./docs/DEVELOPMENT.md). Never commit credentials.
+Configure Firebase and database settings using the [development guide](./docs/DEVELOPMENT.md). Never commit credentials.
 
 **2. Install dependencies and prepare the disposable database**
 
@@ -181,7 +164,7 @@ pnpm --dir server perf:setup
 pnpm --dir server perf:smoke
 ```
 
-OpenTelemetry is opt-in and exports HTTP, Express, and MySQL spans plus metrics over OTLP/HTTP. Query strings and SQL literals are scrubbed before export; no collector is required for normal local development.
+OpenTelemetry is opt-in; it exports HTTP, Express, and MySQL spans plus metrics over OTLP/HTTP. Query strings and SQL literals are scrubbed; normal local development needs no collector.
 
 <details>
 <summary><strong>View local OpenTelemetry evidence</strong></summary>

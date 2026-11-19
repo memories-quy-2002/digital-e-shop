@@ -144,3 +144,10 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-11-01 - Codex - Removed the duplicate cart-review checkout step, added localized checkout progress, and documented the customer-facing purchase path and its evidence limits in [[commerce-journey]].
 - 2026-11-08 - Codex - Documented storefront search, mobile purchase, compatibility, guest lookup and journey measurement in [[commerce-journey]].
 - 2026-11-08 - Codex - Reviewed storefront flows with Playwright API fixtures, fixed the product-specific localized add-to-cart accessible name, and recorded MySQL/browser acceptance limits in the storefront guide and [[commerce-journey]].
+- 2026-11-10 - Codex - Restricted the mock PayOS checkout to local development and documented the production live-provider guard in [[payos-checkout-reliability]].
+- 2026-11-10 - Codex - Added a local-only API environment selector with isolated local and production Vite proxies and documented live-write caution.
+- 2026-11-14 - Codex - Added Geoapify routing, geocoding, and restricted map-tile key support; documented provider configuration, attribution, and free-tier limits in [[shipping-and-fulfillment]].
+- 2026-11-15 - Codex - Standardized checkout on Geoapify routing/geocoding with direct OpenStreetMap tiles, removed the OSRM route adapter, and documented attribution and tile usage constraints in [[shipping-and-fulfillment]].
+- 2026-11-15 - Codex - Reverse-geocoded checkout map pins into the delivery-address field, kept the Geoapify key server-side, and documented the address lookup API in the shipping guide and API reference.
+- 2026-11-15 - ChatGPT - Added opt-in InnoDB deadlock/lock-wait transaction retries for idempotent cart merging, transaction slow-query timing, scoped aggregate projections for bounded catalog reads, and database concurrency/performance conventions; kept provider/payment retries isolated.
+- 2026-11-15 - Codex - Corrected Wiki dependency and transactional-email descriptions, shortened the index and architecture layout, and removed a duplicate architecture link.

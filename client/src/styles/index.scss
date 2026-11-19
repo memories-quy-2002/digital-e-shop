@@ -1,6 +1,7 @@
 @use "./foundations/utilities";
 @use "./components/product-card";
 @use "./components/product-media";
+@use "./components/api-environment-toggle";
 @use "./layout/app-shell";
 @use "./features/auth/auth-shell";
 @use "./features/admin/payments";

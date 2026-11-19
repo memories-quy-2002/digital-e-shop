@@ -7,7 +7,7 @@ import type { DeliveryMapConfig, InternalDeliveryQuote } from "../types";
 import { dictionaries } from "../../../i18n/dictionaries";
 
 const mocks = vi.hoisted(() => ({ translate: (key: string) => key }));
-vi.mock("../api", () => ({ fetchDeliveryMapConfig: vi.fn(), findDeliveryAddressLocations: vi.fn(), requestInternalDeliveryQuote: vi.fn() }));
+vi.mock("../api", () => ({ fetchDeliveryMapConfig: vi.fn(), findDeliveryAddressLocations: vi.fn(), reverseDeliveryAddressLocation: vi.fn(), requestInternalDeliveryQuote: vi.fn() }));
 vi.mock("./DeliveryMapPicker", () => ({
     default: ({ destination, onDestinationChange }: { destination: { latitude: number; longitude: number } | null; onDestinationChange: (point: { latitude: number; longitude: number }) => void }) => (
         <>
@@ -48,6 +48,12 @@ describe("DeliveryQuoteForm", () => {
         vi.clearAllMocks();
         vi.mocked(shippingApi.fetchDeliveryMapConfig).mockResolvedValue(mapConfig);
         vi.mocked(shippingApi.findDeliveryAddressLocations).mockResolvedValue([]);
+        vi.mocked(shippingApi.reverseDeliveryAddressLocation).mockResolvedValue({
+            label: "12 Main Street, HCMC",
+            city: "HCMC",
+            latitude: 10.79,
+            longitude: 106.71,
+        });
         vi.mocked(shippingApi.requestInternalDeliveryQuote).mockResolvedValue(quote);
     });
 
@@ -61,6 +67,12 @@ describe("DeliveryQuoteForm", () => {
     });
 
     it("creates an internal road-distance quote using a manually selected pin", async () => {
+        vi.mocked(shippingApi.reverseDeliveryAddressLocation).mockResolvedValue({
+            label: "12 Main Street, HCMC",
+            city: "HCMC",
+            latitude: 10.79,
+            longitude: 106.71,
+        });
         const { container } = render(<DeliveryQuoteForm cart={cart} discountCode="SAVE" guest onQuoteChange={onQuoteChange} />);
 
         fireEvent.change(screen.getByLabelText("shipping.recipientName"), { target: { value: "Guest Buyer" } });
@@ -69,6 +81,7 @@ describe("DeliveryQuoteForm", () => {
         fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
         await screen.findByRole("button", { name: "Choose destination pin" });
         fireEvent.click(screen.getByRole("button", { name: "Choose destination pin" }));
+        await waitFor(() => expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC"));
         fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
 
         await waitFor(() => expect(shippingApi.requestInternalDeliveryQuote).toHaveBeenCalledWith({
@@ -85,9 +98,41 @@ describe("DeliveryQuoteForm", () => {
             discountCode: "SAVE",
             cart,
         }, true));
+        expect(shippingApi.reverseDeliveryAddressLocation).toHaveBeenCalledWith({ latitude: 10.79, longitude: 106.71, locale: "vi" });
         expect(container.querySelector(".shipping-quote__result")).toHaveTextContent("shipping.roadDistance");
+        expect(screen.getByRole("status")).toHaveTextContent("shipping.quoteSuccess");
         expect(screen.getByText("4.3 km")).toBeInTheDocument();
         expect(onQuoteChange).toHaveBeenLastCalledWith(quote.address, quote);
+    });
+
+    it("replaces the delivery address with the reverse-geocoded address after selecting a map pin", async () => {
+        vi.mocked(shippingApi.reverseDeliveryAddressLocation).mockResolvedValue({
+            label: "25 Nguyen Hue, District 1, Ho Chi Minh City, Vietnam",
+            city: "Ho Chi Minh City",
+            latitude: 10.79,
+            longitude: 106.71,
+        });
+        render(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} />);
+
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "Old address typed by customer" } });
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        fireEvent.click(await screen.findByRole("button", { name: "Choose destination pin" }));
+
+        await waitFor(() => expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("25 Nguyen Hue, District 1, Ho Chi Minh City, Vietnam"));
+        expect(shippingApi.reverseDeliveryAddressLocation).toHaveBeenCalledWith({ latitude: 10.79, longitude: 106.71, locale: "vi" });
+    });
+
+    it("clears a stale address and explains when a selected map point has no address", async () => {
+        vi.mocked(shippingApi.reverseDeliveryAddressLocation).mockResolvedValueOnce(null);
+        render(<DeliveryQuoteForm cart={cart} guest onQuoteChange={onQuoteChange} />);
+
+        fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "Old address typed by customer" } });
+        fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
+        fireEvent.click(await screen.findByRole("button", { name: "Choose destination pin" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("shipping.pinAddressNotFound");
+        expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("");
+        expect(screen.getByRole("button", { name: "shipping.getQuote" })).toBeEnabled();
     });
 
     it("explains that checkout is blocked when the store has no delivery configuration", async () => {
@@ -133,7 +178,7 @@ describe("DeliveryQuoteForm", () => {
         fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street" } });
         fireEvent.click(await screen.findByRole("option", { name: /12 Main Street, HCMC/ }));
 
-        expect(shippingApi.findDeliveryAddressLocations).toHaveBeenCalledWith({ addressLine: "12 Main Street", city: "", locale: "vi" });
+        expect(shippingApi.findDeliveryAddressLocations).toHaveBeenCalledWith(expect.objectContaining({ addressLine: "12 Main Street", locale: "vi" }));
         await waitFor(() => expect(onCoordinatesConfirmed).toHaveBeenCalledWith({ latitude: 10.79, longitude: 106.71 }, "12 Main Street, HCMC", "Ho Chi Minh City"));
         expect(screen.getByLabelText("shipping.latitude")).toHaveValue("10.79");
         expect(screen.getByText("Choose destination pin")).toBeVisible();
@@ -149,6 +194,7 @@ describe("DeliveryQuoteForm", () => {
         fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
         await screen.findByRole("button", { name: "Choose destination pin" });
         fireEvent.click(screen.getByRole("button", { name: "Choose destination pin" }));
+        await waitFor(() => expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC"));
         fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("shipping.quoteError");
@@ -166,6 +212,7 @@ describe("DeliveryQuoteForm", () => {
         fireEvent.change(screen.getByLabelText("shipping.deliveryAddress"), { target: { value: "12 Main Street, HCMC" } });
         fireEvent.click(await screen.findByText("shipping.locationManualAdjust"));
         fireEvent.click(await screen.findByRole("button", { name: "Choose destination pin" }));
+        await waitFor(() => expect(screen.getByLabelText("shipping.deliveryAddress")).toHaveValue("12 Main Street, HCMC"));
         fireEvent.click(screen.getByRole("button", { name: "shipping.getQuote" }));
         await waitFor(() => expect(document.querySelector(".shipping-quote__result")).toBeInTheDocument());
 
@@ -177,6 +224,7 @@ describe("DeliveryQuoteForm", () => {
         expect(screen.getByLabelText("shipping.latitude")).toHaveValue("10.79");
         expect(screen.queryByText("shipping.roadDistance")).not.toBeInTheDocument();
         expect(screen.getByRole("alert")).toHaveTextContent("shipping.quoteInvalidated");
+        expect(screen.queryByText("shipping.quoteSuccess")).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: "shipping.getQuote" })).toBeEnabled();
     });
 });

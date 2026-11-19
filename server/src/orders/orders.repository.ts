@@ -250,18 +250,6 @@ export class OrdersRepository {
         return pool.query({ sql, timeout: QUERY_TIMEOUT }, params, callback);
     }
 
-    startTransaction(callback: QueryCallback) {
-        this.query("START TRANSACTION", callback);
-    }
-
-    commit(callback: QueryCallback) {
-        this.query("COMMIT", callback);
-    }
-
-    rollback(callback: QueryCallback) {
-        this.query("ROLLBACK", callback);
-    }
-
     updateCartDone(uid: string, callback: QueryCallback<UpdateResult>) {
         this.query("UPDATE carts SET done = 1 WHERE user_id = ?", [uid], callback);
     }
@@ -285,14 +273,6 @@ export class OrdersRepository {
         this.query(
             "INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)",
             [orderId, productId, quantity, totalPrice],
-            callback,
-        );
-    }
-
-    updateProductStock(productId: number, quantity: number, callback: QueryCallback<UpdateResult>) {
-        this.query(
-            "UPDATE products SET stock_revision = stock_revision + IF(? <> 0, 1, 0), stock = stock - ? WHERE id = ?",
-            [quantity, quantity, productId],
             callback,
         );
     }

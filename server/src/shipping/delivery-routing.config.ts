@@ -1,3 +1,5 @@
+export const GEOAPIFY_ROUTING_ENDPOINT = "https://api.geoapify.com/v1/routing";
+
 export function normalizeRoutingEndpoint(endpoint: string): string | null {
     try {
         const url = new URL(endpoint);
@@ -6,6 +8,10 @@ export function normalizeRoutingEndpoint(endpoint: string): string | null {
     } catch {
         return null;
     }
+}
+
+export function isGeoapifyRoutingEndpoint(endpoint: string): boolean {
+    return normalizeRoutingEndpoint(endpoint) === GEOAPIFY_ROUTING_ENDPOINT;
 }
 
 export function isRoutingEndpointAllowed(endpoint: string, allowlist: readonly string[]): boolean {
